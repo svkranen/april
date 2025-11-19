@@ -54,7 +54,7 @@
                     die;
                 }
 
-                if (isset($_POST["id"]) && $_POST["id"]=="") {
+                if (isset($_POST["id"]) && $_POST["id"]==="") {
                     foreach ($parameter_list as $param) {
                         if (!isset($_POST[$param]) || $_POST[$param]==="") {
                             $errors[] = "Parameter ".$param." fehlt.";
@@ -98,6 +98,10 @@
 			$header[] = "Authorization: Bearer ".$atoken;
 
 			$payload = json_encode(['stampId' => $stampId]);
+			if ($payload === false) {
+				Helper::log("stamp payload encoding failed for stampId ".$stampId);
+				$payload = "{\"stampId\":\"".str_replace('"','\\"',(string)$stampId)."\"}";
+			}
 
 			return self::curl2(
 				$host."/api/v2/documents/".$documentId."/stamp",

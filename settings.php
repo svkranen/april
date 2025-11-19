@@ -7,6 +7,73 @@
     let atoken = "";
     let profiles = {};
     let currentProfile = "";
+    const statusClasses = ["uk-alert-primary","uk-alert-success","uk-alert-danger","uk-alert-warning"];
+
+    function getStatusElement() {
+        return document.getElementById("settingsStatus");
+    }
+
+    function showStatusMessage(message, level = "primary") {
+        const element = getStatusElement();
+        if (!element) {
+            return;
+        }
+        statusClasses.forEach(cls => element.classList.remove(cls));
+        element.textContent = message;
+        element.classList.remove("uk-hidden");
+        element.classList.add("uk-alert-" + level);
+    }
+
+    function clearStatusMessage() {
+        const element = getStatusElement();
+        if (!element) {
+            return;
+        }
+        statusClasses.forEach(cls => element.classList.remove(cls));
+        element.textContent = "";
+        element.classList.add("uk-hidden");
+    }
+
+    function setActionButtonsDisabled(disabled) {
+        ["savebutton","deletebutton"].forEach((id)=>{
+            const button = document.getElementById(id);
+            if (!button) {
+                return;
+            }
+            button.disabled = disabled;
+            button.classList.toggle("uk-disabled", disabled);
+            if (disabled) {
+                button.setAttribute("aria-busy","true");
+            } else {
+                button.removeAttribute("aria-busy");
+            }
+        });
+    }
+
+    function handleRequestError(actionLabel, enableButtons = false, detail = "") {
+        if (enableButtons) {
+            setActionButtonsDisabled(false);
+        }
+        let message = actionLabel + " fehlgeschlagen.";
+        if (detail) {
+            message += " " + detail;
+        }
+        message += " Bitte erneut versuchen.";
+        showStatusMessage(message, "danger");
+    }
+
+    function appendFormValue(target, key, value) {
+        if (typeof key === "undefined" || key === null) {
+            return;
+        }
+        const safeValue = value === undefined || value === null ? "" : value;
+        target.push(encodeURIComponent(key)+"="+encodeURIComponent(safeValue));
+    }
+
+    function getUserSecretValue() {
+        const field = document.getElementById("wcx_secret");
+        return field ? field.value : "";
+    }
     <?php if (defined("_JEXEC")):?>
         <?php 
             $db = Joomla\CMS\Factory::getDBO();
@@ -411,13 +478,18 @@
             reader.onload = function(e) {
                 let content = e.target.result;
                 let regex = /\[:(?!(repeatstart|repeatend|splitstart|splitend):)[^:]+\:\]/g;
-                let matches = content.match(regex);
+                let matches = content.match(regex) || [];
                 let regex2 = /\[\:\:[^:\[\]]+\:\:\]/g;
-                let matches2 = content.match(regex2);
+                let matches2 = content.match(regex2) || [];
                 console.log(matches);
                 console.log(matches2);
                 document.getElementById("tablebody").innerHTML="";
-if (matches2==null) {createRows(matches);} else {createRows(matches2.concat(matches));}
+                const combinedMatches = matches2.length ? matches2.concat(matches) : matches;
+                if (!combinedMatches.length) {
+                    showStatusMessage("Die Vorlage enthält keine Platzhalter.", "warning");
+                    return;
+                }
+                createRows(combinedMatches);
                 
                 // createRows(matches);
             };
@@ -468,7 +540,11 @@ if (matches2==null) {createRows(matches);} else {createRows(matches2.concat(matc
     }
     function getTags() {
         let vaultid = document.getElementById("vaultselect_fibu").value;
-        // console.log(vaultid);return;
+        if (vaultid=="0") {
+            showStatusMessage("Bitte wählen Sie zuerst eine Ablage aus.", "warning");
+            return;
+        }
+        clearStatusMessage();
         let req = new XMLHttpRequest();
         req.addEventListener("load", (event)=>{
             if (event.target.status==200) {
@@ -476,9 +552,7 @@ if (matches2==null) {createRows(matches);} else {createRows(matches2.concat(matc
                 let temp = JSON.parse(event.target.responseText);
                 let blocked_groups = ["Archivierungs-Einstellungen","Bearbeitungsinformationen","Stempel","Dateiinformationen","Metadaten","Magnetisierung","ZUGFeRD Position"];
                 temp.forEach((taggroup)=>{
-                    if (blocked_groups.includes(taggroup.name)) {
-
-                    } else {
+                    if (!blocked_groups.includes(taggroup.name)) {
                         taglist[taggroup.id] = [taggroup.name];
                     }
                 });
@@ -486,58 +560,93 @@ if (matches2==null) {createRows(matches);} else {createRows(matches2.concat(matc
                 req2.addEventListener("load",(event2)=>{
                     if (event2.target.status==200) {
                         let temp2 = JSON.parse(event2.target.responseText);
-                        // console.log(temp2);
                         Object.entries(temp2).forEach(([type, value]) => {
-                            // console.log(value);
                             value.forEach((tag)=>{
                                 if (tag.sourceType=="UserDefined" || tag.sourceType=="Recognized" || tag.sourceType=="Default") {
                                     tag.type=type;
-                                    if (taglist[tag.tagGroupDefinitionId]===undefined) {
-                                        // console.log(tag);
-                                    } else {
+                                    if (taglist[tag.tagGroupDefinitionId]!==undefined) {
                                         taglist[tag.tagGroupDefinitionId].push(tag);
                                     }
                                 } 
                             });
                         });
+                        showStatusMessage("Merkmale aktualisiert.", "success");
+                        let trigger = new Event("change");
+                        if (document.getElementById("systemselect").value=="onprem") {
+                            document.getElementById("inputfile").dispatchEvent(trigger);
+                        } else {
+                            document.getElementById("systemselect").dispatchEvent(trigger);
+                        }
+                    } else {
+                        handleRequestError("Merkmale laden", false, "Serverantwort "+event2.target.status);
                     }
                 });
+                req2.addEventListener("error",()=>handleRequestError("Merkmale laden"));
+                req2.addEventListener("timeout",()=>handleRequestError("Merkmale laden"));
+                req2.timeout = 15000;
                 req2.open("GET", aurl+"/api/v2/vaults/"+vaultid+"/documents/tag-definitions");
                 req2.setRequestHeader('Authorization', 'Bearer '+atoken);
                 req2.send();
-                let trigger = new Event("change");
-                if (document.getElementById("systemselect").value=="onprem") {
-                    document.getElementById("inputfile").dispatchEvent(trigger);
-                    console.log("trigger inputfile");
-                } else {
-                    document.getElementById("systemselect").dispatchEvent(trigger);
-                    // console.log("trigger systemselect");
-                }
-                
+            } else {
+                handleRequestError("Merkmalgruppen laden", false, "Serverantwort "+event.target.status);
             }
         });
+        req.addEventListener("error",()=>handleRequestError("Merkmalgruppen laden"));
+        req.addEventListener("timeout",()=>handleRequestError("Merkmalgruppen laden"));
+        req.timeout = 15000;
         req.open("GET", aurl+"/api/v2/vaults/"+vaultid+"/documents/tag-group-definitions");
         req.setRequestHeader('Authorization', 'Bearer '+atoken);
         req.send();
-        // document.getElementById("inputfile").classList.remove("uk-hidden");
     }
     function saveMatching() {
-        let container = document.getElementById("tablebody");
-        let savevalues = Array.from(tablebody.getElementsByClassName("savevalues"));
-        let data = [];
+        const container = document.getElementById("tablebody");
+        if (!container) {
+            return;
+        }
+        const savevalues = Array.from(container.getElementsByClassName("savevalues"));
+        const data = [];
         savevalues.forEach((input)=>{
-            data.push(input.id+"="+input.value);
+            appendFormValue(data, input.id, input.value);
         });
-        let savenames = Array.from(tablebody.getElementsByClassName("savenames"));
+        const savenames = Array.from(container.getElementsByClassName("savenames"));
         savenames.forEach((input)=>{
-            data.push(input.id+"="+input.textContent);
+            appendFormValue(data, input.id, input.textContent);
         });
-        let req = new XMLHttpRequest();
+        const systemselect = document.getElementById("systemselect");
+        appendFormValue(data, "system", systemselect.value);
+        if (systemselect.value=="onprem") {
+            appendFormValue(data, "auser", document.getElementById("auser").value);
+            appendFormValue(data, "apw", document.getElementById("apw").value);
+        } else {
+            const wcxSecret = getUserSecretValue();
+            if (!wcxSecret) {
+                showStatusMessage("Es konnte kein Benutzer-Token ermittelt werden.", "danger");
+                return;
+            }
+            appendFormValue(data, "user", wcxSecret);
+        }
+        appendFormValue(data, "aurl", aurl);
+        const profileselect = document.getElementById("profileselect");
+        appendFormValue(data, "profileselect", profileselect.value);
+        const profilename = document.getElementById("newprofilename");
+        appendFormValue(data, "profilename", profilename.value);
+
+        clearStatusMessage();
+        setActionButtonsDisabled(true);
+        showStatusMessage("Speichern läuft...", "primary");
+
+        const req = new XMLHttpRequest();
         req.addEventListener("load", (event)=>{
-            // console.log(event.target.responseText);
+            setActionButtonsDisabled(false);
             if (event.target.status==200) {
-                responseobj = JSON.parse(event.target.responseText);
-                alert(responseobj.message);
+                let responseobj;
+                try {
+                    responseobj = JSON.parse(event.target.responseText);
+                } catch (error) {
+                    handleRequestError("Speichern", false, "Ungültige Serverantwort.");
+                    return;
+                }
+                showStatusMessage(responseobj.message, responseobj.status=="error" ? "danger" : "success");
                 if (responseobj.status=="newProfile") {
                     profiles[responseobj.profilename] = responseobj.profile;
                     let tempoption = document.createElement("option");
@@ -545,21 +654,13 @@ if (matches2==null) {createRows(matches);} else {createRows(matches2.concat(matc
                     tempoption.textContent = responseobj.profilename;
                     document.getElementById("profileselect").appendChild(tempoption);
                 }
+            } else {
+                handleRequestError("Speichern", false, "Serverantwort "+event.target.status);
             }
         });
-        let systemselect = document.getElementById("systemselect");
-        data.push("system="+systemselect.value);
-        if (systemselect.value=="onprem") {
-            data.push("auser="+document.getElementById("auser").value);
-            data.push("apw="+document.getElementById("apw").value);
-        } else {
-            data.push("user="+document.getElementById("wcx_secret").value);
-        }
-        data.push("aurl="+aurl);
-        let profileselect = document.getElementById("profileselect");
-        data.push("profileselect="+profileselect.value);
-        let profilename = document.getElementById("newprofilename");
-        data.push("profilename="+profilename.value)
+        req.addEventListener("error", ()=>handleRequestError("Speichern", true));
+        req.addEventListener("timeout", ()=>handleRequestError("Speichern", true));
+        req.timeout = 20000;
         if (systemselect.value=="onprem") {
             req.open("POST", "save.php");
         } else {
@@ -571,45 +672,84 @@ if (matches2==null) {createRows(matches);} else {createRows(matches2.concat(matc
     }
     function selectSystem(event) {
         if (event.target.value=="0") {
-
+            showStatusMessage("Bitte ein System auswählen.", "warning");
         } else if (event.target.value=="onprem") {
             document.getElementById("inputfile").classList.remove("uk-hidden");
+            showStatusMessage("Bitte laden Sie Ihre Vorlage hoch.", "primary");
         } else {
             document.getElementById("inputfile").classList.add("uk-hidden");
             let tbody = document.getElementById("tablebody");
             tbody.innerHTML = "";
+            clearStatusMessage();
             let req = new XMLHttpRequest();
             req.addEventListener("load", (event)=>{
                 if (event.target.status==200) {
-                    let list = JSON.parse(event.target.responseText);
-                    createRows(list);
+                    try {
+                        let list = JSON.parse(event.target.responseText);
+                        createRows(list);
+                        showStatusMessage("Vorlage geladen.", "success");
+                    } catch (error) {
+                        handleRequestError("Vorlage laden", false, "Ungültige Serverantwort.");
+                    }
+                } else {
+                    handleRequestError("Vorlage laden", false, "Serverantwort "+event.target.status);
                 }
             });
+            req.addEventListener("error", ()=>handleRequestError("Vorlage laden"));
+            req.addEventListener("timeout", ()=>handleRequestError("Vorlage laden"));
+            req.timeout = 15000;
             req.open("GET", "/api/fibu_get?sys="+event.target.value);
             req.send();
         }
     }
     function deleteProfile() {
-        let data = [];
-        data.push("profile="+document.getElementById("profileselect").value);
-        data.push("user="+document.getElementById("wcx_secret").value);
-        data.push("system="+document.getElementById("systemselect").value);
-        let req = new XMLHttpRequest();
+        const profileselect = document.getElementById("profileselect");
+        if (!profileselect || profileselect.value=="0") {
+            showStatusMessage("Bitte wählen Sie zuerst ein Profil aus.", "warning");
+            return;
+        }
+        const wcxSecret = getUserSecretValue();
+        if (!wcxSecret) {
+            showStatusMessage("Es konnte kein Benutzer-Token ermittelt werden.", "danger");
+            return;
+        }
+        const data = [];
+        appendFormValue(data, "profile", profileselect.value);
+        appendFormValue(data, "user", wcxSecret);
+        appendFormValue(data, "system", document.getElementById("systemselect").value);
+        clearStatusMessage();
+        setActionButtonsDisabled(true);
+        showStatusMessage("Profil wird gelöscht...", "primary");
+        const req = new XMLHttpRequest();
         req.addEventListener("load", (event)=>{
+            setActionButtonsDisabled(false);
             if (event.target.status==200) {
-                responseobj = JSON.parse(event.target.responseText);
+                let responseobj;
+                try {
+                    responseobj = JSON.parse(event.target.responseText);
+                } catch (error) {
+                    handleRequestError("Profil löschen", false, "Ungültige Serverantwort.");
+                    return;
+                }
                 if (responseobj.status=="deletedProfile") {
-                    alert(responseobj.message);
+                    showStatusMessage(responseobj.message, "success");
                     delete profiles[responseobj.profilename];
-                    Array.from(document.getElementById("profileselect").selectedOptions).forEach((tempoption)=>{
+                    Array.from(profileselect.selectedOptions).forEach((tempoption)=>{
                         tempoption.remove();
                     });
-                    document.getElementById("profileselect").value = "0";
+                    profileselect.value = "0";
                     let trigger = new Event("change");
-                    document.getElementById("profileselect").dispatchEvent(trigger);
+                    profileselect.dispatchEvent(trigger);
+                } else {
+                    showStatusMessage(responseobj.message || "Profil konnte nicht gelöscht werden.", "danger");
                 }
+            } else {
+                handleRequestError("Profil löschen", false, "Serverantwort "+event.target.status);
             }
         });
+        req.addEventListener("error", ()=>handleRequestError("Profil löschen", true));
+        req.addEventListener("timeout", ()=>handleRequestError("Profil löschen", true));
+        req.timeout = 15000;
         req.open("POST", "/api/fibu_deleteProfile");
         req.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
         req.send(data.join("&"));
@@ -723,9 +863,11 @@ if (matches2==null) {createRows(matches);} else {createRows(matches2.concat(matc
                 <input id="newprofilename" name="newprofilename" placeholder="Neuer Profilname"class="uk-input uk-width-1-3 uk-margin-bottom">
             </div>
         </div>
-        <div><a id="savebutton" class="uk-button uk-button-primary uk-margin-top" onclick='saveMatching()'>speichern</a>
-        <a id="savebutton" class="uk-button uk-button-default uk-margin-top" onclick='deleteProfile()'>Profil löschen</a>
+        <div>
+            <button id="savebutton" class="uk-button uk-button-primary uk-margin-top" type="button" onclick='saveMatching()'>speichern</button>
+            <button id="deletebutton" class="uk-button uk-button-default uk-margin-top" type="button" onclick='deleteProfile()'>Profil löschen</button>
         </div>
+        <div id="settingsStatus" class="uk-alert uk-hidden uk-margin-small-top" uk-alert></div>
     </div>
     
     <table class="uk-table uk-table-striped">
