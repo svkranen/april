@@ -1,0 +1,1 @@
+{"version":1,"defects":[],"times":{"App\\Tests\\Export\\LocalExporterTest::testWritesPlainTextFile":0.006,"App\\Tests\\Export\\LocalExporterTest::testConvertsExcelBlocks":0,"App\\Tests\\Export\\SqlExporterTest::testThrowsWhenConfigurationMissing":0,"App\\Tests\\Export\\SqlExporterTest::testRejectsExcelBlocks":0}}
