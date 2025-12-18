@@ -488,6 +488,11 @@ class TemplateRenderer
             }
             $newString = preg_replace('/\s*$/', "", $newString);
             $newString = preg_replace("/(\r?\n){2,}/", PHP_EOL, $newString);
+            $lines = preg_split("/\r\n|\n|\r/", $newString);
+            if ($lines !== false) {
+                $lines = array_values(array_filter($lines, fn (string $line) => trim($line) !== ''));
+                $newString = implode(PHP_EOL, $lines);
+            }
             $newString = preg_replace('/(?:\r?\n)?(?:\s*\[::[^:\]]+::\])+$/', '', $newString);
             $newString = rtrim($newString, "\r\n");
             if ($encode_to_ansi) {
