@@ -50,8 +50,13 @@
     let currentProfile = "";
     const statusClasses = ["uk-alert-primary","uk-alert-success","uk-alert-danger","uk-alert-warning"];
     const SESSION_STORAGE_KEY = "amagnoSettingsSession";
+    const SESSION_CREDENTIALS_KEY = "amagnoSettingsCredentials";
     const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
+    const TOKEN_REFRESH_THRESHOLD_MS = 25 * 60 * 1000; // 25 minutes
     let relogIntervalId = null;
+    let cachedCredentials = null;
+    let relogInProgress = false;
+    let pendingAuthCallbacks = [];
 
     function getStatusElement() {
         return document.getElementById("settingsStatus");
@@ -127,6 +132,146 @@
         localStorage.removeItem(SESSION_STORAGE_KEY);
     }
 
+    function persistCredentials(credentials) {
+        cachedCredentials = credentials;
+        if (typeof sessionStorage === "undefined") {
+            return;
+        }
+        try {
+            sessionStorage.setItem(SESSION_CREDENTIALS_KEY, JSON.stringify(credentials));
+        } catch (error) {
+            console.warn("Anmeldedaten konnten nicht gespeichert werden.", error);
+        }
+    }
+
+    function loadStoredCredentials() {
+        if (cachedCredentials !== null) {
+            return cachedCredentials;
+        }
+        if (typeof sessionStorage === "undefined") {
+            return null;
+        }
+        const raw = sessionStorage.getItem(SESSION_CREDENTIALS_KEY);
+        if (!raw) {
+            return null;
+        }
+        try {
+            cachedCredentials = JSON.parse(raw);
+            return cachedCredentials;
+        } catch (error) {
+            sessionStorage.removeItem(SESSION_CREDENTIALS_KEY);
+        }
+        return null;
+    }
+
+    function getStoredCredentials() {
+        return cachedCredentials !== null ? cachedCredentials : loadStoredCredentials();
+    }
+
+    function clearStoredCredentials() {
+        cachedCredentials = null;
+        if (typeof sessionStorage === "undefined") {
+            return;
+        }
+        sessionStorage.removeItem(SESSION_CREDENTIALS_KEY);
+    }
+
+    function getCurrentBaseUrl(preferredUrl = "") {
+        const urlField = document.getElementById("aurl");
+        if (urlField && urlField.value !== "") {
+            aurl = urlField.value;
+            return urlField.value;
+        }
+        if (preferredUrl) {
+            if (urlField) {
+                urlField.value = preferredUrl;
+            }
+            aurl = preferredUrl;
+            return preferredUrl;
+        }
+        if (typeof aurl === "string" && aurl !== "") {
+            return aurl;
+        }
+        return "https://amagno.me";
+    }
+
+    function showLoginView() {
+        const loginDiv = document.getElementById("amagnologindiv");
+        const settingsDiv = document.getElementById("settingsdiv");
+        if (loginDiv) {
+            loginDiv.classList.remove("uk-hidden");
+        }
+        if (settingsDiv) {
+            settingsDiv.classList.add("uk-hidden");
+        }
+    }
+
+    function logout() {
+        if (relogIntervalId) {
+            clearInterval(relogIntervalId);
+            relogIntervalId = null;
+        }
+        relogInProgress = false;
+        pendingAuthCallbacks = [];
+        atoken = "";
+        clearSessionData();
+        clearStoredCredentials();
+        clearStatusMessage();
+        const userField = document.getElementById("auser");
+        const passField = document.getElementById("apw");
+        if (userField) {
+            userField.value = "";
+        }
+        if (passField) {
+            passField.value = "";
+        }
+        showLoginView();
+        if (typeof UIkit !== "undefined" && UIkit.notification) {
+            UIkit.notification({message: "Du wurdest abgemeldet.", status: "primary"});
+        }
+    }
+
+    function handleUnauthorizedRequest(retryCallback) {
+        const credentials = getStoredCredentials();
+        if (typeof retryCallback === "function") {
+            pendingAuthCallbacks.push(retryCallback);
+        }
+        if (!credentials || !credentials.user || !credentials.password) {
+            pendingAuthCallbacks = [];
+            clearSessionData();
+            showLoginView();
+            showStatusMessage("Sitzung abgelaufen, bitte erneut anmelden.", "warning");
+            return;
+        }
+        if (relogInProgress) {
+            return;
+        }
+        showStatusMessage("Sitzung wird erneuert...", "primary");
+        relog({
+            credentials,
+            onSuccess: () => {
+                const callbacks = pendingAuthCallbacks.slice();
+                pendingAuthCallbacks = [];
+                showStatusMessage("Sitzung erneuert. Vorgang wird wiederholt.", "success");
+                callbacks.forEach((cb)=>{
+                    try {
+                        cb();
+                    } catch (error) {
+                        console.error("Callback konnte nicht erneut ausgeführt werden.", error);
+                    }
+                });
+            },
+            onError: (message) => {
+                pendingAuthCallbacks = [];
+                clearSessionData();
+                clearStoredCredentials();
+                showLoginView();
+                const detail = message ? " "+message : "";
+                showStatusMessage("Sitzung konnte nicht erneuert werden."+detail, "danger");
+            }
+        });
+    }
+
     function initializeSettingsView() {
         const loginDiv = document.getElementById("amagnologindiv");
         const settingsDiv = document.getElementById("settingsdiv");
@@ -162,6 +307,8 @@
                     option.textContent = vault.name;
                     vaultselect.appendChild(option);
                 });
+            } else if (event2.target.status==401) {
+                handleUnauthorizedRequest(loadVaults);
             } else {
                 handleRequestError("Ablagen laden", false, "Serverantwort "+event2.target.status);
             }
@@ -232,9 +379,8 @@
     }
 
     function canRelog() {
-        const auserField = document.getElementById("auser");
-        const apwField = document.getElementById("apw");
-        return auserField && apwField && auserField.value !== "" && apwField.value !== "";
+        const credentials = getStoredCredentials();
+        return Boolean(credentials && credentials.user && credentials.password);
     }
 
     function startRelogInterval() {
@@ -268,7 +414,7 @@
             clearSessionData();
             return;
         }
-        atoken = sessionData.token;
+        const credentials = getStoredCredentials();
         if (sessionData.url) {
             aurl = sessionData.url;
             const urlField = document.getElementById("aurl");
@@ -284,9 +430,45 @@
         if (loginTypeField && sessionData.loginType) {
             loginTypeField.value = sessionData.loginType;
         }
-        initializeSettingsView();
-        showStatusMessage("Vorherige Sitzung wiederhergestellt.", "primary");
-        startRelogInterval();
+        const sessionIsStale = sessionData.timestamp
+            ? (Date.now() - sessionData.timestamp) > TOKEN_REFRESH_THRESHOLD_MS
+            : false;
+
+        const finalizeRestore = () => {
+            atoken = sessionData.token;
+            initializeSettingsView();
+            showStatusMessage("Vorherige Sitzung wiederhergestellt.", "primary");
+            startRelogInterval();
+        };
+
+        if (!sessionIsStale) {
+            finalizeRestore();
+            return;
+        }
+
+        if (!credentials || !credentials.user || !credentials.password) {
+            clearSessionData();
+            showLoginView();
+            return;
+        }
+
+        showStatusMessage("Sitzung wird erneuert...", "primary");
+        relog({
+            credentials,
+            onSuccess: () => {
+                sessionData.token = atoken;
+                sessionData.timestamp = Date.now();
+                persistSessionData(sessionData);
+                initializeSettingsView();
+                showStatusMessage("Sitzung wiederhergestellt.", "primary");
+            },
+            onError: () => {
+                clearSessionData();
+                clearStoredCredentials();
+                showLoginView();
+                showStatusMessage("Bitte erneut anmelden.", "warning");
+            }
+        });
     }
 
     function appendFormValue(target, key, value) {
@@ -430,23 +612,31 @@
         }
         
     <?php else:?>
-        function login() {
-        let auser = document.getElementById("auser").value;
-        let apw = document.getElementById("apw").value;
-        aurl = document.getElementById("aurl").value;
-        if (auser=="") {
+    function login() {
+        const auserField = document.getElementById("auser");
+        const apwField = document.getElementById("apw");
+        const urlField = document.getElementById("aurl");
+        const loginTypeField = document.getElementById("logintype");
+        const username = auserField ? auserField.value.trim() : "";
+        const password = apwField ? apwField.value : "";
+        if (username === "") {
             alert("Bitte Benutzername eingeben");
             return;
         }
-        if (apw=="") {
+        if (password === "") {
             alert("Bitte Passwort eingeben");
             return;
         }
-        if (aurl=="") {
-            aurl = "https://amagno.me";
+        aurl = urlField && urlField.value !== "" ? urlField.value : "https://amagno.me";
+        if (urlField && urlField.value === "") {
+            urlField.value = aurl;
         }
-		let req = new XMLHttpRequest();
-		req.addEventListener("load", (event)=>{
+        const loginType = loginTypeField ? loginTypeField.value : "amagno";
+        const payload = loginType === "windows"
+            ? JSON.stringify({"authenticationType":"Windows","userName":username,"password":password})
+            : JSON.stringify({"userName":username,"password":password});
+        const req = new XMLHttpRequest();
+        req.addEventListener("load", (event)=>{
             if (event.target.status !== 200) {
                 handleRequestError("Login", false, "Serverantwort "+event.target.status);
                 return;
@@ -459,43 +649,96 @@
             }
             persistSessionData({
                 token: atoken,
-                user: auser,
+                user: username,
                 url: aurl,
-                loginType: document.getElementById("logintype").value
+                loginType: loginType
+            });
+            persistCredentials({
+                user: username,
+                password: password,
+                loginType: loginType,
+                url: aurl
             });
             initializeSettingsView();
+            showStatusMessage("Anmeldung erfolgreich.", "success");
             startRelogInterval();
-		});
+        });
         req.addEventListener("error", ()=>handleRequestError("Login"));
         req.addEventListener("timeout", ()=>handleRequestError("Login"));
         req.timeout = 15000;
-		req.open("POST", aurl+"/api/v2/token");
-		req.setRequestHeader('Content-type', 'text/json');
-        if (document.getElementById("logintype").value=="windows") {
-            req.send('{"authenticationType": "Windows", "userName": "'+auser+'","password": "'+apw+'"}');
-        } else {
-            req.send('{"userName": "'+auser+'","password": "'+apw+'"}');
-        }
-		
+        req.open("POST", aurl+"/api/v2/token");
+        req.setRequestHeader('Content-type', 'text/json');
+        req.send(payload);
     }
-    function relog() {
-        let auser = document.getElementById("auser").value;
-        let apw = document.getElementById("apw").value;
-        aurl = document.getElementById("aurl").value;
-        if (aurl=="") {
-            aurl = "https://amagno.me";
+    function relog(options = {}) {
+        const credentials = options.credentials || getStoredCredentials();
+        if (relogInProgress) {
+            return;
         }
-		let req = new XMLHttpRequest();
-		req.addEventListener("load", (event)=>{
-			atoken = JSON.parse(event.target.responseText);  
-		});
-		req.open("POST", aurl+"/api/v2/token");
-		req.setRequestHeader('Content-type', 'text/json');
-		if (document.getElementById("logintype").value=="windows") {
-            req.send('{"authenticationType": "Windows", "userName": "'+auser+'","password": "'+apw+'"}');
-        } else {
-            req.send('{"userName": "'+auser+'","password": "'+apw+'"}');
+        if (!credentials || !credentials.user || !credentials.password) {
+            if (typeof options.onError === "function") {
+                options.onError("Keine gespeicherten Zugangsdaten.");
+            }
+            return;
         }
+        relogInProgress = true;
+        const loginType = credentials.loginType || (document.getElementById("logintype") ? document.getElementById("logintype").value : "amagno");
+        const targetUrl = getCurrentBaseUrl(credentials.url || "");
+        const payload = loginType === "windows"
+            ? JSON.stringify({"authenticationType":"Windows","userName":credentials.user,"password":credentials.password})
+            : JSON.stringify({"userName":credentials.user,"password":credentials.password});
+        const req = new XMLHttpRequest();
+        req.addEventListener("load", (event)=>{
+            relogInProgress = false;
+            if (event.target.status !== 200) {
+                if (typeof options.onError === "function") {
+                    options.onError("Serverantwort "+event.target.status);
+                }
+                return;
+            }
+            let tokenResponse;
+            try {
+                tokenResponse = JSON.parse(event.target.responseText);
+            } catch (error) {
+                if (typeof options.onError === "function") {
+                    options.onError("Ungültige Serverantwort.");
+                }
+                return;
+            }
+            atoken = tokenResponse;
+            persistSessionData({
+                token: atoken,
+                user: credentials.user,
+                url: targetUrl,
+                loginType: loginType
+            });
+            persistCredentials({
+                user: credentials.user,
+                password: credentials.password,
+                loginType: loginType,
+                url: targetUrl
+            });
+            startRelogInterval();
+            if (typeof options.onSuccess === "function") {
+                options.onSuccess(tokenResponse);
+            }
+        });
+        req.addEventListener("error", ()=>{
+            relogInProgress = false;
+            if (typeof options.onError === "function") {
+                options.onError("Netzwerkfehler");
+            }
+        });
+        req.addEventListener("timeout", ()=>{
+            relogInProgress = false;
+            if (typeof options.onError === "function") {
+                options.onError("Timeout");
+            }
+        });
+        req.timeout = 15000;
+        req.open("POST", targetUrl+"/api/v2/token");
+        req.setRequestHeader('Content-type', 'text/json');
+        req.send(payload);
     }
     <?php endif;?>
 
@@ -596,6 +839,12 @@
                             stampoption.value = stamp.id;
                             select2.appendChild(stampoption);
                         });
+                    } else if (event2.target.status==401) {
+                        handleUnauthorizedRequest(()=>createRows(rows));
+                        return;
+                    } else {
+                        handleRequestError("Stempel laden", false, "Serverantwort "+event2.target.status);
+                        return;
                     }
                     if (typeof matching !== 'undefined') {
                         if (typeof matching.Stempel !== 'undefined') {
@@ -762,8 +1011,8 @@
                 });
                 let req2 = new XMLHttpRequest();
                 req2.addEventListener("load",(event2)=>{
-                    if (event2.target.status==200) {
-                        let temp2 = JSON.parse(event2.target.responseText);
+                        if (event2.target.status==200) {
+                            let temp2 = JSON.parse(event2.target.responseText);
                         Object.entries(temp2).forEach(([type, value]) => {
                             value.forEach((tag)=>{
                                 if (tag.sourceType=="UserDefined" || tag.sourceType=="Recognized" || tag.sourceType=="Default") {
@@ -775,16 +1024,20 @@
                             });
                         });
                         showStatusMessage("Merkmale aktualisiert.", "success");
-                        let trigger = new Event("change");
-                        if (document.getElementById("systemselect").value=="onprem") {
-                            document.getElementById("inputfile").dispatchEvent(trigger);
+                            let trigger = new Event("change");
+                            if (document.getElementById("systemselect").value=="onprem") {
+                                document.getElementById("inputfile").dispatchEvent(trigger);
+                            } else {
+                                document.getElementById("systemselect").dispatchEvent(trigger);
+                            }
                         } else {
-                            document.getElementById("systemselect").dispatchEvent(trigger);
+                            if (event2.target.status==401) {
+                                handleUnauthorizedRequest(getTags);
+                            } else {
+                                handleRequestError("Merkmale laden", false, "Serverantwort "+event2.target.status);
+                            }
                         }
-                    } else {
-                        handleRequestError("Merkmale laden", false, "Serverantwort "+event2.target.status);
-                    }
-                });
+                    });
                 req2.addEventListener("error",()=>handleRequestError("Merkmale laden"));
                 req2.addEventListener("timeout",()=>handleRequestError("Merkmale laden"));
                 req2.timeout = 15000;
@@ -792,7 +1045,11 @@
                 req2.setRequestHeader('Authorization', 'Bearer '+atoken);
                 req2.send();
             } else {
-                handleRequestError("Merkmalgruppen laden", false, "Serverantwort "+event.target.status);
+                if (event.target.status==401) {
+                    handleUnauthorizedRequest(getTags);
+                } else {
+                    handleRequestError("Merkmalgruppen laden", false, "Serverantwort "+event.target.status);
+                }
             }
         });
         req.addEventListener("error",()=>handleRequestError("Merkmalgruppen laden"));
@@ -1019,6 +1276,10 @@
     <?php endif;?>
 </div>
 <div id="settingsdiv" class="settings-card uk-hidden">
+    <div class="uk-flex uk-flex-between uk-flex-middle uk-margin-bottom">
+        <h3 class="uk-margin-remove">Einstellungen</h3>
+        <button class="uk-button uk-button-default" type="button" onclick="logout()">Abmelden</button>
+    </div>
     <div class="uk-grid-small uk-child-width-1-2@m settings-grid" uk-grid>
         <div>
             <legend class="uk-form-label uk-text-bolder">Ablage</legend>
