@@ -11,6 +11,7 @@
     "configurations": [
         {
             "id": "example",
+            "active": true,
             "credential_id": 1,
             "vault_id": "",
             "magnet_id": "",

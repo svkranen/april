@@ -37,6 +37,9 @@ class ConnectionRegistry
         );
 
         foreach ($configLoader->getConfigurations() as $config) {
+            if (isset($config['active']) && $config['active'] === false) {
+                continue;
+            }
             $credentialId = (int) ($config['credential_id'] ?? 0);
             if (!isset($credentials[$credentialId])) {
                 throw new RuntimeException(sprintf(
