@@ -9,6 +9,7 @@ class ExcelConverter
 {
     public function write(string $content, string $destinationPath): void
     {
+        $content = preg_replace("/(\r?\n){2,}/", PHP_EOL, $content);
         $normalizedLines = [];
         foreach (preg_split("/\r\n|\n|\r/", $content) as $line) {
             $trimmed = trim($line);
