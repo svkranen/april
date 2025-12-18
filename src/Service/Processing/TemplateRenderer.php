@@ -182,6 +182,9 @@ class TemplateRenderer
 
         $output = [];
         foreach ($splitmatrix as $period=>$rows) {
+            if (count($rows) === 0) {
+                continue;
+            }
             $newString = $template;
             $splits_marker = [];
             if ($gdi_mode && !$accurate_split) {
