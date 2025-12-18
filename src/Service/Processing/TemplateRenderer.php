@@ -487,6 +487,9 @@ class TemplateRenderer
                 $newString = preg_replace('/[^\S\r\n]{2,}/', ' ',$newString);
             }
             $newString = preg_replace('/\s*$/', "", $newString);
+            $newString = preg_replace("/(\r?\n){2,}/", PHP_EOL, $newString);
+            $newString = preg_replace('/(?:\r?\n)?(?:\s*\[::[^:\]]+::\])+$/', '', $newString);
+            $newString = rtrim($newString, "\r\n");
             if ($encode_to_ansi) {
                 $newString = iconv("UTF-8", "Windows-1252", $newString);
             }
