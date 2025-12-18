@@ -69,7 +69,7 @@ class AmagnoSyncCommand extends Command
         $runAllConnections = (bool) $input->getOption('all-connections');
         $connectionId = $input->getOption('connection') ?: null;
 
-        if ($runAllConnections) {
+        if ($runAllConnections || ($connectionId === null && !$this->connectionRegistry->hasConnections())) {
             return $this->runAllConnections($input, $output);
         }
 

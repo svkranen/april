@@ -67,11 +67,11 @@ Dieses Projekt zieht Dokumente aus Amagno, bereitet sie anhand einer `matching.j
 ### Einmalig über CLI
 
 ```bash
-bin/console amagno:sync --connection=nev-onprem --export=local
+bin/console amagno:sync --all-connections
 ```
 
+* `--all-connections` läuft nacheinander über alle aktiven Profile (Default-Aufruf für Jobs).
 * `--connection=<id>` zieht alle Werte aus der JSON-Konfiguration.
-* `--all-connections` läuft nacheinander über alle aktiven Profile.
 * Optional überschreibst du Parameter weiterhin via CLI, z. B. `--limit=25`, `--dry-run`, `--matching-profile=…`, `--folder=…` usw.
 * Ohne `--connection` musst du Magnet, Vault, Profile etc. wie gewohnt per CLI übergeben.
 
@@ -79,12 +79,12 @@ bin/console amagno:sync --connection=nev-onprem --export=local
 
 1. Batch-Datei erstellen, z. B. `C:\scripts\amagno_sync.bat`:
    ```bat
-   @echo off
-   set APP_ENV=prod
-   set APP_DEBUG=0
-   cd /d C:\inetpub\amagno_nev_interface
-   php bin\console amagno:sync --connection=nev-onprem --export=local >> C:\logs\amagno_sync.log 2>&1
-   ```
+@echo off
+set APP_ENV=prod
+set APP_DEBUG=0
+cd /d C:\inetpub\amagno_nev_interface
+php bin\console amagno:sync --all-connections >> C:\logs\amagno_sync.log 2>&1
+```
 
 2. Aufgabenplanung:
    * Aufgabenplanung öffnen → „Aufgabe erstellen“.

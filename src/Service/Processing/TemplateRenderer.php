@@ -435,6 +435,8 @@ class TemplateRenderer
                         } else {
                             return strval(floatval($tag->value)/10000);
                         }
+                    } else if (isset($tag->value)) {
+                        return (string) $tag->value;
                     } else if ($tag->type=="dates") {
                         if (isset($matching[$marker."func"])) {
                             return $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]);
