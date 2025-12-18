@@ -611,6 +611,10 @@ class TemplateRenderer
                     $format = true;
                 }
                 $textMode = in_array('TEXT', $function_arr, true);
+                $numericContext = !$textMode && (
+                    $this->requiresNumericContext($content) ||
+                    $this->formatsAsNumber($function_arr)
+                );
                 $temp_matches = [];
                 preg_match_all('/\[([^\[\]]+)\]/', $content, $temp_matches);
                 $calculation = [];
@@ -618,7 +622,7 @@ class TemplateRenderer
                     if (preg_match('/\[\:\:([^:\[\]]+)\:\:\]/',$operand)) {
                         if (!isset($matching[$operand])) {
                             if ($forced) {
-                                $calculation[] = $this->wrapLiteral('', $textMode);
+                                $calculation[] = $this->wrapLiteral('', $textMode, $numericContext);
                                 continue;
                             }
 
@@ -637,19 +641,19 @@ class TemplateRenderer
                                     if (is_numeric($temptag->value)) {
                                         $calculation[] = floatval($temptag->value);
                                     } else {
-                                        $calculation[] = $this->wrapLiteral((string) $temptag->value, $textMode);
+                                        $calculation[] = $this->wrapLiteral((string) $temptag->value, $textMode, $numericContext);
                                     }
                                 }
                             }
                         } else if ($forced) {
-                            $calculation[] = $this->wrapLiteral('', $textMode);
+                            $calculation[] = $this->wrapLiteral('', $textMode, $numericContext);
                         } else {
                             return "";
                         }
                     } else if (preg_match('/^\[:\w+:\]$/',$operand,$foo)) {
-                        $calculation[] = $this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode);
+                        $calculation[] = $this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode, $numericContext);
                     } else if (preg_match('/^\[:\p{L}.+:\]$/',$operand,$foo)) {
-                        $calculation[] = $this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode);
+                        $calculation[] = $this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode, $numericContext);
                     } else if (is_numeric(substr($operand,1,strlen($operand)-2))) {
                         $calculation[] = floatval(substr($operand,1,strlen($operand)-2));
                     } else if ($operand === '[_DOCTYPE]') {
@@ -699,9 +703,9 @@ class TemplateRenderer
                     } else if ($operand === '[RET]') {
                         $calculation[] = 'return';
                     } else if ($operand === '[EMPTYSTRING]') {
-                        $calculation[] = $this->wrapLiteral('', $textMode);
+                        $calculation[] = $this->wrapLiteral('', $textMode, $numericContext);
                     } else if ($operand === '[EMPTY]') {
-                        $calculation[] = $this->wrapLiteral('', $textMode);
+                        $calculation[] = $this->wrapLiteral('', $textMode, $numericContext);
                     } else if ($operand === '[ENDC]') {
                         $calculation[] = ';';
                     } else if ($operand === '[CONCAT]') {
@@ -713,7 +717,7 @@ class TemplateRenderer
                     } else if ($operand === '[NULL]') {
                         $calculation[] = 'NULL';
                     } else if (preg_match('/^\[:[^:\'"]+?:\]$/', $operand, $foo)) {
-                        $calculation[] = $this->wrapLiteral(substr($foo[0], 2, strlen($foo[0]) - 4), $textMode);
+                        $calculation[] = $this->wrapLiteral(substr($foo[0], 2, strlen($foo[0]) - 4), $textMode, $numericContext);
                     } else {
                         $calculation[] = $operand;
                     }
@@ -746,8 +750,8 @@ class TemplateRenderer
 
                     }
                 }
-                if (isset($function_arr[1]) && $function_arr[1]=="TEXT") {
-                    return $result;
+                if ($textMode) {
+                    return (string) $result;
                 }
                 if (is_numeric($result)) {
                     return number_format($result,2,",","");
@@ -797,15 +801,47 @@ class TemplateRenderer
         }
     }
 
-    private function wrapLiteral(string $value, bool $textMode): string
+    private function wrapLiteral(string $value, bool $textMode, bool $numericContext = false): string
     {
         $quoted = '"' . addslashes($value) . '"';
 
-        if ($textMode) {
+        if ($textMode || !$numericContext) {
             return $quoted;
         }
 
         return sprintf('\\%s::toNumeric(%s)', self::class, $quoted);
+    }
+
+    private function requiresNumericContext(string $content): bool
+    {
+        static $numericTokens = [
+            '[MUL]',
+            '[DIV]',
+            '[PLU]',
+            '[MIN]',
+            '[LE]',
+            '[GE]',
+            '[L]',
+            '[G]',
+        ];
+
+        foreach ($numericTokens as $token) {
+            if (str_contains($content, $token)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function formatsAsNumber(array $functionArr): bool
+    {
+        $formatIndex = array_search('FORMAT', $functionArr, true);
+        if ($formatIndex === false) {
+            return false;
+        }
+
+        return isset($functionArr[$formatIndex + 1]) && $functionArr[$formatIndex + 1] === 'NUMBER';
     }
 
     private static function toNumeric(mixed $value): float
