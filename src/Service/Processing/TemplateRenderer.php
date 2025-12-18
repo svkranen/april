@@ -383,6 +383,12 @@ class TemplateRenderer
                             } else {
                                 return $prefix.strval(floatval($tag->value)/10000);
                             }
+                        } else if ($tag->type=="counters") {
+                            if (isset($matching[$marker."func"])) {
+                                return $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]);
+                            } else {
+                                return $prefix.strval(floatval($tag->value)/10000);
+                            }
                         } else if ($tag->type=="dates") {
                             if (isset($matching[$marker."func"])) {
                                 return $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]);
@@ -430,6 +436,12 @@ class TemplateRenderer
                             return $tag->value;
                         }
                     } else if ($tag->type=="numbers") {
+                        if (isset($matching[$marker."func"])) {
+                            return $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]);
+                        } else {
+                            return strval(floatval($tag->value)/10000);
+                        }
+                    } else if ($tag->type=="counters") {
                         if (isset($matching[$marker."func"])) {
                             return $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]);
                         } else {
