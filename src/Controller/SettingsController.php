@@ -15,12 +15,21 @@ class SettingsController
             return new Response('Settings template nicht gefunden.', Response::HTTP_NOT_FOUND);
         }
 
+        $previousCwd = getcwd();
+        chdir(\dirname($settingsFile));
+
         ob_start();
         try {
             include $settingsFile;
         } catch (\Throwable $e) {
             ob_end_clean();
+            if ($previousCwd !== false) {
+                chdir($previousCwd);
+            }
             throw $e;
+        }
+        if ($previousCwd !== false) {
+            chdir($previousCwd);
         }
 
         $content = ob_get_clean();
