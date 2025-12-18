@@ -631,6 +631,68 @@ class TemplateRenderer
                         $calculation[] = '"'.addslashes(substr($foo[0],2,strlen($foo[0])-4)).'"';
                     } else if (is_numeric(substr($operand,1,strlen($operand)-2))) {
                         $calculation[] = floatval(substr($operand,1,strlen($operand)-2));
+                    } else if ($operand === '[_DOCTYPE]') {
+                        if (isset($data['doctype_tagdefinitionid']->value)) {
+                            $calculation[] = "'" . addslashes((string) $data['doctype_tagdefinitionid']->value) . "'";
+                        } else {
+                            $calculation[] = "''";
+                        }
+                    } else if ($operand === '[DIV]') {
+                        $calculation[] = '/';
+                    } else if ($operand === '[MUL]') {
+                        $calculation[] = '*';
+                    } else if ($operand === '[PLU]') {
+                        $calculation[] = '+';
+                    } else if ($operand === '[MIN]') {
+                        $calculation[] = '-';
+                    } else if ($operand === '[LP]') {
+                        $calculation[] = '{';
+                    } else if ($operand === '[RP]') {
+                        $calculation[] = '}';
+                    } else if ($operand === '[E]') {
+                        $calculation[] = '==';
+                    } else if ($operand === '[NE]') {
+                        $calculation[] = '!=';
+                    } else if ($operand === '[OR]') {
+                        $calculation[] = '||';
+                    } else if ($operand === '[AND]') {
+                        $calculation[] = '&&';
+                    } else if ($operand === '[NOT]') {
+                        $calculation[] = '!';
+                    } else if ($operand === '[LE]') {
+                        $calculation[] = '<=';
+                    } else if ($operand === '[GE]') {
+                        $calculation[] = '>=';
+                    } else if ($operand === '[L]') {
+                        $calculation[] = '<';
+                    } else if ($operand === '[G]') {
+                        $calculation[] = '>';
+                    } else if ($operand === '[IF]') {
+                        $calculation[] = 'if';
+                    } else if ($operand === '[LB]') {
+                        $calculation[] = '(';
+                    } else if ($operand === '[RB]') {
+                        $calculation[] = ')';
+                    } else if ($operand === '[ELSE]') {
+                        $calculation[] = 'else';
+                    } else if ($operand === '[RET]') {
+                        $calculation[] = 'return';
+                    } else if ($operand === '[EMPTYSTRING]') {
+                        $calculation[] = '""';
+                    } else if ($operand === '[EMPTY]') {
+                        $calculation[] = '';
+                    } else if ($operand === '[ENDC]') {
+                        $calculation[] = ';';
+                    } else if ($operand === '[CONCAT]') {
+                        $calculation[] = '.';
+                    } else if ($operand === '[ISEMPTY]') {
+                        $calculation[] = 'empty';
+                    } else if ($operand === '[QUOTE]') {
+                        $calculation[] = '"';
+                    } else if ($operand === '[NULL]') {
+                        $calculation[] = 'NULL';
+                    } else if (preg_match('/^\[:[^:\'"]+?:\]$/', $operand, $foo)) {
+                        $calculation[] = '"' . addslashes(substr($foo[0], 2, strlen($foo[0]) - 4)) . '"';
                     } else {
                         $calculation[] = $operand;
                     }
