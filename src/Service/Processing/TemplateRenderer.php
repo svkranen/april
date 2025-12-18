@@ -600,6 +600,7 @@ class TemplateRenderer
                 if (isset($function_arr[2]) && $function_arr[2]=="FORMAT") {
                     $format = true;
                 }
+                $textMode = in_array('TEXT', $function_arr, true);
                 $temp_matches = [];
                 preg_match_all('/\[([^\[\]]+)\]/', $content, $temp_matches);
                 $calculation = [];
@@ -607,7 +608,7 @@ class TemplateRenderer
                     if (preg_match('/\[\:\:([^:\[\]]+)\:\:\]/',$operand)) {
                         if (!isset($matching[$operand])) {
                             if ($forced) {
-                                $calculation[] = '""';
+                                $calculation[] = $this->wrapLiteral('', $textMode);
                                 continue;
                             }
 
@@ -626,19 +627,19 @@ class TemplateRenderer
                                     if (is_numeric($temptag->value)) {
                                         $calculation[] = floatval($temptag->value);
                                     } else {
-                                        $calculation[] = '"'.addslashes($temptag->value).'"';
+                                        $calculation[] = $this->wrapLiteral((string) $temptag->value, $textMode);
                                     }
                                 }
                             }
                         } else if ($forced) {
-                            $calculation[] = '""';
+                            $calculation[] = $this->wrapLiteral('', $textMode);
                         } else {
                             return "";
                         }
                     } else if (preg_match('/^\[:\w+:\]$/',$operand,$foo)) {
-                        $calculation[] = '"'.addslashes(substr($foo[0],2,strlen($foo[0])-4)).'"';
+                        $calculation[] = $this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode);
                     } else if (preg_match('/^\[:\p{L}.+:\]$/',$operand,$foo)) {
-                        $calculation[] = '"'.addslashes(substr($foo[0],2,strlen($foo[0])-4)).'"';
+                        $calculation[] = $this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode);
                     } else if (is_numeric(substr($operand,1,strlen($operand)-2))) {
                         $calculation[] = floatval(substr($operand,1,strlen($operand)-2));
                     } else if ($operand === '[_DOCTYPE]') {
@@ -688,9 +689,9 @@ class TemplateRenderer
                     } else if ($operand === '[RET]') {
                         $calculation[] = 'return';
                     } else if ($operand === '[EMPTYSTRING]') {
-                        $calculation[] = '""';
+                        $calculation[] = $this->wrapLiteral('', $textMode);
                     } else if ($operand === '[EMPTY]') {
-                        $calculation[] = '';
+                        $calculation[] = $this->wrapLiteral('', $textMode);
                     } else if ($operand === '[ENDC]') {
                         $calculation[] = ';';
                     } else if ($operand === '[CONCAT]') {
@@ -702,13 +703,17 @@ class TemplateRenderer
                     } else if ($operand === '[NULL]') {
                         $calculation[] = 'NULL';
                     } else if (preg_match('/^\[:[^:\'"]+?:\]$/', $operand, $foo)) {
-                        $calculation[] = '"' . addslashes(substr($foo[0], 2, strlen($foo[0]) - 4)) . '"';
+                        $calculation[] = $this->wrapLiteral(substr($foo[0], 2, strlen($foo[0]) - 4), $textMode);
                     } else {
                         $calculation[] = $operand;
                     }
                 }
                 $to_calculate = implode(" ",$calculation);
-                $result = eval($to_calculate);
+                try {
+                    $result = eval($to_calculate);
+                } catch (\Throwable $e) {
+                    throw new RuntimeException(sprintf('Fehler beim Auswerten des Templates "%s": %s', $to_calculate, $e->getMessage()), 0, $e);
+                }
                 if (isset($format) && $format) {
                     if (isset($function_arr[3]) && $function_arr[3]=="DATE") {
                         $dateTime = new \DateTime($result);
@@ -780,5 +785,36 @@ class TemplateRenderer
                 return $content;
 
         }
+    }
+
+    private function wrapLiteral(string $value, bool $textMode): string
+    {
+        $quoted = '"' . addslashes($value) . '"';
+
+        if ($textMode) {
+            return $quoted;
+        }
+
+        return sprintf('\\%s::toNumeric(%s)', self::class, $quoted);
+    }
+
+    private static function toNumeric(mixed $value): float
+    {
+        if ($value === null || $value === '') {
+            return 0.0;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
+        if (is_string($value)) {
+            $normalized = str_replace(',', '.', $value);
+            if (is_numeric($normalized)) {
+                return (float) $normalized;
+            }
+        }
+
+        return 0.0;
     }
 }
