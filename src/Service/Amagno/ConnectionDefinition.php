@@ -19,6 +19,7 @@ class ConnectionDefinition
         private readonly ?string $template,
         private readonly ?string $system,
         private readonly ?string $exportTarget,
+        private readonly ?string $localFolder,
         private readonly ?string $successStampId,
         private readonly ?string $errorStampId,
         private readonly ?string $errorAttributeId
@@ -69,6 +70,7 @@ class ConnectionDefinition
             template: $config['template'] ?? null,
             system: $config['system'] ?? null,
             exportTarget: $config['export'] ?? null,
+            localFolder: $config['folder'] ?? null,
             successStampId: $config['success_stamp'] ?? null,
             errorStampId: $config['error_stamp'] ?? null,
             errorAttributeId: $config['error_attribute'] ?? null
@@ -133,6 +135,11 @@ class ConnectionDefinition
     public function exportTarget(): ?string
     {
         return $this->exportTarget;
+    }
+
+    public function localFolder(): ?string
+    {
+        return $this->localFolder;
     }
 
     public function successStampId(): ?string

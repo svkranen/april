@@ -18,7 +18,8 @@
             "profile": null,
             "template": null,
             "system": "onprem",
-            "export": null,
+            "export": "local",
+            "folder": "\\\\server\\share\\amagno",
             "success_stamp": null,
             "error_stamp": null,
             "error_attribute": null

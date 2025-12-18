@@ -199,7 +199,7 @@ class AmagnoSyncCommand extends Command
             baseUri: $input->getOption('base-uri') ?: null,
             credentialId: $input->getOption('credential-id') ? (int) $input->getOption('credential-id') : null,
             vaultId: $input->getOption('vault') ?: null,
-            localFolder: $input->getOption('folder') ?: null,
+            localFolder: $input->getOption('folder') ?: $connection->localFolder(),
             ftpServer: $input->getOption('ftp-server') ?: null,
             ftpUser: $input->getOption('ftp-user') ?: null,
             ftpPassword: $input->getOption('ftp-password') ?: null,
