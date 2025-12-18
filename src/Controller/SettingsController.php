@@ -25,6 +25,19 @@ class SettingsController
 
         $content = ob_get_clean();
 
-        return new Response($content);
+        $html = <<<HTML
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Amagno Settings</title>
+</head>
+<body>
+$content
+</body>
+</html>
+HTML;
+
+        return new Response($html);
     }
 }

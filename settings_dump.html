@@ -1,0 +1,717 @@
+<!-- UIkit CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.15.10/dist/css/uikit.min.css" />
+<!-- UIkit JS -->
+<script src="https://cdn.jsdelivr.net/npm/uikit@3.15.10/dist/js/uikit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/uikit@3.15.10/dist/js/uikit-icons.min.js"></script>
+<script>
+    let atoken = "";
+    let profiles = {};
+    let currentProfile = "";
+    const statusClasses = ["uk-alert-primary","uk-alert-success","uk-alert-danger","uk-alert-warning"];
+
+    function getStatusElement() {
+        return document.getElementById("settingsStatus");
+    }
+
+    function showStatusMessage(message, level = "primary") {
+        const element = getStatusElement();
+        if (!element) {
+            return;
+        }
+        statusClasses.forEach(cls => element.classList.remove(cls));
+        element.textContent = message;
+        element.classList.remove("uk-hidden");
+        element.classList.add("uk-alert-" + level);
+    }
+
+    function clearStatusMessage() {
+        const element = getStatusElement();
+        if (!element) {
+            return;
+        }
+        statusClasses.forEach(cls => element.classList.remove(cls));
+        element.textContent = "";
+        element.classList.add("uk-hidden");
+    }
+
+    function setActionButtonsDisabled(disabled) {
+        ["savebutton","deletebutton"].forEach((id)=>{
+            const button = document.getElementById(id);
+            if (!button) {
+                return;
+            }
+            button.disabled = disabled;
+            button.classList.toggle("uk-disabled", disabled);
+            if (disabled) {
+                button.setAttribute("aria-busy","true");
+            } else {
+                button.removeAttribute("aria-busy");
+            }
+        });
+    }
+
+    function handleRequestError(actionLabel, enableButtons = false, detail = "") {
+        if (enableButtons) {
+            setActionButtonsDisabled(false);
+        }
+        let message = actionLabel + " fehlgeschlagen.";
+        if (detail) {
+            message += " " + detail;
+        }
+        message += " Bitte erneut versuchen.";
+        showStatusMessage(message, "danger");
+    }
+
+    function appendFormValue(target, key, value) {
+        if (typeof key === "undefined" || key === null) {
+            return;
+        }
+        const safeValue = value === undefined || value === null ? "" : value;
+        target.push(encodeURIComponent(key)+"="+encodeURIComponent(safeValue));
+    }
+
+    function getUserSecretValue() {
+        const field = document.getElementById("wcx_secret");
+        return field ? field.value : "";
+    }
+            let aurl = "https://amagno.me";
+        
+    let taglist = [];
+                function login() {
+        let auser = document.getElementById("auser").value;
+        let apw = document.getElementById("apw").value;
+        aurl = document.getElementById("aurl").value;
+        if (auser=="") {
+            alert("Bitte Benutzername eingeben");
+            return;
+        }
+        if (apw=="") {
+            alert("Bitte Passwort eingeben");
+            return;
+        }
+        if (aurl=="") {
+            aurl = "https://amagno.me";
+        }
+		let req = new XMLHttpRequest();
+		req.addEventListener("load", (event)=>{
+			atoken = JSON.parse(event.target.responseText);
+            let vaultselect_fibu = document.getElementById("vaultselect_fibu");
+            let req = new XMLHttpRequest();
+	        req.addEventListener("load", (event2)=>{
+                if (event2.target.status==200) {
+                    document.getElementById("amagnologindiv").classList.add("uk-hidden");
+                    document.getElementById("settingsdiv").classList.remove("uk-hidden");
+                    let vaultlist = JSON.parse(event2.target.responseText);
+                    let option = document.createElement("option");
+                    option.setAttribute("value","0");
+                    option.textContent = "Bitte Ablage auswählen";
+                    vaultselect_fibu.appendChild(option);
+                    vaultlist.forEach((vault)=> {
+                        let option = document.createElement("option");
+                        option.setAttribute("value",vault.id);
+                        option.textContent = vault.name;
+                        vaultselect_fibu.appendChild(option);
+                    });
+                }
+            });
+            req.open("GET", aurl+"/api/v2/vaults");
+            req.setRequestHeader('Authorization', 'Bearer '+atoken);
+            req.send();
+            setInterval(() => {
+                relog();
+            }, 1500000);
+            
+			let profileselect = document.getElementById("profileselect");
+            profileselect.addEventListener("change", (event3)=>{
+                if (event3.target.value=="0") {
+                    // currentProfile = "";
+                    matching =  [];
+                } else {
+                    // currentProfile = event3.target.value;
+                    matching = profiles[event3.target.value];
+                }
+                // let newEvent = new Event("change");
+                // document.getElementById("systemselect").dispatchEvent(newEvent);
+				let trigger = new Event("change");
+                if (document.getElementById("systemselect").value=="onprem") {
+                    document.getElementById("inputfile").dispatchEvent(trigger);
+                    console.log("trigger inputfile");
+                } else {
+                    document.getElementById("systemselect").dispatchEvent(trigger);
+                    // console.log("trigger systemselect");
+                }
+            })
+            for (profile in profiles) {
+                let tempoption = document.createElement("option");
+                tempoption.value = profile;
+                tempoption.textContent = profile;
+                profileselect.appendChild(tempoption);
+            }
+			
+		});
+		req.open("POST", aurl+"/api/v2/token");
+		req.setRequestHeader('Content-type', 'text/json');
+        if (document.getElementById("logintype").value=="windows") {
+            req.send('{"authenticationType": "Windows", "userName": "'+auser+'","password": "'+apw+'"}');
+        } else {
+            req.send('{"userName": "'+auser+'","password": "'+apw+'"}');
+        }
+		
+    }
+    function relog() {
+        let auser = document.getElementById("auser").value;
+        let apw = document.getElementById("apw").value;
+        aurl = document.getElementById("aurl").value;
+        if (aurl=="") {
+            aurl = "https://amagno.me";
+        }
+		let req = new XMLHttpRequest();
+		req.addEventListener("load", (event)=>{
+			atoken = JSON.parse(event.target.responseText);  
+		});
+		req.open("POST", aurl+"/api/v2/token");
+		req.setRequestHeader('Content-type', 'text/json');
+		if (document.getElementById("logintype").value=="windows") {
+            req.send('{"authenticationType": "Windows", "userName": "'+auser+'","password": "'+apw+'"}');
+        } else {
+            req.send('{"userName": "'+auser+'","password": "'+apw+'"}');
+        }
+    }
+    
+
+    function createRows(rows) {
+        let tbody = document.getElementById("tablebody");
+        tbody.innerHTML="";
+        let rowcount = 0;
+		rows = [...new Set(rows)];
+
+        rows.forEach((match)=>{
+            
+            let tr = document.createElement("tr");
+            let td1 = document.createElement("td");
+            td1.classList.add("savenames");
+            td1.textContent = match;
+            td1.id = "name"+rowcount;
+            tr.appendChild(td1);
+            let td2 = document.createElement("td");
+            let select1 = document.createElement("select");
+            select1.classList.add("savevalues");
+            select1.classList.add("uk-select");
+            select1.setAttribute("id","group"+rowcount);
+            select1.addEventListener("change",(event)=>{
+                updateTags(event);
+            });
+            let foo = document.createElement("option");
+            foo.textContent = "Bitte Merkmalgruppe auswählen";
+            foo.value = "0";
+            
+            let foo2 = document.createElement("option");
+            foo2.textContent = "Fixwert";
+            foo2.value = "1";
+            if (match!="[::Stempel::]") {
+                select1.appendChild(foo);
+                select1.appendChild(foo2);
+                for (group in taglist) {
+                    let option = document.createElement("option");
+                    option.value = group;
+                    option.textContent = taglist[group][0];
+                    select1.appendChild(option);
+                }
+            }
+            td2.appendChild(select1);
+            let selectfunction = document.createElement("select");
+            selectfunction.classList.add("savevalues");
+            selectfunction.classList.add("uk-select");
+            selectfunction.classList.add("uk-margin-top");
+            selectfunction.setAttribute("id","function"+rowcount);
+            let tempoption1 = document.createElement("option");
+            tempoption1.textContent="keine Zusatzfunktion";
+            tempoption1.id = "0";
+            
+            let tempoption2 = document.createElement("option");
+            tempoption2.textContent="Zusatzfunktion";
+            tempoption2.value="1";
+            if (match!="[::Stempel::]") {
+                selectfunction.appendChild(tempoption1);
+                selectfunction.appendChild(tempoption2);
+            }
+            td2.appendChild(selectfunction);
+            tr.appendChild(td2);
+            let td3 = document.createElement("td");
+            let select2 = document.createElement("select");
+            // console.log(match);
+            if (match=="[::Stempel::]") {
+                // console.log(matching);
+                let vaultid = document.getElementById("vaultselect_fibu").value;
+                let req2 = new XMLHttpRequest();
+                let temp_row = rowcount;
+                req2.addEventListener("load",(event2)=>{
+                    select2.setAttribute("id","tag"+temp_row);
+                    select2.classList.add("savevalues");
+                    select2.classList.add("uk-select");
+                    foo = document.createElement("option");
+                    foo.textContent = "Bitte Stempel auswählen";
+                    foo.value = "0";
+                    select2.appendChild(foo);
+                    if (event2.target.status==200) {
+                        let stamplist = JSON.parse(event2.target.responseText);
+                        stamplist.forEach((stamp)=>{
+                            // console.log(stamp);
+                            let stampoption = document.createElement("option");
+                            stampoption.textContent = stamp.name;
+                            stampoption.value = stamp.id;
+                            select2.appendChild(stampoption);
+                        });
+                    }
+                    if (typeof matching !== 'undefined') {
+                        if (typeof matching.Stempel !== 'undefined') {
+                            select2.value = matching.Stempel;
+                        }
+                    }
+                });
+                req2.open("GET", aurl+"/api/v2/vaults/"+vaultid+"/stamps");
+                req2.setRequestHeader('Authorization', 'Bearer '+atoken);
+                req2.send();
+            } else {
+                // let select2 = document.createElement("select");
+                select2.setAttribute("id","tag"+rowcount);
+                select2.classList.add("savevalues");
+                select2.classList.add("uk-select");
+                foo = document.createElement("option");
+                foo.textContent = "Bitte Merkmal auswählen";
+                foo.value = "0";
+                select2.appendChild(foo);
+            }
+            let fixinput = document.createElement("input");
+            fixinput.setAttribute("type","text");
+            fixinput.classList.add("uk-input");
+            fixinput.classList.add("savevalues");
+            fixinput.classList.add("uk-hidden");
+            fixinput.setAttribute("id","fix"+rowcount);
+            fixinput.setAttribute("placeholder","Fixwert");
+            let functioninput = document.createElement("input");
+            functioninput.setAttribute("type","text");
+            functioninput.classList.add("uk-input");
+            functioninput.classList.add("uk-margin-top");
+            functioninput.classList.add("savevalues");
+            functioninput.setAttribute("id","functiondef"+rowcount);
+            if (match!="[::Stempel::]") {
+                functioninput.setAttribute("placeholder","Funktion");
+            }
+            td3.appendChild(select2);
+            td3.appendChild(fixinput);
+            td3.appendChild(functioninput);
+            tr.appendChild(td3);
+            tbody.appendChild(tr);
+
+            let found = false;
+            if (typeof matching != "undefined") {
+                var isEmpty = true;
+                for (var key in taglist) {
+                    if (taglist.hasOwnProperty(key)) {
+                        isEmpty = false;
+                        break;
+                    }
+                }
+                if (isEmpty) {
+                    // select2.setAttribute("old",matching[match]);
+                } else {
+                    // console.log("not empty");
+                    if (matching[match]===null||matching[match]===undefined) {
+                    } else {
+                        for (const group in taglist) {
+                            for (const tag of taglist[group]) {
+                                if (matching[match]==tag.id) {
+                                    found = true;
+                                    select1.value=group;
+                                    // let trigger = new Event("change");
+                                    // select1.dispatchEvent(trigger);
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!found && typeof matching[match]!=="undefined") {
+                    fixinput.value = matching[match];
+                    select1.value="1";
+                }
+                if (typeof matching[match+"func"] !== "undefined") {
+                    document.getElementById("function"+rowcount).value="1";
+                    document.getElementById("functiondef"+rowcount).value = matching[match+"func"];
+                }
+            }
+            let trigger = new Event("change");
+            select1.dispatchEvent(trigger);
+            rowcount++;
+        });
+    }
+    function createList(event) {
+        let file = event.target.files[0];           
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let content = e.target.result;
+                let regex = /\[:(?!(repeatstart|repeatend|splitstart|splitend):)[^:]+\:\]/g;
+                let matches = content.match(regex) || [];
+                let regex2 = /\[\:\:[^:\[\]]+\:\:\]/g;
+                let matches2 = content.match(regex2) || [];
+                console.log(matches);
+                console.log(matches2);
+                document.getElementById("tablebody").innerHTML="";
+                const combinedMatches = matches2.length ? matches2.concat(matches) : matches;
+                if (!combinedMatches.length) {
+                    showStatusMessage("Die Vorlage enthält keine Platzhalter.", "warning");
+                    return;
+                }
+                createRows(combinedMatches);
+                
+                // createRows(matches);
+            };
+            reader.readAsText(file);
+            // document.getElementById("savebutton").classList.remove("uk-hidden");
+        }
+    }
+    function updateTags(event) {
+        if (event.target.value=="0") {
+            return
+        }
+        let row = event.target.id.substring(5);
+        console.log("tag"+row);
+        let tagselect = document.getElementById("tag"+row);
+        if (event.target.value=="1") {
+            // console.log("toggle");
+            tagselect.classList.toggle("uk-hidden");
+            document.getElementById("fix"+row).classList.toggle("uk-hidden");
+        }   
+        tagselect.innerHTML = "";
+        let option = document.createElement("option");
+        option.textContent = "Bitte Merkmal auswählen";
+        option.value = "0";
+        tagselect.appendChild(option);
+        if (event.target.value=="1") {
+            return;
+        }
+        let temparray = taglist[event.target.value];
+        for (let i = 1; i < temparray.length; i++) {
+            option = document.createElement("option");
+            option.textContent = temparray[i].caption;
+            option.value = temparray[i].id;
+            tagselect.appendChild(option);
+            if (typeof matching !== "undefined") {
+                // console.log(event.target);
+                // console.log(matching);
+                let marker = document.getElementById("name"+row).textContent;
+                if (typeof matching[marker] !== "undefined") {
+                    if (matching[marker]==option.value) {
+                        option.setAttribute("selected","");
+                    }
+                }
+                
+            }
+        }
+        
+        
+    }
+    function getTags() {
+        let vaultid = document.getElementById("vaultselect_fibu").value;
+        if (vaultid=="0") {
+            showStatusMessage("Bitte wählen Sie zuerst eine Ablage aus.", "warning");
+            return;
+        }
+        clearStatusMessage();
+        let req = new XMLHttpRequest();
+        req.addEventListener("load", (event)=>{
+            if (event.target.status==200) {
+                taglist = [];
+                let temp = JSON.parse(event.target.responseText);
+                let blocked_groups = ["Archivierungs-Einstellungen","Bearbeitungsinformationen","Stempel","Dateiinformationen","Metadaten","Magnetisierung","ZUGFeRD Position"];
+                temp.forEach((taggroup)=>{
+                    if (!blocked_groups.includes(taggroup.name)) {
+                        taglist[taggroup.id] = [taggroup.name];
+                    }
+                });
+                let req2 = new XMLHttpRequest();
+                req2.addEventListener("load",(event2)=>{
+                    if (event2.target.status==200) {
+                        let temp2 = JSON.parse(event2.target.responseText);
+                        Object.entries(temp2).forEach(([type, value]) => {
+                            value.forEach((tag)=>{
+                                if (tag.sourceType=="UserDefined" || tag.sourceType=="Recognized" || tag.sourceType=="Default") {
+                                    tag.type=type;
+                                    if (taglist[tag.tagGroupDefinitionId]!==undefined) {
+                                        taglist[tag.tagGroupDefinitionId].push(tag);
+                                    }
+                                } 
+                            });
+                        });
+                        showStatusMessage("Merkmale aktualisiert.", "success");
+                        let trigger = new Event("change");
+                        if (document.getElementById("systemselect").value=="onprem") {
+                            document.getElementById("inputfile").dispatchEvent(trigger);
+                        } else {
+                            document.getElementById("systemselect").dispatchEvent(trigger);
+                        }
+                    } else {
+                        handleRequestError("Merkmale laden", false, "Serverantwort "+event2.target.status);
+                    }
+                });
+                req2.addEventListener("error",()=>handleRequestError("Merkmale laden"));
+                req2.addEventListener("timeout",()=>handleRequestError("Merkmale laden"));
+                req2.timeout = 15000;
+                req2.open("GET", aurl+"/api/v2/vaults/"+vaultid+"/documents/tag-definitions");
+                req2.setRequestHeader('Authorization', 'Bearer '+atoken);
+                req2.send();
+            } else {
+                handleRequestError("Merkmalgruppen laden", false, "Serverantwort "+event.target.status);
+            }
+        });
+        req.addEventListener("error",()=>handleRequestError("Merkmalgruppen laden"));
+        req.addEventListener("timeout",()=>handleRequestError("Merkmalgruppen laden"));
+        req.timeout = 15000;
+        req.open("GET", aurl+"/api/v2/vaults/"+vaultid+"/documents/tag-group-definitions");
+        req.setRequestHeader('Authorization', 'Bearer '+atoken);
+        req.send();
+    }
+    function saveMatching() {
+        const container = document.getElementById("tablebody");
+        if (!container) {
+            return;
+        }
+        const savevalues = Array.from(container.getElementsByClassName("savevalues"));
+        const data = [];
+        savevalues.forEach((input)=>{
+            appendFormValue(data, input.id, input.value);
+        });
+        const savenames = Array.from(container.getElementsByClassName("savenames"));
+        savenames.forEach((input)=>{
+            appendFormValue(data, input.id, input.textContent);
+        });
+        const systemselect = document.getElementById("systemselect");
+        appendFormValue(data, "system", systemselect.value);
+        if (systemselect.value=="onprem") {
+            appendFormValue(data, "auser", document.getElementById("auser").value);
+            appendFormValue(data, "apw", document.getElementById("apw").value);
+        } else {
+            const wcxSecret = getUserSecretValue();
+            if (!wcxSecret) {
+                showStatusMessage("Es konnte kein Benutzer-Token ermittelt werden.", "danger");
+                return;
+            }
+            appendFormValue(data, "user", wcxSecret);
+        }
+        appendFormValue(data, "aurl", aurl);
+        const profileselect = document.getElementById("profileselect");
+        appendFormValue(data, "profileselect", profileselect.value);
+        const profilename = document.getElementById("newprofilename");
+        appendFormValue(data, "profilename", profilename.value);
+
+        clearStatusMessage();
+        setActionButtonsDisabled(true);
+        showStatusMessage("Speichern läuft...", "primary");
+
+        const req = new XMLHttpRequest();
+        req.addEventListener("load", (event)=>{
+            setActionButtonsDisabled(false);
+            if (event.target.status==200) {
+                let responseobj;
+                try {
+                    responseobj = JSON.parse(event.target.responseText);
+                } catch (error) {
+                    handleRequestError("Speichern", false, "Ungültige Serverantwort.");
+                    return;
+                }
+                showStatusMessage(responseobj.message, responseobj.status=="error" ? "danger" : "success");
+                if (responseobj.status=="newProfile") {
+                    profiles[responseobj.profilename] = responseobj.profile;
+                    let tempoption = document.createElement("option");
+                    tempoption.value = responseobj.profilename;
+                    tempoption.textContent = responseobj.profilename;
+                    document.getElementById("profileselect").appendChild(tempoption);
+                }
+            } else {
+                handleRequestError("Speichern", false, "Serverantwort "+event.target.status);
+            }
+        });
+        req.addEventListener("error", ()=>handleRequestError("Speichern", true));
+        req.addEventListener("timeout", ()=>handleRequestError("Speichern", true));
+        req.timeout = 20000;
+        if (systemselect.value=="onprem") {
+            req.open("POST", "save.php");
+        } else {
+            req.open("POST", "/api/fibu_saveMatching");
+        }
+        req.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        req.send(data.join("&"));
+
+    }
+    function selectSystem(event) {
+        if (event.target.value=="0") {
+            showStatusMessage("Bitte ein System auswählen.", "warning");
+        } else if (event.target.value=="onprem") {
+            document.getElementById("inputfile").classList.remove("uk-hidden");
+            showStatusMessage("Bitte laden Sie Ihre Vorlage hoch.", "primary");
+        } else {
+            document.getElementById("inputfile").classList.add("uk-hidden");
+            let tbody = document.getElementById("tablebody");
+            tbody.innerHTML = "";
+            clearStatusMessage();
+            let req = new XMLHttpRequest();
+            req.addEventListener("load", (event)=>{
+                if (event.target.status==200) {
+                    try {
+                        let list = JSON.parse(event.target.responseText);
+                        createRows(list);
+                        showStatusMessage("Vorlage geladen.", "success");
+                    } catch (error) {
+                        handleRequestError("Vorlage laden", false, "Ungültige Serverantwort.");
+                    }
+                } else {
+                    handleRequestError("Vorlage laden", false, "Serverantwort "+event.target.status);
+                }
+            });
+            req.addEventListener("error", ()=>handleRequestError("Vorlage laden"));
+            req.addEventListener("timeout", ()=>handleRequestError("Vorlage laden"));
+            req.timeout = 15000;
+            req.open("GET", "/api/fibu_get?sys="+event.target.value);
+            req.send();
+        }
+    }
+    function deleteProfile() {
+        const profileselect = document.getElementById("profileselect");
+        if (!profileselect || profileselect.value=="0") {
+            showStatusMessage("Bitte wählen Sie zuerst ein Profil aus.", "warning");
+            return;
+        }
+        const wcxSecret = getUserSecretValue();
+        if (!wcxSecret) {
+            showStatusMessage("Es konnte kein Benutzer-Token ermittelt werden.", "danger");
+            return;
+        }
+        const data = [];
+        appendFormValue(data, "profile", profileselect.value);
+        appendFormValue(data, "user", wcxSecret);
+        appendFormValue(data, "system", document.getElementById("systemselect").value);
+        clearStatusMessage();
+        setActionButtonsDisabled(true);
+        showStatusMessage("Profil wird gelöscht...", "primary");
+        const req = new XMLHttpRequest();
+        req.addEventListener("load", (event)=>{
+            setActionButtonsDisabled(false);
+            if (event.target.status==200) {
+                let responseobj;
+                try {
+                    responseobj = JSON.parse(event.target.responseText);
+                } catch (error) {
+                    handleRequestError("Profil löschen", false, "Ungültige Serverantwort.");
+                    return;
+                }
+                if (responseobj.status=="deletedProfile") {
+                    showStatusMessage(responseobj.message, "success");
+                    delete profiles[responseobj.profilename];
+                    Array.from(profileselect.selectedOptions).forEach((tempoption)=>{
+                        tempoption.remove();
+                    });
+                    profileselect.value = "0";
+                    let trigger = new Event("change");
+                    profileselect.dispatchEvent(trigger);
+                } else {
+                    showStatusMessage(responseobj.message || "Profil konnte nicht gelöscht werden.", "danger");
+                }
+            } else {
+                handleRequestError("Profil löschen", false, "Serverantwort "+event.target.status);
+            }
+        });
+        req.addEventListener("error", ()=>handleRequestError("Profil löschen", true));
+        req.addEventListener("timeout", ()=>handleRequestError("Profil löschen", true));
+        req.timeout = 15000;
+        req.open("POST", "/api/fibu_deleteProfile");
+        req.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        req.send(data.join("&"));
+    }
+    document.addEventListener("DOMContentLoaded", (event) => {
+        document.getElementById("inputfile").addEventListener("change", createList);
+        document.getElementById("vaultselect_fibu").addEventListener("change",getTags);
+        document.getElementById("systemselect").addEventListener("change",selectSystem);
+    });
+</script>
+<div id="amagnologindiv">
+        <div class="uk-width-1-2">
+        <form>
+            <fieldset class="uk-fieldset">
+                <legend class="uk-form-label uk-text-bolder">Benutzer</legend>
+                <div>
+                    <div class="uk-inline uk-width-1-1">
+                        <input class="uk-input" id="auser" placeholder="" aria-label="" value="">
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+    </div>
+    <div class="uk-width-1-2 uk-margin-top">
+        <form>
+            <fieldset class="uk-fieldset">
+                <legend class="uk-form-label uk-text-bolder">Passwort</legend>
+                <div>
+                    <div class="uk-inline uk-width-1-1">
+                        <input class="uk-input" id="apw" placeholder="" aria-label="" value="" type="password">
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+    </div>
+    <div class="uk-width-1-2 uk-margin-top">
+        <form>
+            <fieldset class="uk-fieldset">
+                <legend class="uk-form-label uk-text-bolder">On Premise URL</legend>
+                <div>
+                    <div class="uk-inline uk-width-1-1">
+                        <input class="uk-input" id="aurl" placeholder="" aria-label="" value="" type="text">
+                    </div>
+                </div>
+            </fieldset>
+        </form>
+    </div>
+    <div class="uk-width-1-2 uk-margin-top">
+        <select id="logintype" class="uk-select">
+            <option value="amagno">Amagno Login</option>
+            <option value="windows">Windows Login</option>
+        </select>
+    </div>
+    <div class="uk-margin-top"><a class="uk-button-primary uk-button-default uk-margin-top" onclick="login()">anmelden</a></div>
+    </div>
+<div id="settingsdiv" class="uk-hidden">
+    <div>
+        <div>
+            <legend class="uk-form-label uk-text-bolder">Ablage</legend>
+            <select name="vaultselect_fibu" id="vaultselect_fibu" class="uk-input uk-width-1-2 uk-margin-bottom uk-select"></select>
+        </div>
+        <div>
+            <legend class="uk-form-label uk-text-bolder">System</legend>
+            <select id="systemselect" class="uk-margin-bottom uk-select uk-width-1-2">
+                            <option value="onprem">On Premise Einrichtung</option>
+                        </select>
+        </div>
+        <div>
+            <input id="inputfile" type="file" class="uk-input uk-width-1-2 uk-margin-bottom ">
+        </div>
+        <div>
+            <legend class="uk-form-label uk-text-bolder">Profil</legend>
+            <div>
+                <select name="profileselect" id="profileselect" class="uk-input uk-width-1-2 uk-margin-bottom uk-select">
+                    <option value="0">Als neues Profil speichern</option>
+                </select>
+                <input id="newprofilename" name="newprofilename" placeholder="Neuer Profilname"class="uk-input uk-width-1-3 uk-margin-bottom">
+            </div>
+        </div>
+        <div>
+            <button id="savebutton" class="uk-button uk-button-primary uk-margin-top" type="button" onclick='saveMatching()'>speichern</button>
+            <button id="deletebutton" class="uk-button uk-button-default uk-margin-top" type="button" onclick='deleteProfile()'>Profil löschen</button>
+        </div>
+        <div id="settingsStatus" class="uk-alert uk-hidden uk-margin-small-top" uk-alert></div>
+    </div>
+    
+    <table class="uk-table uk-table-striped">
+        <tbody id="tablebody">
+        </tbody>
+    </table>
+</div>
