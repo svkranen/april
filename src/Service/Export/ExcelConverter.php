@@ -32,6 +32,23 @@ class ExcelConverter
         $reader->setSheetIndex(0);
         $spreadsheet = $reader->load($temp);
 
+        $sheet = $spreadsheet->getActiveSheet();
+        $highestRow = $sheet->getHighestRow();
+        $highestColumn = $sheet->getHighestColumn();
+        for ($row = $highestRow; $row >= 1; $row--) {
+            $rowValues = $sheet->rangeToArray(sprintf('A%d:%s%d', $row, $highestColumn, $row), null, true, false);
+            $isEmpty = true;
+            foreach ($rowValues[0] as $value) {
+                if ($value !== null && $value !== '') {
+                    $isEmpty = false;
+                    break;
+                }
+            }
+            if ($isEmpty) {
+                $sheet->removeRow($row);
+            }
+        }
+
         $writer = new Xlsx($spreadsheet);
         $writer->save($destinationPath);
 

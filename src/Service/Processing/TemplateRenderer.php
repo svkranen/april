@@ -506,7 +506,7 @@ class TemplateRenderer
             }
 
             $output[] = new RenderedBlock(
-                $newString,
+                rtrim($newString, "\r\n"),
                 $preset_filename !== '' ? $preset_filename : null,
                 $excel
             );
