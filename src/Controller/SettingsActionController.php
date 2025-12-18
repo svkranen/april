@@ -8,6 +8,7 @@ use Symfony\Component\Routing\Annotation\Route;
 class SettingsActionController
 {
     #[Route('/save.php', name: 'settings_save', methods: ['POST'])]
+    #[Route('/settings/save.php', name: 'settings_save_relative', methods: ['POST'])]
     public function save(): Response
     {
         $oldProjectDir = \dirname(__DIR__, 2).'/oldProject';
