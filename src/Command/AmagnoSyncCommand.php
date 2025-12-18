@@ -34,6 +34,9 @@ class AmagnoSyncCommand extends Command
             ->addOption('limit', null, InputOption::VALUE_OPTIONAL, 'Number of documents per poll', 50)
             ->addOption('system', null, InputOption::VALUE_OPTIONAL, 'System identifier', 'onprem')
             ->addOption('token', null, InputOption::VALUE_OPTIONAL, 'Amagno API token')
+            ->addOption('api-user', null, InputOption::VALUE_OPTIONAL, 'Benutzername des technischen Amagno-Kontos')
+            ->addOption('api-password', null, InputOption::VALUE_OPTIONAL, 'Passwort des technischen Amagno-Kontos')
+            ->addOption('api-auth-type', null, InputOption::VALUE_OPTIONAL, 'AuthenticationType für den Login (optional)')
             ->addOption('vault', null, InputOption::VALUE_OPTIONAL, 'Vault ID for Amagno export')
             ->addOption('folder', null, InputOption::VALUE_OPTIONAL, 'Local export folder')
             ->addOption('ftp-server', null, InputOption::VALUE_OPTIONAL, 'FTP server')
@@ -79,6 +82,9 @@ class AmagnoSyncCommand extends Command
             template: $input->getOption('template') ?: null,
             system: $input->getOption('system') ?? 'onprem',
             token: $input->getOption('token') ?: null,
+            apiUsername: $input->getOption('api-user') ?: null,
+            apiPassword: $input->getOption('api-password') ?: null,
+            apiAuthType: $input->getOption('api-auth-type') ?: null,
             vaultId: $input->getOption('vault') ?: null,
             localFolder: $input->getOption('folder') ?: null,
             ftpServer: $input->getOption('ftp-server') ?: null,

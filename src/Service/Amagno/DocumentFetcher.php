@@ -9,7 +9,7 @@ class DocumentFetcher
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly string $baseUri,
-        private readonly string $apiToken
+        private readonly ?string $apiToken = null
     ) {
     }
 
@@ -92,8 +92,13 @@ class DocumentFetcher
      */
     private function buildHeaders(?string $tokenOverride): array
     {
+        $token = $tokenOverride ?: $this->apiToken;
+        if ($token === null || $token === '') {
+            throw new \RuntimeException('Kein Amagno API Token verfügbar.');
+        }
+
         return [
-            'Authorization' => 'Bearer '.($tokenOverride ?: $this->apiToken),
+            'Authorization' => 'Bearer '.$token,
             'Accept' => 'application/json',
         ];
     }

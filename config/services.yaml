@@ -9,6 +9,10 @@
 parameters:
     amagno.base_uri: '%env(string:AMAGNO_BASE_URI)%'
     amagno.api_token: '%env(string:AMAGNO_API_TOKEN)%'
+    amagno.api_username: '%env(string:AMAGNO_API_USERNAME)%'
+    amagno.api_password: '%env(string:AMAGNO_API_PASSWORD)%'
+    amagno.api_auth_type: '%env(string:AMAGNO_API_AUTH_TYPE)%'
+    amagno.credential_id: '%env(int:AMAGNO_CREDENTIAL_ID)%'
     amagno.matching_file: '%kernel.project_dir%/%env(string:AMAGNO_MATCHING_FILE)%'
     amagno.template_dir: '%kernel.project_dir%/%env(string:AMAGNO_TEMPLATE_DIR)%'
     amagno.checkpoint_dir: '%kernel.project_dir%/%env(string:AMAGNO_CHECKPOINT_DIR)%'
@@ -32,6 +36,13 @@ services:
         arguments:
             $baseUri: '%amagno.base_uri%'
             $apiToken: '%amagno.api_token%'
+
+    App\Service\Amagno\CredentialStore:
+        arguments:
+            $credentialId: '%amagno.credential_id%'
+            $defaultBaseUri: '%amagno.base_uri%'
+            $defaultUsername: '%amagno.api_username%'
+            $defaultPassword: '%amagno.api_password%'
 
     App\Service\Amagno\MatchingLoader:
         arguments:
@@ -59,6 +70,9 @@ services:
         arguments:
             $defaultBaseUri: '%amagno.base_uri%'
             $defaultApiToken: '%amagno.api_token%'
+            $defaultApiUsername: '%amagno.api_username%'
+            $defaultApiPassword: '%amagno.api_password%'
+            $defaultApiAuthType: '%amagno.api_auth_type%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

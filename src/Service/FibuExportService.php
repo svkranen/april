@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Dto\SyncOptions;
+use App\Service\Amagno\CredentialStore;
 use App\Service\Amagno\DocumentFetcher;
 use App\Service\Checkpoint\CheckpointStore;
 use App\Service\Export\ExporterRegistry;
@@ -11,19 +12,26 @@ use App\Service\Processing\MatchingProvider;
 use App\Service\Processing\StampService;
 use App\Service\Processing\TemplateRenderer;
 use DateTimeImmutable;
+use Iileven\AmagnoConnector\Interface\TokenProviderInterface;
+use RuntimeException;
 
 class FibuExportService
 {
     public function __construct(
         private readonly string $defaultBaseUri,
-        private readonly string $defaultApiToken,
+        private readonly ?string $defaultApiToken,
+        private readonly ?string $defaultApiUsername,
+        private readonly ?string $defaultApiPassword,
+        private readonly ?string $defaultApiAuthType,
         private readonly DocumentFetcher $documentFetcher,
         private readonly MatchingProvider $matchingProvider,
         private readonly DocumentMatrixBuilder $matrixBuilder,
         private readonly TemplateRenderer $templateRenderer,
         private readonly ExporterRegistry $exporterRegistry,
         private readonly StampService $stampService,
-        private readonly CheckpointStore $checkpointStore
+        private readonly CheckpointStore $checkpointStore,
+        private readonly TokenProviderInterface $tokenProvider,
+        private readonly CredentialStore $credentialStore
     ) {
     }
 
@@ -137,6 +145,8 @@ class FibuExportService
 
     private function buildPayload(SyncOptions $options): array
     {
+        $token = $this->resolveToken($options);
+
         $payload = [
             'system' => $options->system,
             'export' => $options->exportTarget,
@@ -155,7 +165,7 @@ class FibuExportService
             'dbuser' => $options->dbUser,
             'dbpassword' => $options->dbPassword,
             'stampid' => $options->stampId,
-            'atoken' => $options->token ?: $this->defaultApiToken,
+            'atoken' => $token,
         ];
 
         return array_filter(
@@ -185,4 +195,32 @@ class FibuExportService
         return $latest;
     }
 
+    private function resolveToken(SyncOptions $options): string
+    {
+        if ($options->token !== null && $options->token !== '') {
+            return $options->token;
+        }
+
+        if ($this->defaultApiToken !== null && $this->defaultApiToken !== '') {
+            $options->token = $this->defaultApiToken;
+            return $this->defaultApiToken;
+        }
+
+        $username = $options->apiUsername ?: $this->defaultApiUsername;
+        $password = $options->apiPassword ?: $this->defaultApiPassword;
+
+        if ($username === null || $username === '' || $password === null || $password === '') {
+            throw new RuntimeException('Es ist kein API-Token und kein Benutzer/Passwort für Amagno hinterlegt.');
+        }
+
+        $this->credentialStore->setCredentials($this->defaultBaseUri, $username, $password);
+
+        $token = $this->tokenProvider
+            ->getToken($this->credentialStore->getCredentialId())
+            ->getTokenString();
+
+        $options->token = $token;
+
+        return $token;
+    }
 }
