@@ -2,6 +2,8 @@
 
 namespace App\Service\Amagno;
 
+use RuntimeException;
+
 class CredentialStore
 {
     /**
@@ -10,28 +12,43 @@ class CredentialStore
     private array $credentials = [];
 
     public function __construct(
-        private readonly int $credentialId,
+        private readonly ?int $defaultCredentialId,
+        ConnectionRegistry $connectionRegistry,
         ?string $defaultBaseUri = null,
         ?string $defaultUsername = null,
         ?string $defaultPassword = null
     ) {
         if (
+            $this->defaultCredentialId !== null &&
             $defaultBaseUri !== null && $defaultBaseUri !== '' &&
             $defaultUsername !== null && $defaultUsername !== '' &&
             $defaultPassword !== null && $defaultPassword !== ''
         ) {
-            $this->setCredentials($defaultBaseUri, $defaultUsername, $defaultPassword);
+            $this->setCredentials($defaultBaseUri, $defaultUsername, $defaultPassword, $this->defaultCredentialId);
+        }
+
+        foreach ($connectionRegistry->credentialMap() as $credentialId => $data) {
+            $this->setCredentials(
+                $data['host'],
+                $data['user'],
+                $data['password'],
+                (int) $credentialId
+            );
         }
     }
 
-    public function getCredentialId(): int
+    public function getDefaultCredentialId(): ?int
     {
-        return $this->credentialId;
+        return $this->defaultCredentialId;
     }
 
     public function setCredentials(string $baseUri, string $username, string $password, ?int $credentialId = null): void
     {
-        $id = $credentialId ?? $this->credentialId;
+        $id = $credentialId ?? $this->defaultCredentialId;
+        if ($id === null) {
+            throw new RuntimeException('Es wurde keine Credential-ID für Amagno hinterlegt.');
+        }
+
         $this->credentials[$id] = [
             'host' => $this->normalizeHost($baseUri),
             'user' => $username,

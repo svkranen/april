@@ -13,6 +13,7 @@ parameters:
     amagno.api_password: '%env(string:AMAGNO_API_PASSWORD)%'
     amagno.api_auth_type: '%env(string:AMAGNO_API_AUTH_TYPE)%'
     amagno.credential_id: '%env(int:AMAGNO_CREDENTIAL_ID)%'
+    amagno.connections_file: '%kernel.project_dir%/config/amagno_connections.json'
     amagno.matching_file: '%kernel.project_dir%/%env(string:AMAGNO_MATCHING_FILE)%'
     amagno.template_dir: '%kernel.project_dir%/%env(string:AMAGNO_TEMPLATE_DIR)%'
     amagno.checkpoint_dir: '%kernel.project_dir%/%env(string:AMAGNO_CHECKPOINT_DIR)%'
@@ -32,6 +33,14 @@ services:
     App\:
         resource: '../src/'
 
+    App\Service\Amagno\ConnectionConfigLoader:
+        arguments:
+            $configPath: '%amagno.connections_file%'
+
+    App\Service\Amagno\ConnectionRegistry:
+        arguments:
+            $configLoader: '@App\Service\Amagno\ConnectionConfigLoader'
+
     App\Service\Amagno\DocumentFetcher:
         arguments:
             $baseUri: '%amagno.base_uri%'
@@ -39,10 +48,15 @@ services:
 
     App\Service\Amagno\CredentialStore:
         arguments:
-            $credentialId: '%amagno.credential_id%'
+            $defaultCredentialId: '%amagno.credential_id%'
             $defaultBaseUri: '%amagno.base_uri%'
             $defaultUsername: '%amagno.api_username%'
             $defaultPassword: '%amagno.api_password%'
+
+    App\Service\Amagno\DocumentTagWriter:
+        arguments:
+            $httpClient: '@http_client'
+            $logger: '@logger'
 
     App\Service\Amagno\MatchingLoader:
         arguments:
@@ -69,6 +83,7 @@ services:
     App\Service\FibuExportService:
         arguments:
             $defaultBaseUri: '%amagno.base_uri%'
+            $defaultCredentialId: '%amagno.credential_id%'
             $defaultApiToken: '%amagno.api_token%'
             $defaultApiUsername: '%amagno.api_username%'
             $defaultApiPassword: '%amagno.api_password%'

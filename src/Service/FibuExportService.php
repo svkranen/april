@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Dto\SyncOptions;
 use App\Service\Amagno\CredentialStore;
 use App\Service\Amagno\DocumentFetcher;
+use App\Service\Amagno\DocumentTagWriter;
 use App\Service\Checkpoint\CheckpointStore;
 use App\Service\Export\ExporterRegistry;
 use App\Service\Processing\DocumentMatrixBuilder;
@@ -18,7 +19,8 @@ use RuntimeException;
 class FibuExportService
 {
     public function __construct(
-        private readonly string $defaultBaseUri,
+        private readonly ?string $defaultBaseUri,
+        private readonly ?int $defaultCredentialId,
         private readonly ?string $defaultApiToken,
         private readonly ?string $defaultApiUsername,
         private readonly ?string $defaultApiPassword,
@@ -31,7 +33,8 @@ class FibuExportService
         private readonly StampService $stampService,
         private readonly CheckpointStore $checkpointStore,
         private readonly TokenProviderInterface $tokenProvider,
-        private readonly CredentialStore $credentialStore
+        private readonly CredentialStore $credentialStore,
+        private readonly DocumentTagWriter $tagWriter
     ) {
     }
 
@@ -48,7 +51,12 @@ class FibuExportService
 
         $payload = $this->buildPayload($options);
 
-        $result = $this->runExport($payload, $options);
+        try {
+            $result = $this->runExport($payload, $options);
+        } catch (\Throwable $exception) {
+            $this->handleError($options, $exception);
+            throw $exception;
+        }
 
         if ($checkpointApplied !== null) {
             $result['checkpoint_from'] = $checkpointApplied->format(DateTimeImmutable::ATOM);
@@ -76,6 +84,10 @@ class FibuExportService
         );
 
         $token = $payload['atoken'];
+        $baseUri = $payload['base_uri'] ?? ($options->baseUri ?? $this->defaultBaseUri);
+        if ($baseUri === null || $baseUri === '') {
+            throw new RuntimeException('Es wurde keine Amagno Base URI angegeben.');
+        }
 
         $tagCache = [];
         $selectionCache = [];
@@ -84,20 +96,21 @@ class FibuExportService
             $payload['magnetid'],
             $options->batchSize,
             $options->modifiedSince,
-            $token
+            $token,
+            $baseUri
         );
 
-        $tagFetcher = function (string $documentId) use (&$tagCache, $token) {
+        $tagFetcher = function (string $documentId) use (&$tagCache, $token, $baseUri) {
             if (!array_key_exists($documentId, $tagCache)) {
-                $tagCache[$documentId] = $this->documentFetcher->fetchDocumentTags($documentId, $token);
+                $tagCache[$documentId] = $this->documentFetcher->fetchDocumentTags($documentId, $token, $baseUri);
             }
 
             return $tagCache[$documentId];
         };
 
-        $selectionFetcher = function (string $nodeId) use (&$selectionCache, $token) {
+        $selectionFetcher = function (string $nodeId) use (&$selectionCache, $token, $baseUri) {
             if (!array_key_exists($nodeId, $selectionCache)) {
-                $selectionCache[$nodeId] = $this->documentFetcher->fetchSelectionNode($nodeId, $token);
+                $selectionCache[$nodeId] = $this->documentFetcher->fetchSelectionNode($nodeId, $token, $baseUri);
             }
 
             return $selectionCache[$nodeId];
@@ -128,8 +141,8 @@ class FibuExportService
                 $matchingContext->templateName
             );
 
-            if (!empty($payload['stampid']) && !empty($payload['atoken'])) {
-                $this->stampService->apply($documents, $this->defaultBaseUri, $payload['atoken'], $payload['stampid']);
+            if (!empty($payload['success_stamp']) && !empty($payload['atoken'])) {
+                $this->stampService->apply($documents, $baseUri, $payload['atoken'], $payload['success_stamp']);
             }
         }
 
@@ -164,14 +177,21 @@ class FibuExportService
             'dbname' => $options->dbName,
             'dbuser' => $options->dbUser,
             'dbpassword' => $options->dbPassword,
-            'stampid' => $options->stampId,
+            'success_stamp' => $options->successStampId ?? $options->stampId,
+            'error_stamp' => $options->errorStampId,
+            'error_attribute' => $options->errorAttributeId,
+            'base_uri' => $options->baseUri ?? $this->defaultBaseUri,
             'atoken' => $token,
         ];
 
-        return array_filter(
+        $filtered = array_filter(
             $payload,
             static fn ($value) => $value !== null && $value !== ''
         );
+
+        $filtered['base_uri'] = $options->baseUri ?? $this->defaultBaseUri;
+
+        return $filtered;
     }
 
     /**
@@ -208,19 +228,79 @@ class FibuExportService
 
         $username = $options->apiUsername ?: $this->defaultApiUsername;
         $password = $options->apiPassword ?: $this->defaultApiPassword;
+        $baseUri = $options->baseUri ?? $this->defaultBaseUri;
+
+        if ($baseUri === null || $baseUri === '') {
+            throw new RuntimeException('Es wurde keine Amagno Base URI konfiguriert.');
+        }
 
         if ($username === null || $username === '' || $password === null || $password === '') {
             throw new RuntimeException('Es ist kein API-Token und kein Benutzer/Passwort für Amagno hinterlegt.');
         }
 
-        $this->credentialStore->setCredentials($this->defaultBaseUri, $username, $password);
+        $credentialId = $options->credentialId
+            ?? $this->credentialStore->getDefaultCredentialId()
+            ?? $this->defaultCredentialId;
+
+        if ($credentialId === null) {
+            throw new RuntimeException('Es ist keine Credential-ID für Amagno hinterlegt.');
+        }
+
+        $this->credentialStore->setCredentials($baseUri, $username, $password, $credentialId);
 
         $token = $this->tokenProvider
-            ->getToken($this->credentialStore->getCredentialId())
+            ->getToken($credentialId)
             ->getTokenString();
 
         $options->token = $token;
 
         return $token;
+    }
+
+    private function handleError(SyncOptions $options, \Throwable $exception): void
+    {
+        if ($options->errorStampId === null && $options->errorAttributeId === null) {
+            return;
+        }
+
+        $baseUri = $options->baseUri ?? $this->defaultBaseUri;
+        $token = $options->token;
+        $magnetId = $options->magnetId;
+
+        if ($baseUri === null || $token === null || $magnetId === '') {
+            return;
+        }
+
+        try {
+            $documents = $this->documentFetcher->fetchDocuments(
+                $magnetId,
+                $options->batchSize,
+                $options->modifiedSince,
+                $token,
+                $baseUri
+            );
+
+            if ($options->errorStampId !== null) {
+                $this->stampService->apply($documents, $baseUri, $token, $options->errorStampId);
+            }
+
+            if ($options->errorAttributeId !== null) {
+                $message = mb_substr($exception->getMessage(), 0, 500);
+                foreach ($documents as $document) {
+                    if (!isset($document['id'])) {
+                        continue;
+                    }
+                    $this->tagWriter->writeSingleLineTag(
+                        $baseUri,
+                        $token,
+                        (string) $document['id'],
+                        $options->errorAttributeId,
+                        $message
+                    );
+                }
+            }
+        } catch (\Throwable) {
+            // Fehler beim Nachbearbeiten sollen den ursprünglichen Fehler nicht überlagern.
+        }
     }
 }

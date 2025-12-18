@@ -20,7 +20,8 @@ class DocumentFetcher
         string $magnetId,
         int $limit = 50,
         ?\DateTimeInterface $modifiedSince = null,
-        ?string $tokenOverride = null
+        ?string $tokenOverride = null,
+        ?string $baseUriOverride = null
     ): array {
         $query = [
             'count' => max(1, min($limit, 500)),
@@ -32,7 +33,7 @@ class DocumentFetcher
 
         $url = sprintf(
             '%s/api/v2/magnets/%s/documents?%s',
-            rtrim($this->baseUri, '/'),
+            rtrim($this->resolveBaseUri($baseUriOverride), '/'),
             $magnetId,
             http_build_query($query)
         );
@@ -53,11 +54,11 @@ class DocumentFetcher
     /**
      * @return array<string, mixed>
      */
-    public function fetchDocumentTags(string $documentId, ?string $tokenOverride = null): array
+    public function fetchDocumentTags(string $documentId, ?string $tokenOverride = null, ?string $baseUriOverride = null): array
     {
         $url = sprintf(
             '%s/api/v2/documents/%s/tags',
-            rtrim($this->baseUri, '/'),
+            rtrim($this->resolveBaseUri($baseUriOverride), '/'),
             $documentId
         );
 
@@ -70,11 +71,11 @@ class DocumentFetcher
         return is_array($data) ? $data : [];
     }
 
-    public function fetchSelectionNode(string $nodeId, ?string $tokenOverride = null): array
+    public function fetchSelectionNode(string $nodeId, ?string $tokenOverride = null, ?string $baseUriOverride = null): array
     {
         $url = sprintf(
             '%s/api/v2/selection-definition-nodes/%s',
-            rtrim($this->baseUri, '/'),
+            rtrim($this->resolveBaseUri($baseUriOverride), '/'),
             $nodeId
         );
 
@@ -101,5 +102,15 @@ class DocumentFetcher
             'Authorization' => 'Bearer '.$token,
             'Accept' => 'application/json',
         ];
+    }
+
+    private function resolveBaseUri(?string $override): string
+    {
+        $base = $override ?: $this->baseUri;
+        if ($base === '') {
+            throw new \RuntimeException('Es wurde keine Amagno Base URI konfiguriert.');
+        }
+
+        return $base;
     }
 }

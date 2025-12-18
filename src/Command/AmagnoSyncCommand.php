@@ -3,6 +3,8 @@
 namespace App\Command;
 
 use App\Dto\SyncOptions;
+use App\Service\Amagno\ConnectionDefinition;
+use App\Service\Amagno\ConnectionRegistry;
 use App\Service\FibuExportService;
 use DateTimeImmutable;
 use RuntimeException;
@@ -19,7 +21,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 class AmagnoSyncCommand extends Command
 {
     public function __construct(
-        private readonly FibuExportService $fibuExportService
+        private readonly FibuExportService $fibuExportService,
+        private readonly ConnectionRegistry $connectionRegistry
     ) {
         parent::__construct();
     }
@@ -37,6 +40,13 @@ class AmagnoSyncCommand extends Command
             ->addOption('api-user', null, InputOption::VALUE_OPTIONAL, 'Benutzername des technischen Amagno-Kontos')
             ->addOption('api-password', null, InputOption::VALUE_OPTIONAL, 'Passwort des technischen Amagno-Kontos')
             ->addOption('api-auth-type', null, InputOption::VALUE_OPTIONAL, 'AuthenticationType für den Login (optional)')
+            ->addOption('base-uri', null, InputOption::VALUE_OPTIONAL, 'Amagno Base URI (überschreibt AMAGNO_BASE_URI)')
+            ->addOption('credential-id', null, InputOption::VALUE_OPTIONAL, 'Credential-ID für den Tokenabruf')
+            ->addOption('success-stamp', null, InputOption::VALUE_OPTIONAL, 'Stempel-ID für erfolgreiche Verarbeitung')
+            ->addOption('error-stamp', null, InputOption::VALUE_OPTIONAL, 'Stempel-ID bei Fehlern')
+            ->addOption('error-attribute', null, InputOption::VALUE_OPTIONAL, 'Merkmals-ID für Fehlermeldungen')
+            ->addOption('connection', null, InputOption::VALUE_OPTIONAL, 'ID einer vordefinierten Amagno-Verbindung aus config/amagno_connections.json')
+            ->addOption('all-connections', null, InputOption::VALUE_NONE, 'Alle vordefinierten Amagno-Verbindungen verarbeiten')
             ->addOption('vault', null, InputOption::VALUE_OPTIONAL, 'Vault ID for Amagno export')
             ->addOption('folder', null, InputOption::VALUE_OPTIONAL, 'Local export folder')
             ->addOption('ftp-server', null, InputOption::VALUE_OPTIONAL, 'FTP server')
@@ -56,84 +66,21 @@ class AmagnoSyncCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $magnetId = (string) $input->getOption('magnet');
-        if ($magnetId === '') {
-            throw new RuntimeException('Option --magnet ist erforderlich.');
+        $runAllConnections = (bool) $input->getOption('all-connections');
+        $connectionId = $input->getOption('connection') ?: null;
+
+        if ($runAllConnections) {
+            return $this->runAllConnections($input, $output);
         }
 
-        $exportTarget = (string) $input->getOption('export');
-        if ($exportTarget === '') {
-            throw new RuntimeException('Option --export ist erforderlich.');
+        if ($connectionId !== null) {
+            $connection = $this->connectionRegistry->get($connectionId);
+            $options = $this->createOptionsFromConnection($connection, $input);
+        } else {
+            $options = $this->createOptionsFromInput($input);
         }
 
-        $profile = $input->getOption('matching-profile') ?: null;
-        $limit = (int) $input->getOption('limit');
-        $useCheckpoint = (bool) $input->getOption('use-checkpoint');
-        $checkpointKey = $input->getOption('checkpoint-key') ?: $magnetId;
-
-        $since = $this->resolveSinceDate(
-            $input->getOption('since')
-        );
-
-        $options = new SyncOptions(
-            magnetId: $magnetId,
-            exportTarget: $exportTarget,
-            profile: $profile,
-            template: $input->getOption('template') ?: null,
-            system: $input->getOption('system') ?? 'onprem',
-            token: $input->getOption('token') ?: null,
-            apiUsername: $input->getOption('api-user') ?: null,
-            apiPassword: $input->getOption('api-password') ?: null,
-            apiAuthType: $input->getOption('api-auth-type') ?: null,
-            vaultId: $input->getOption('vault') ?: null,
-            localFolder: $input->getOption('folder') ?: null,
-            ftpServer: $input->getOption('ftp-server') ?: null,
-            ftpUser: $input->getOption('ftp-user') ?: null,
-            ftpPassword: $input->getOption('ftp-password') ?: null,
-            ftpFolder: $input->getOption('ftp-folder') ?: null,
-            dbHost: $input->getOption('db-host') ?: null,
-            dbName: $input->getOption('db-name') ?: null,
-            dbUser: $input->getOption('db-user') ?: null,
-            dbPassword: $input->getOption('db-password') ?: null,
-            stampId: $input->getOption('stamp-id') ?: null,
-            dryRun: (bool) $input->getOption('dry-run'),
-            useCheckpoint: $useCheckpoint,
-            checkpointName: $checkpointKey,
-            batchSize: $limit,
-            modifiedSince: $since
-        );
-
-        $result = $this->fibuExportService->sync($options);
-        $documentCount = $result['document_count'] ?? 0;
-        $renderedCount = $result['rendered_blocks'] ?? 0;
-
-        if ($documentCount === 0) {
-            $output->writeln('<info>Keine neuen Dokumente gefunden.</info>');
-            return Command::SUCCESS;
-        }
-
-        $output->writeln(sprintf(
-            '<info>%d Dokument(e) verarbeitet, %d Ausgabeblöcke erzeugt.</info>',
-            $documentCount,
-            $renderedCount
-        ));
-
-        if (!empty($result['debug'])) {
-            foreach ($result['debug'] as $line) {
-                $output->writeln('<comment>'.$line.'</comment>');
-            }
-        }
-
-        if (!empty($result['checkpoint_from'])) {
-            $output->writeln(sprintf('<info>Checkpoint verwendet: %s</info>', $result['checkpoint_from']));
-        }
-        if (!empty($result['checkpoint_updated'])) {
-            $output->writeln(sprintf('<info>Checkpoint gespeichert: %s</info>', $result['checkpoint_updated']));
-        }
-
-        if (!empty($result['documents']) && $options->dryRun) {
-            $this->renderPreview($result['documents'], $output);
-        }
+        $this->performSync($options, $output);
 
         return Command::SUCCESS;
     }
@@ -164,5 +111,160 @@ class AmagnoSyncCommand extends Command
         }
 
         return null;
+    }
+
+    private function runAllConnections(InputInterface $input, OutputInterface $output): int
+    {
+        if (!$this->connectionRegistry->hasConnections()) {
+            throw new RuntimeException('Es sind keine Verbindungen in config/amagno_connections.json konfiguriert.');
+        }
+
+        foreach ($this->connectionRegistry->all() as $connection) {
+            $output->writeln(sprintf('<comment>Starte Verbindung "%s"</comment>', $connection->id()));
+            $options = $this->createOptionsFromConnection($connection, $input);
+            $this->performSync($options, $output);
+        }
+
+        return Command::SUCCESS;
+    }
+
+    private function createOptionsFromConnection(ConnectionDefinition $connection, InputInterface $input): SyncOptions
+    {
+        $exportTarget = $this->resolveExportTarget($input, $connection->exportTarget());
+        $limit = (int) $input->getOption('limit');
+        $useCheckpoint = (bool) $input->getOption('use-checkpoint');
+        $since = $this->resolveSinceDate($input->getOption('since'));
+
+        $magnetId = $input->getOption('magnet') ?: $connection->magnetId();
+        $checkpointKey = $input->getOption('checkpoint-key') ?: $magnetId;
+
+        return new SyncOptions(
+            magnetId: $magnetId,
+            exportTarget: $exportTarget,
+            profile: $input->getOption('matching-profile') ?: $connection->profile(),
+            template: $input->getOption('template') ?: $connection->template(),
+            system: $input->getOption('system') ?? $connection->system() ?? 'onprem',
+            token: $input->getOption('token') ?: null,
+            apiUsername: $connection->username(),
+            apiPassword: $connection->password(),
+            apiAuthType: $connection->authType(),
+            baseUri: $connection->baseUri(),
+            credentialId: $connection->credentialId(),
+            connectionId: $connection->id(),
+            vaultId: $input->getOption('vault') ?: $connection->vaultId(),
+            localFolder: $input->getOption('folder') ?: null,
+            ftpServer: $input->getOption('ftp-server') ?: null,
+            ftpUser: $input->getOption('ftp-user') ?: null,
+            ftpPassword: $input->getOption('ftp-password') ?: null,
+            ftpFolder: $input->getOption('ftp-folder') ?: null,
+            dbHost: $input->getOption('db-host') ?: null,
+            dbName: $input->getOption('db-name') ?: null,
+            dbUser: $input->getOption('db-user') ?: null,
+            dbPassword: $input->getOption('db-password') ?: null,
+            stampId: $input->getOption('stamp-id') ?: null,
+            successStampId: $input->getOption('success-stamp') ?: $connection->successStampId(),
+            errorStampId: $input->getOption('error-stamp') ?: $connection->errorStampId(),
+            errorAttributeId: $input->getOption('error-attribute') ?: $connection->errorAttributeId(),
+            dryRun: (bool) $input->getOption('dry-run'),
+            useCheckpoint: $useCheckpoint,
+            checkpointName: $checkpointKey,
+            batchSize: $limit,
+            modifiedSince: $since
+        );
+    }
+
+    private function createOptionsFromInput(InputInterface $input): SyncOptions
+    {
+        $magnetId = (string) $input->getOption('magnet');
+        if ($magnetId === '') {
+            throw new RuntimeException('Option --magnet ist erforderlich.');
+        }
+
+        $exportTarget = $this->resolveExportTarget($input);
+        $limit = (int) $input->getOption('limit');
+        $useCheckpoint = (bool) $input->getOption('use-checkpoint');
+        $checkpointKey = $input->getOption('checkpoint-key') ?: $magnetId;
+        $since = $this->resolveSinceDate($input->getOption('since'));
+
+        return new SyncOptions(
+            magnetId: $magnetId,
+            exportTarget: $exportTarget,
+            profile: $input->getOption('matching-profile') ?: null,
+            template: $input->getOption('template') ?: null,
+            system: $input->getOption('system') ?? 'onprem',
+            token: $input->getOption('token') ?: null,
+            apiUsername: $input->getOption('api-user') ?: null,
+            apiPassword: $input->getOption('api-password') ?: null,
+            apiAuthType: $input->getOption('api-auth-type') ?: null,
+            baseUri: $input->getOption('base-uri') ?: null,
+            credentialId: $input->getOption('credential-id') ? (int) $input->getOption('credential-id') : null,
+            vaultId: $input->getOption('vault') ?: null,
+            localFolder: $input->getOption('folder') ?: null,
+            ftpServer: $input->getOption('ftp-server') ?: null,
+            ftpUser: $input->getOption('ftp-user') ?: null,
+            ftpPassword: $input->getOption('ftp-password') ?: null,
+            ftpFolder: $input->getOption('ftp-folder') ?: null,
+            dbHost: $input->getOption('db-host') ?: null,
+            dbName: $input->getOption('db-name') ?: null,
+            dbUser: $input->getOption('db-user') ?: null,
+            dbPassword: $input->getOption('db-password') ?: null,
+            stampId: $input->getOption('stamp-id') ?: null,
+            successStampId: $input->getOption('success-stamp') ?: null,
+            errorStampId: $input->getOption('error-stamp') ?: null,
+            errorAttributeId: $input->getOption('error-attribute') ?: null,
+            dryRun: (bool) $input->getOption('dry-run'),
+            useCheckpoint: $useCheckpoint,
+            checkpointName: $checkpointKey,
+            batchSize: $limit,
+            modifiedSince: $since
+        );
+    }
+
+    private function performSync(SyncOptions $options, OutputInterface $output): void
+    {
+        if ($options->connectionId !== null) {
+            $output->writeln(sprintf('<info>Verbindung: %s</info>', $options->connectionId));
+        }
+
+        $result = $this->fibuExportService->sync($options);
+        $documentCount = $result['document_count'] ?? 0;
+        $renderedCount = $result['rendered_blocks'] ?? 0;
+
+        if ($documentCount === 0) {
+            $output->writeln('<info>Keine neuen Dokumente gefunden.</info>');
+        } else {
+            $output->writeln(sprintf(
+                '<info>%d Dokument(e) verarbeitet, %d Ausgabeblöcke erzeugt.</info>',
+                $documentCount,
+                $renderedCount
+            ));
+        }
+
+        if (!empty($result['debug'])) {
+            foreach ($result['debug'] as $line) {
+                $output->writeln('<comment>'.$line.'</comment>');
+            }
+        }
+
+        if (!empty($result['checkpoint_from'])) {
+            $output->writeln(sprintf('<info>Checkpoint verwendet: %s</info>', $result['checkpoint_from']));
+        }
+        if (!empty($result['checkpoint_updated'])) {
+            $output->writeln(sprintf('<info>Checkpoint gespeichert: %s</info>', $result['checkpoint_updated']));
+        }
+
+        if (!empty($result['documents']) && $options->dryRun) {
+            $this->renderPreview($result['documents'], $output);
+        }
+    }
+
+    private function resolveExportTarget(InputInterface $input, ?string $fallback = null): string
+    {
+        $exportTarget = $input->getOption('export') ?: $fallback;
+        if ($exportTarget === null || $exportTarget === '') {
+            throw new RuntimeException('Option --export oder eine Konfiguration ist erforderlich.');
+        }
+
+        return (string) $exportTarget;
     }
 }

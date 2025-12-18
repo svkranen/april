@@ -1,0 +1,26 @@
+{
+    "credentials": [
+        {
+            "cid": 1,
+            "base_uri": "https://amagno-cloud.example.com",
+            "username": "",
+            "password": "",
+            "auth_type": null
+        }
+    ],
+    "configurations": [
+        {
+            "id": "example",
+            "credential_id": 1,
+            "vault_id": "",
+            "magnet_id": "",
+            "profile": null,
+            "template": null,
+            "system": "onprem",
+            "export": null,
+            "success_stamp": null,
+            "error_stamp": null,
+            "error_attribute": null
+        }
+    ]
+}
