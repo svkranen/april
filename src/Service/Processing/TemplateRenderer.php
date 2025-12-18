@@ -605,8 +605,18 @@ class TemplateRenderer
                 $calculation = [];
                 foreach($temp_matches[0] as $operand) {
                     if (preg_match('/\[\:\:([^:\[\]]+)\:\:\]/',$operand)) {
-                        if (isset($data[$matching[$operand]])) {
-                            $temptag = $data[$matching[$operand]];
+                        if (!isset($matching[$operand])) {
+                            if ($forced) {
+                                $calculation[] = '""';
+                                continue;
+                            }
+
+                            return "";
+                        }
+
+                        $key = $matching[$operand];
+                        if (isset($data[$key])) {
+                            $temptag = $data[$key];
                             if (isset($matching[$operand."func"])) {
                                 $calculation[] = '"'.$this->applyFunction($matching[$operand."func"],$temptag->value,$matching,$data).'"';
                             } else {
