@@ -3,11 +3,55 @@
 <!-- UIkit JS -->
 <script src="https://cdn.jsdelivr.net/npm/uikit@3.15.10/dist/js/uikit.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/uikit@3.15.10/dist/js/uikit-icons.min.js"></script>
+<style>
+    body {
+        background-color: #f5f7fb;
+    }
+
+    .settings-wrapper {
+        max-width: 1200px;
+        margin: 30px auto;
+        padding: 0 18px 40px;
+    }
+
+    .settings-card {
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 24px;
+        box-shadow: 0 10px 25px rgba(15, 18, 34, 0.08);
+        margin-bottom: 24px;
+    }
+
+    .settings-grid {
+        gap: 20px;
+    }
+
+    #settingsdiv {
+        padding-top: 32px;
+    }
+
+    #settingsStatus {
+        margin-top: 12px;
+    }
+
+    .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .button-row .uk-button {
+        min-width: 180px;
+    }
+</style>
 <script>
     let atoken = "";
     let profiles = {};
     let currentProfile = "";
     const statusClasses = ["uk-alert-primary","uk-alert-success","uk-alert-danger","uk-alert-warning"];
+    const SESSION_STORAGE_KEY = "amagnoSettingsSession";
+    const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
+    let relogIntervalId = null;
 
     function getStatusElement() {
         return document.getElementById("settingsStatus");
@@ -62,6 +106,189 @@
         showStatusMessage(message, "danger");
     }
 
+    function persistSessionData(sessionData) {
+        if (typeof localStorage === "undefined") {
+            return;
+        }
+        try {
+            localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+                ...sessionData,
+                timestamp: Date.now()
+            }));
+        } catch (error) {
+            console.warn("Session konnte nicht gespeichert werden.", error);
+        }
+    }
+
+    function clearSessionData() {
+        if (typeof localStorage === "undefined") {
+            return;
+        }
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+
+    function initializeSettingsView() {
+        const loginDiv = document.getElementById("amagnologindiv");
+        const settingsDiv = document.getElementById("settingsdiv");
+        if (loginDiv) {
+            loginDiv.classList.add("uk-hidden");
+        }
+        if (settingsDiv) {
+            settingsDiv.classList.remove("uk-hidden");
+        }
+        populateProfileOptions();
+        setupProfileSelect();
+        loadVaults();
+    }
+
+    function loadVaults() {
+        const vaultselect = document.getElementById("vaultselect_fibu");
+        if (!vaultselect || !atoken) {
+            return;
+        }
+        vaultselect.innerHTML = "";
+        const placeholder = document.createElement("option");
+        placeholder.setAttribute("value","0");
+        placeholder.textContent = "Bitte Ablage auswählen";
+        vaultselect.appendChild(placeholder);
+
+        const req = new XMLHttpRequest();
+        req.addEventListener("load", (event2)=>{
+            if (event2.target.status==200) {
+                const vaultlist = JSON.parse(event2.target.responseText);
+                vaultlist.forEach((vault)=> {
+                    const option = document.createElement("option");
+                    option.setAttribute("value",vault.id);
+                    option.textContent = vault.name;
+                    vaultselect.appendChild(option);
+                });
+            } else {
+                handleRequestError("Ablagen laden", false, "Serverantwort "+event2.target.status);
+            }
+        });
+        req.addEventListener("error", ()=>handleRequestError("Ablagen laden"));
+        req.addEventListener("timeout", ()=>handleRequestError("Ablagen laden"));
+        req.timeout = 15000;
+        req.open("GET", aurl+"/api/v2/vaults");
+        req.setRequestHeader('Authorization', 'Bearer '+atoken);
+        req.send();
+    }
+
+    function setupProfileSelect() {
+        const profileselect = document.getElementById("profileselect");
+        if (!profileselect || profileselect.dataset.listenerAttached === "true") {
+            return profileselect;
+        }
+        profileselect.dataset.listenerAttached = "true";
+        profileselect.addEventListener("change", handleProfileSelectChange);
+        return profileselect;
+    }
+
+    function handleProfileSelectChange(event3) {
+        if (event3.target.value=="0") {
+            matching = {};
+            currentProfile = "";
+        } else {
+            matching = profiles[event3.target.value];
+            currentProfile = event3.target.value;
+        }
+        const trigger = new Event("change");
+        const systemSelect = document.getElementById("systemselect");
+        if (!systemSelect) {
+            return;
+        }
+        if (systemSelect.value=="onprem") {
+            const inputfile = document.getElementById("inputfile");
+            if (inputfile) {
+                inputfile.dispatchEvent(trigger);
+            }
+        } else {
+            systemSelect.dispatchEvent(trigger);
+        }
+    }
+
+    function populateProfileOptions() {
+        const profileselect = document.getElementById("profileselect");
+        if (!profileselect) {
+            return;
+        }
+        const previousSelection = currentProfile || profileselect.value || "0";
+        profileselect.innerHTML = "";
+        const defaultOption = document.createElement("option");
+        defaultOption.value = "0";
+        defaultOption.textContent = "Als neues Profil speichern";
+        profileselect.appendChild(defaultOption);
+        Object.keys(profiles || {}).forEach((profile)=>{
+            const tempoption = document.createElement("option");
+            tempoption.value = profile;
+            tempoption.textContent = profile;
+            profileselect.appendChild(tempoption);
+        });
+        if (previousSelection !== "0" && profiles[previousSelection]) {
+            profileselect.value = previousSelection;
+        } else {
+            profileselect.value = "0";
+        }
+    }
+
+    function canRelog() {
+        const auserField = document.getElementById("auser");
+        const apwField = document.getElementById("apw");
+        return auserField && apwField && auserField.value !== "" && apwField.value !== "";
+    }
+
+    function startRelogInterval() {
+        if (relogIntervalId) {
+            clearInterval(relogIntervalId);
+        }
+        if (!canRelog()) {
+            return;
+        }
+        relogIntervalId = setInterval(() => {
+            relog();
+        }, 1500000);
+    }
+
+    function restoreSessionFromStorage() {
+        if (typeof localStorage === "undefined") {
+            return;
+        }
+        const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+        if (!stored) {
+            return;
+        }
+        let sessionData;
+        try {
+            sessionData = JSON.parse(stored);
+        } catch (error) {
+            clearSessionData();
+            return;
+        }
+        if (!sessionData.token || (sessionData.timestamp + SESSION_DURATION_MS) < Date.now()) {
+            clearSessionData();
+            return;
+        }
+        atoken = sessionData.token;
+        if (sessionData.url) {
+            aurl = sessionData.url;
+            const urlField = document.getElementById("aurl");
+            if (urlField) {
+                urlField.value = sessionData.url;
+            }
+        }
+        const userField = document.getElementById("auser");
+        if (userField && sessionData.user) {
+            userField.value = sessionData.user;
+        }
+        const loginTypeField = document.getElementById("logintype");
+        if (loginTypeField && sessionData.loginType) {
+            loginTypeField.value = sessionData.loginType;
+        }
+        initializeSettingsView();
+        showStatusMessage("Vorherige Sitzung wiederhergestellt.", "primary");
+        startRelogInterval();
+    }
+
     function appendFormValue(target, key, value) {
         if (typeof key === "undefined" || key === null) {
             return;
@@ -91,9 +318,10 @@
     <?php endif;?>
     
     let taglist = [];
+    let matching = {};
     <?php if (!defined('_JEXEC') && file_exists("matching.json")):?>
     profiles = JSON.parse('<?=file_get_contents("matching.json")?>');
-    let matching = JSON.parse('<?=file_get_contents("matching.json")?>');
+    matching = JSON.parse('<?=file_get_contents("matching.json")?>');
     <?php endif;?>
     <?php if (defined("_JEXEC")):?>
         <?php
@@ -140,7 +368,7 @@
         foreach($matchingfiles as $file) {
             if (substr($file,0,strlen((string)$user->id))===(string)$user->id) {
                 echo 'profiles = JSON.parse(\''.file_get_contents("api/components/com_apianbindungen/fibuExport/matchings/".$file).'\');';
-                echo 'let matching = JSON.parse(\''.file_get_contents("api/components/com_apianbindungen/fibuExport/matchings/".$file).'\');';
+                echo 'matching = JSON.parse(\''.file_get_contents("api/components/com_apianbindungen/fibuExport/matchings/".$file).'\');';
                 break;
             }
         }
@@ -219,61 +447,28 @@
         }
 		let req = new XMLHttpRequest();
 		req.addEventListener("load", (event)=>{
-			atoken = JSON.parse(event.target.responseText);
-            let vaultselect_fibu = document.getElementById("vaultselect_fibu");
-            let req = new XMLHttpRequest();
-	        req.addEventListener("load", (event2)=>{
-                if (event2.target.status==200) {
-                    document.getElementById("amagnologindiv").classList.add("uk-hidden");
-                    document.getElementById("settingsdiv").classList.remove("uk-hidden");
-                    let vaultlist = JSON.parse(event2.target.responseText);
-                    let option = document.createElement("option");
-                    option.setAttribute("value","0");
-                    option.textContent = "Bitte Ablage auswählen";
-                    vaultselect_fibu.appendChild(option);
-                    vaultlist.forEach((vault)=> {
-                        let option = document.createElement("option");
-                        option.setAttribute("value",vault.id);
-                        option.textContent = vault.name;
-                        vaultselect_fibu.appendChild(option);
-                    });
-                }
-            });
-            req.open("GET", aurl+"/api/v2/vaults");
-            req.setRequestHeader('Authorization', 'Bearer '+atoken);
-            req.send();
-            setInterval(() => {
-                relog();
-            }, 1500000);
-            
-			let profileselect = document.getElementById("profileselect");
-            profileselect.addEventListener("change", (event3)=>{
-                if (event3.target.value=="0") {
-                    // currentProfile = "";
-                    matching =  [];
-                } else {
-                    // currentProfile = event3.target.value;
-                    matching = profiles[event3.target.value];
-                }
-                // let newEvent = new Event("change");
-                // document.getElementById("systemselect").dispatchEvent(newEvent);
-				let trigger = new Event("change");
-                if (document.getElementById("systemselect").value=="onprem") {
-                    document.getElementById("inputfile").dispatchEvent(trigger);
-                    console.log("trigger inputfile");
-                } else {
-                    document.getElementById("systemselect").dispatchEvent(trigger);
-                    // console.log("trigger systemselect");
-                }
-            })
-            for (profile in profiles) {
-                let tempoption = document.createElement("option");
-                tempoption.value = profile;
-                tempoption.textContent = profile;
-                profileselect.appendChild(tempoption);
+            if (event.target.status !== 200) {
+                handleRequestError("Login", false, "Serverantwort "+event.target.status);
+                return;
             }
-			
+            try {
+                atoken = JSON.parse(event.target.responseText);
+            } catch (error) {
+                handleRequestError("Login", false, "Ungültige Serverantwort.");
+                return;
+            }
+            persistSessionData({
+                token: atoken,
+                user: auser,
+                url: aurl,
+                loginType: document.getElementById("logintype").value
+            });
+            initializeSettingsView();
+            startRelogInterval();
 		});
+        req.addEventListener("error", ()=>handleRequestError("Login"));
+        req.addEventListener("timeout", ()=>handleRequestError("Login"));
+        req.timeout = 15000;
 		req.open("POST", aurl+"/api/v2/token");
 		req.setRequestHeader('Content-type', 'text/json');
         if (document.getElementById("logintype").value=="windows") {
@@ -305,6 +500,21 @@
     <?php endif;?>
 
 
+    function setValueInputMode(row, useFixValue) {
+        const tagselect = document.getElementById("tag"+row);
+        const fixinput = document.getElementById("fix"+row);
+        if (!tagselect || !fixinput) {
+            return;
+        }
+        if (useFixValue) {
+            tagselect.classList.add("uk-hidden");
+            fixinput.classList.remove("uk-hidden");
+        } else {
+            tagselect.classList.remove("uk-hidden");
+            fixinput.classList.add("uk-hidden");
+        }
+    }
+
     function createRows(rows) {
         let tbody = document.getElementById("tablebody");
         tbody.innerHTML="";
@@ -324,9 +534,7 @@
             select1.classList.add("savevalues");
             select1.classList.add("uk-select");
             select1.setAttribute("id","group"+rowcount);
-            select1.addEventListener("change",(event)=>{
-                updateTags(event);
-            });
+            select1.addEventListener("change",updateTags);
             let foo = document.createElement("option");
             foo.textContent = "Bitte Merkmalgruppe auswählen";
             foo.value = "0";
@@ -498,23 +706,19 @@
         }
     }
     function updateTags(event) {
-        if (event.target.value=="0") {
-            return
-        }
         let row = event.target.id.substring(5);
-        console.log("tag"+row);
         let tagselect = document.getElementById("tag"+row);
-        if (event.target.value=="1") {
-            // console.log("toggle");
-            tagselect.classList.toggle("uk-hidden");
-            document.getElementById("fix"+row).classList.toggle("uk-hidden");
-        }   
+        if (!tagselect) {
+            return;
+        }
+        const isFixValue = event.target.value==="1";
+        setValueInputMode(row, isFixValue);
         tagselect.innerHTML = "";
         let option = document.createElement("option");
         option.textContent = "Bitte Merkmal auswählen";
         option.value = "0";
         tagselect.appendChild(option);
-        if (event.target.value=="1") {
+        if (event.target.value=="0" || isFixValue) {
             return;
         }
         let temparray = taglist[event.target.value];
@@ -649,10 +853,9 @@
                 showStatusMessage(responseobj.message, responseobj.status=="error" ? "danger" : "success");
                 if (responseobj.status=="newProfile") {
                     profiles[responseobj.profilename] = responseobj.profile;
-                    let tempoption = document.createElement("option");
-                    tempoption.value = responseobj.profilename;
-                    tempoption.textContent = responseobj.profilename;
-                    document.getElementById("profileselect").appendChild(tempoption);
+                    currentProfile = responseobj.profilename;
+                    matching = responseobj.profile;
+                    populateProfileOptions();
                 }
             } else {
                 handleRequestError("Speichern", false, "Serverantwort "+event.target.status);
@@ -734,10 +937,9 @@
                 if (responseobj.status=="deletedProfile") {
                     showStatusMessage(responseobj.message, "success");
                     delete profiles[responseobj.profilename];
-                    Array.from(profileselect.selectedOptions).forEach((tempoption)=>{
-                        tempoption.remove();
-                    });
                     profileselect.value = "0";
+                    currentProfile = "";
+                    populateProfileOptions();
                     let trigger = new Event("change");
                     profileselect.dispatchEvent(trigger);
                 } else {
@@ -755,12 +957,23 @@
         req.send(data.join("&"));
     }
     document.addEventListener("DOMContentLoaded", (event) => {
-        document.getElementById("inputfile").addEventListener("change", createList);
-        document.getElementById("vaultselect_fibu").addEventListener("change",getTags);
-        document.getElementById("systemselect").addEventListener("change",selectSystem);
+        const inputfile = document.getElementById("inputfile");
+        if (inputfile) {
+            inputfile.addEventListener("change", createList);
+        }
+        const vaultselect = document.getElementById("vaultselect_fibu");
+        if (vaultselect) {
+            vaultselect.addEventListener("change",getTags);
+        }
+        const systemselect = document.getElementById("systemselect");
+        if (systemselect) {
+            systemselect.addEventListener("change",selectSystem);
+        }
+        restoreSessionFromStorage();
     });
 </script>
-<div id="amagnologindiv">
+<div class="settings-wrapper uk-container uk-container-large">
+<div id="amagnologindiv" class="settings-card">
     <?php if (defined('_JEXEC')):?>
         <?php 
             $db = Joomla\CMS\Factory::getDBO();
@@ -779,60 +992,41 @@
             </script>
         <?php endif;?>
     <?php else:?>
-    <div class="uk-width-1-2">
-        <form>
-            <fieldset class="uk-fieldset">
-                <legend class="uk-form-label uk-text-bolder">Benutzer</legend>
-                <div>
-                    <div class="uk-inline uk-width-1-1">
-                        <input class="uk-input" id="auser" placeholder="" aria-label="" value="">
-                    </div>
-                </div>
-            </fieldset>
-        </form>
+    <div class="uk-grid-small uk-child-width-1-2@m settings-grid" uk-grid>
+        <div>
+            <legend class="uk-form-label uk-text-bolder">Benutzer</legend>
+            <input class="uk-input uk-width-1-1" id="auser" placeholder="" aria-label="" value="">
+        </div>
+        <div>
+            <legend class="uk-form-label uk-text-bolder">Passwort</legend>
+            <input class="uk-input uk-width-1-1" id="apw" placeholder="" aria-label="" value="" type="password">
+        </div>
+        <div>
+            <legend class="uk-form-label uk-text-bolder">On Premise URL</legend>
+            <input class="uk-input uk-width-1-1" id="aurl" placeholder="" aria-label="" value="" type="text">
+        </div>
+        <div>
+            <legend class="uk-form-label uk-text-bolder">Login-Typ</legend>
+            <select id="logintype" class="uk-select uk-width-1-1">
+                <option value="amagno">Amagno Login</option>
+                <option value="windows">Windows Login</option>
+            </select>
+        </div>
     </div>
-    <div class="uk-width-1-2 uk-margin-top">
-        <form>
-            <fieldset class="uk-fieldset">
-                <legend class="uk-form-label uk-text-bolder">Passwort</legend>
-                <div>
-                    <div class="uk-inline uk-width-1-1">
-                        <input class="uk-input" id="apw" placeholder="" aria-label="" value="" type="password">
-                    </div>
-                </div>
-            </fieldset>
-        </form>
+    <div class="uk-margin-top">
+        <button class="uk-button uk-button-primary" type="button" onclick="login()">Anmelden</button>
     </div>
-    <div class="uk-width-1-2 uk-margin-top">
-        <form>
-            <fieldset class="uk-fieldset">
-                <legend class="uk-form-label uk-text-bolder">On Premise URL</legend>
-                <div>
-                    <div class="uk-inline uk-width-1-1">
-                        <input class="uk-input" id="aurl" placeholder="" aria-label="" value="" type="text">
-                    </div>
-                </div>
-            </fieldset>
-        </form>
-    </div>
-    <div class="uk-width-1-2 uk-margin-top">
-        <select id="logintype" class="uk-select">
-            <option value="amagno">Amagno Login</option>
-            <option value="windows">Windows Login</option>
-        </select>
-    </div>
-    <div class="uk-margin-top"><a class="uk-button-primary uk-button-default uk-margin-top" onclick="login()">anmelden</a></div>
     <?php endif;?>
 </div>
-<div id="settingsdiv" class="uk-hidden">
-    <div>
+<div id="settingsdiv" class="settings-card uk-hidden">
+    <div class="uk-grid-small uk-child-width-1-2@m settings-grid" uk-grid>
         <div>
             <legend class="uk-form-label uk-text-bolder">Ablage</legend>
-            <select name="vaultselect_fibu" id="vaultselect_fibu" class="uk-input uk-width-1-2 uk-margin-bottom uk-select"></select>
+            <select name="vaultselect_fibu" id="vaultselect_fibu" class="uk-input uk-width-1-1 uk-select"></select>
         </div>
         <div>
             <legend class="uk-form-label uk-text-bolder">System</legend>
-            <select id="systemselect" class="uk-margin-bottom uk-select uk-width-1-2">
+            <select id="systemselect" class="uk-select uk-width-1-1">
             <?php if (defined('_JEXEC')):?>
                 <option value="0">Bitte System auswählen</option>
                     <?php 
@@ -851,27 +1045,28 @@
             <?php endif;?>
             </select>
         </div>
-        <div>
-            <input id="inputfile" type="file" class="uk-input uk-width-1-2 uk-margin-bottom <?=defined('_JEXEC')?"uk-hidden":""?>">
+        <div class="<?=defined('_JEXEC')?"uk-hidden":""?>">
+            <legend class="uk-form-label uk-text-bolder">Vorlage hochladen</legend>
+            <input id="inputfile" type="file" class="uk-input uk-width-1-1">
         </div>
         <div>
             <legend class="uk-form-label uk-text-bolder">Profil</legend>
-            <div>
-                <select name="profileselect" id="profileselect" class="uk-input uk-width-1-2 uk-margin-bottom uk-select">
-                    <option value="0">Als neues Profil speichern</option>
-                </select>
-                <input id="newprofilename" name="newprofilename" placeholder="Neuer Profilname"class="uk-input uk-width-1-3 uk-margin-bottom">
-            </div>
+            <select name="profileselect" id="profileselect" class="uk-input uk-width-1-1 uk-select">
+                <option value="0">Als neues Profil speichern</option>
+            </select>
+            <input id="newprofilename" name="newprofilename" placeholder="Neuer Profilname"class="uk-input uk-width-1-1 uk-margin-small-top">
         </div>
-        <div>
-            <button id="savebutton" class="uk-button uk-button-primary uk-margin-top" type="button" onclick='saveMatching()'>speichern</button>
-            <button id="deletebutton" class="uk-button uk-button-default uk-margin-top" type="button" onclick='deleteProfile()'>Profil löschen</button>
-        </div>
-        <div id="settingsStatus" class="uk-alert uk-hidden uk-margin-small-top" uk-alert></div>
     </div>
-    
-    <table class="uk-table uk-table-striped">
-        <tbody id="tablebody">
-        </tbody>
-    </table>
+    <div class="button-row uk-margin-top">
+        <button id="savebutton" class="uk-button uk-button-primary" type="button" onclick='saveMatching()'>Speichern</button>
+        <button id="deletebutton" class="uk-button uk-button-default" type="button" onclick='deleteProfile()'>Profil löschen</button>
+    </div>
+    <div id="settingsStatus" class="uk-alert uk-hidden" uk-alert></div>
+    <div class="uk-overflow-auto uk-margin-top">
+        <table class="uk-table uk-table-striped">
+            <tbody id="tablebody">
+            </tbody>
+        </table>
+    </div>
+</div>
 </div>
