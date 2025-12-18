@@ -13,7 +13,7 @@ parameters:
     amagno.api_password: '%env(string:AMAGNO_API_PASSWORD)%'
     amagno.api_auth_type: '%env(string:AMAGNO_API_AUTH_TYPE)%'
     amagno.credential_id: '%env(int:AMAGNO_CREDENTIAL_ID)%'
-    amagno.connections_file: '%kernel.project_dir%/config/amagno_connections.json'
+    amagno.connections_file: '%kernel.project_dir%/%env(string:AMAGNO_CONNECTIONS_FILE)%'
     amagno.matching_file: '%kernel.project_dir%/%env(string:AMAGNO_MATCHING_FILE)%'
     amagno.template_dir: '%kernel.project_dir%/%env(string:AMAGNO_TEMPLATE_DIR)%'
     amagno.checkpoint_dir: '%kernel.project_dir%/%env(string:AMAGNO_CHECKPOINT_DIR)%'
