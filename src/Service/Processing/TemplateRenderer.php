@@ -713,6 +713,8 @@ class TemplateRenderer
                         $calculation[] = '(';
                     } else if ($operand === '[RB]') {
                         $calculation[] = ')';
+                    } else if ($operand === '[ABS]') {
+                        $calculation[] = 'abs';
                     } else if ($operand === '[ELSE]') {
                         $calculation[] = 'else';
                     } else if ($operand === '[RET]') {
@@ -838,6 +840,7 @@ class TemplateRenderer
             '[GE]',
             '[L]',
             '[G]',
+            '[ABS]',
         ];
 
         foreach ($numericTokens as $token) {
