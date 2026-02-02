@@ -182,6 +182,9 @@ class TemplateRenderer
 
         $output = [];
         foreach ($splitmatrix as $period=>$rows) {
+            if (count($rows) === 0) {
+                continue;
+            }
             $newString = $template;
             $splits_marker = [];
             if ($gdi_mode && !$accurate_split) {
@@ -710,6 +713,8 @@ class TemplateRenderer
                         $calculation[] = '(';
                     } else if ($operand === '[RB]') {
                         $calculation[] = ')';
+                    } else if ($operand === '[ABS]') {
+                        $calculation[] = 'abs';
                     } else if ($operand === '[ELSE]') {
                         $calculation[] = 'else';
                     } else if ($operand === '[RET]') {
@@ -835,6 +840,7 @@ class TemplateRenderer
             '[GE]',
             '[L]',
             '[G]',
+            '[ABS]',
         ];
 
         foreach ($numericTokens as $token) {
