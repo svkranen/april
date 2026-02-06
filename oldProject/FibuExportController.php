@@ -21,6 +21,17 @@
         public function fibu_saveMatching() {
             $oldcontent = "[]";
             $system = $_POST["system"] ?? "onprem";
+            $missing = [];
+            foreach (["system", "profileselect", "profilename", "aurl"] as $key) {
+                if (!isset($_POST[$key])) {
+                    $missing[] = $key;
+                }
+            }
+            if (!empty($missing)) {
+                Helper::log("fibu_saveMatching missing: ".implode(",", $missing));
+                Helper::log("fibu_saveMatching POST keys: ".implode(",", array_keys($_POST)));
+                Helper::log("fibu_saveMatching raw input: ".file_get_contents("php://input"));
+            }
             if ($system === "onprem") {
                 if (file_exists("matching.json")) {
                     $oldcontent = file_get_contents("matching.json");
@@ -115,8 +126,11 @@
                 }
 
             }
-            if ($_POST["profileselect"]=="0") {
-                if ($_POST["profilename"]=="") {
+            $profileSelect = $_POST["profileselect"] ?? "";
+            $profileName = $_POST["profilename"] ?? "";
+            $aurl = $_POST["aurl"] ?? "";
+            if ($profileSelect === "0") {
+                if ($profileName === "") {
                     $response = (object)[];
                     $response->status = "ok";
                     $response->message = "Bitte Profil auswählen oder einen neuen Profilnamen angeben.";
@@ -125,14 +139,14 @@
                 }
             }
             // var_dump($_POST);die;
-            $data["sys"] = $_POST["system"];
-            $data["url"] = $_POST["aurl"];
-            if ($_POST["profileselect"]=="0") {
-                $profilename = $_POST["profilename"];
+            $data["sys"] = $system;
+            $data["url"] = $aurl;
+            if ($profileSelect === "0") {
+                $profilename = $profileName;
             } else {
-                $profilename = $_POST["profileselect"];
+                $profilename = $profileSelect;
             }
-            if ($_POST["system"]=="onprem") {
+            if ($system === "onprem") {
                 //$data["auser"] = $_POST["auser"];
                 //$data["apw"] = $_POST["apw"];
                 $profiles[$profilename] = $data;
