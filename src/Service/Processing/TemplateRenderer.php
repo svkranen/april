@@ -376,37 +376,37 @@ class TemplateRenderer
                         $tag = $rows[$index][$temp];
                         if ($tag->type=="singleLineStrings") {
                             if (isset($matching[$marker."func"])) {
-                                return $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]);
+                                return $this->applyFieldLimit($marker, $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]), $matching);
                             } else {
-                                return $prefix.$tag->value;
+                                return $this->applyFieldLimit($marker, $prefix.$tag->value, $matching);
                             }
                         } else if ($tag->type=="numbers") {
                             if (isset($matching[$marker."func"])) {
-                                return $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]);
+                                return $this->applyFieldLimit($marker, $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]), $matching);
                             } else {
-                                return $prefix.strval(floatval($tag->value)/10000);
+                                return $this->applyFieldLimit($marker, $prefix.strval(floatval($tag->value)/10000), $matching);
                             }
                         } else if ($tag->type=="counters") {
                             if (isset($matching[$marker."func"])) {
-                                return $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]);
+                                return $this->applyFieldLimit($marker, $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]), $matching);
                             } else {
-                                return $prefix.strval(floatval($tag->value)/10000);
+                                return $this->applyFieldLimit($marker, $prefix.strval(floatval($tag->value)/10000), $matching);
                             }
                         } else if ($tag->type=="dates") {
                             if (isset($matching[$marker."func"])) {
-                                return $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]);
+                                return $this->applyFieldLimit($marker, $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]), $matching);
                             } else {
                                 $dateTime = new \DateTime($tag->value);
                                 $german_time= new \DateTimeZone('Europe/Berlin');
                                 $dateTime->setTimezone($german_time);
                                 $date = $dateTime->format("d.m.Y");
-                                return $prefix.$date;
+                                return $this->applyFieldLimit($marker, $prefix.$date, $matching);
                             }
                         } else if ($tag->type=="selections") {
                             if (isset($matching[$marker."func"])) {
-                                return $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]);
+                                return $this->applyFieldLimit($marker, $prefix.$this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[$index]), $matching);
                             } else {
-                                return $prefix.($tag->value ?? '');
+                                return $this->applyFieldLimit($marker, $prefix.($tag->value ?? ''), $matching);
                             }
                         } else {
                             return "";
@@ -414,9 +414,9 @@ class TemplateRenderer
                     } else {
                         if (isset($matching[$marker."group"]) && $matching[$marker."group"]=="1") {
                             if (isset($matching[$marker."func"])) {
-                                return $prefix.$this->applyFunction($matching[$marker."func"],$temp, $matching, $rows[$index]);
+                                return $this->applyFieldLimit($marker, $prefix.$this->applyFunction($matching[$marker."func"],$temp, $matching, $rows[$index]), $matching);
                             } else {
-                                return $prefix.$temp;
+                                return $this->applyFieldLimit($marker, $prefix.$temp, $matching);
                             }
                         } else {
                             return "";
@@ -434,33 +434,33 @@ class TemplateRenderer
                     $tag = $rows[0][$temp];
                     if ($tag->type=="singleLineStrings") {
                         if (isset($matching[$marker."func"])) {
-                            return $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]);
+                            return $this->applyFieldLimit($marker, $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]), $matching);
                         } else {
-                            return $tag->value;
+                            return $this->applyFieldLimit($marker, $tag->value, $matching);
                         }
                     } else if ($tag->type=="numbers") {
                         if (isset($matching[$marker."func"])) {
-                            return $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]);
+                            return $this->applyFieldLimit($marker, $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]), $matching);
                         } else {
-                            return strval(floatval($tag->value)/10000);
+                            return $this->applyFieldLimit($marker, strval(floatval($tag->value)/10000), $matching);
                         }
                     } else if ($tag->type=="counters") {
                         if (isset($matching[$marker."func"])) {
-                            return $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]);
+                            return $this->applyFieldLimit($marker, $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]), $matching);
                         } else {
-                            return strval(floatval($tag->value)/10000);
+                            return $this->applyFieldLimit($marker, strval(floatval($tag->value)/10000), $matching);
                         }
                     } else if (isset($tag->value)) {
-                        return (string) $tag->value;
+                        return $this->applyFieldLimit($marker, (string) $tag->value, $matching);
                     } else if ($tag->type=="dates") {
                         if (isset($matching[$marker."func"])) {
-                            return $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]);
+                            return $this->applyFieldLimit($marker, $this->applyFunction($matching[$marker."func"],$tag->value, $matching, $rows[0]), $matching);
                         } else {
                             $dateTime = new \DateTime($tag->value);
                             $german_time= new \DateTimeZone('Europe/Berlin');
                             $dateTime->setTimezone($german_time);
                             $date = $dateTime->format("d.m.Y");
-                            return $date;
+                            return $this->applyFieldLimit($marker, $date, $matching);
                         }
                     } else if ($tag->type=="selections") {
                         if (isset($tag->selectedNodeIds) && is_array($tag->selectedNodeIds) && count($tag->selectedNodeIds) > 0) {
@@ -469,9 +469,9 @@ class TemplateRenderer
                             if (!empty($response)) {
                                 $temp = json_decode(json_encode($response));
                                 if (isset($matching[$marker."func"])) {
-                                    return $this->applyFunction($matching[$marker."func"],$temp->value ?? '',$matching,$rows[0]);
+                                    return $this->applyFieldLimit($marker, $this->applyFunction($matching[$marker."func"],$temp->value ?? '',$matching,$rows[0]), $matching);
                                 } else {
-                                    return $temp->value ?? '';
+                                    return $this->applyFieldLimit($marker, $temp->value ?? '', $matching);
                                 }
                             } else {
                                 return "";
@@ -479,9 +479,9 @@ class TemplateRenderer
                         } else {
                             $value = isset($tag->value) ? $tag->value : "";
                             if (isset($matching[$marker."func"])) {
-                                return $this->applyFunction($matching[$marker."func"], $value, $matching, $rows[0]);
+                                return $this->applyFieldLimit($marker, $this->applyFunction($matching[$marker."func"], $value, $matching, $rows[0]), $matching);
                             } else {
-                                return $value;
+                                return $this->applyFieldLimit($marker, $value, $matching);
                             }
                         }
                     } else {
@@ -490,9 +490,9 @@ class TemplateRenderer
                 } else {
                     if (($matching[$marker."group"] ?? null)=="1") {
                         if (isset($matching[$marker."func"])) {
-                            return $this->applyFunction($matching[$marker."func"],$temp,$matching,$rows[0]);
+                            return $this->applyFieldLimit($marker, $this->applyFunction($matching[$marker."func"],$temp,$matching,$rows[0]), $matching);
                         } else {
-                            return $temp;
+                            return $this->applyFieldLimit($marker, $temp, $matching);
                         }
                     } else {
                         return "";
@@ -633,11 +633,25 @@ class TemplateRenderer
                 $temp_matches = [];
                 preg_match_all('/\[([^\[\]]+)\]/', $content, $temp_matches);
                 $calculation = [];
+                $absPending = false;
+                $pushToken = function (mixed $token) use (&$calculation, &$absPending): void {
+                    if ($absPending) {
+                        if ($token === '(') {
+                            $calculation[] = 'abs';
+                            $calculation[] = '(';
+                        } else {
+                            $calculation[] = 'abs(' . $token . ')';
+                        }
+                        $absPending = false;
+                        return;
+                    }
+                    $calculation[] = $token;
+                };
                 foreach($temp_matches[0] as $operand) {
                     if (preg_match('/\[\:\:([^:\[\]]+)\:\:\]/',$operand)) {
                         if (!isset($matching[$operand])) {
                             if ($forced) {
-                                $calculation[] = $this->wrapLiteral('', $textMode, $numericContext);
+                                $pushToken($this->wrapLiteral('', $textMode, $numericContext));
                                 continue;
                             }
 
@@ -648,96 +662,99 @@ class TemplateRenderer
                         if (isset($data[$key])) {
                             $temptag = $data[$key];
                             if (isset($matching[$operand."func"])) {
-                                $calculation[] = '"'.$this->applyFunction($matching[$operand."func"],$temptag->value,$matching,$data).'"';
+                                $pushToken('"'.$this->applyFunction($matching[$operand."func"],$temptag->value,$matching,$data).'"');
                             } else {
                                 if ($temptag->type=="numbers") {
-                                    $calculation[] = floatval($temptag->value)/10000;
+                                    $pushToken(floatval($temptag->value)/10000);
                                 } else {
                                     if (is_numeric($temptag->value)) {
-                                        $calculation[] = floatval($temptag->value);
+                                        $pushToken(floatval($temptag->value));
                                     } else {
-                                        $calculation[] = $this->wrapLiteral((string) $temptag->value, $textMode, $numericContext);
+                                        $pushToken($this->wrapLiteral((string) $temptag->value, $textMode, $numericContext));
                                     }
                                 }
                             }
                         } else if ($forced) {
-                            $calculation[] = $this->wrapLiteral('', $textMode, $numericContext);
+                            $pushToken($this->wrapLiteral('', $textMode, $numericContext));
                         } else {
                             return "";
                         }
                     } else if (preg_match('/^\[:\w+:\]$/',$operand,$foo)) {
-                        $calculation[] = $this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode, $numericContext);
+                        $pushToken($this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode, $numericContext));
                     } else if (preg_match('/^\[:\p{L}.+:\]$/',$operand,$foo)) {
-                        $calculation[] = $this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode, $numericContext);
+                        $pushToken($this->wrapLiteral(substr($foo[0],2,strlen($foo[0])-4), $textMode, $numericContext));
                     } else if (is_numeric(substr($operand,1,strlen($operand)-2))) {
-                        $calculation[] = floatval(substr($operand,1,strlen($operand)-2));
+                        $pushToken(floatval(substr($operand,1,strlen($operand)-2)));
                     } else if ($operand === '[_DOCTYPE]') {
                         if (isset($data['doctype_tagdefinitionid']->value)) {
-                            $calculation[] = "'" . addslashes((string) $data['doctype_tagdefinitionid']->value) . "'";
+                            $pushToken("'" . addslashes((string) $data['doctype_tagdefinitionid']->value) . "'");
                         } else {
-                            $calculation[] = "''";
+                            $pushToken("''");
                         }
                     } else if ($operand === '[DIV]') {
-                        $calculation[] = '/';
+                        $pushToken('/');
                     } else if ($operand === '[MUL]') {
-                        $calculation[] = '*';
+                        $pushToken('*');
                     } else if ($operand === '[PLU]') {
-                        $calculation[] = '+';
+                        $pushToken('+');
                     } else if ($operand === '[MIN]') {
-                        $calculation[] = '-';
+                        $pushToken('-');
                     } else if ($operand === '[LP]') {
-                        $calculation[] = '{';
+                        $pushToken('{');
                     } else if ($operand === '[RP]') {
-                        $calculation[] = '}';
+                        $pushToken('}');
                     } else if ($operand === '[E]') {
-                        $calculation[] = '==';
+                        $pushToken('==');
                     } else if ($operand === '[NE]') {
-                        $calculation[] = '!=';
+                        $pushToken('!=');
                     } else if ($operand === '[OR]') {
-                        $calculation[] = '||';
+                        $pushToken('||');
                     } else if ($operand === '[AND]') {
-                        $calculation[] = '&&';
+                        $pushToken('&&');
                     } else if ($operand === '[NOT]') {
-                        $calculation[] = '!';
+                        $pushToken('!');
                     } else if ($operand === '[LE]') {
-                        $calculation[] = '<=';
+                        $pushToken('<=');
                     } else if ($operand === '[GE]') {
-                        $calculation[] = '>=';
+                        $pushToken('>=');
                     } else if ($operand === '[L]') {
-                        $calculation[] = '<';
+                        $pushToken('<');
                     } else if ($operand === '[G]') {
-                        $calculation[] = '>';
+                        $pushToken('>');
                     } else if ($operand === '[IF]') {
-                        $calculation[] = 'if';
+                        $pushToken('if');
                     } else if ($operand === '[LB]') {
-                        $calculation[] = '(';
+                        $pushToken('(');
                     } else if ($operand === '[RB]') {
-                        $calculation[] = ')';
+                        $pushToken(')');
                     } else if ($operand === '[ABS]') {
-                        $calculation[] = 'abs';
+                        $absPending = true;
                     } else if ($operand === '[ELSE]') {
-                        $calculation[] = 'else';
+                        $pushToken('else');
                     } else if ($operand === '[RET]') {
-                        $calculation[] = 'return';
+                        $pushToken('return');
                     } else if ($operand === '[EMPTYSTRING]') {
-                        $calculation[] = $this->wrapLiteral('', $textMode, $numericContext);
+                        $pushToken($this->wrapLiteral('', $textMode, $numericContext));
                     } else if ($operand === '[EMPTY]') {
-                        $calculation[] = $this->wrapLiteral('', $textMode, $numericContext);
+                        $pushToken($this->wrapLiteral('', $textMode, $numericContext));
                     } else if ($operand === '[ENDC]') {
-                        $calculation[] = ';';
+                        $pushToken(';');
                     } else if ($operand === '[CONCAT]') {
-                        $calculation[] = '.';
+                        $pushToken('.');
                     } else if ($operand === '[ISEMPTY]') {
-                        $calculation[] = 'empty';
+                        $pushToken('empty');
                     } else if ($operand === '[QUOTE]') {
-                        $calculation[] = '"';
+                        $pushToken('"');
                     } else if ($operand === '[NULL]') {
-                        $calculation[] = 'NULL';
+                        $pushToken('NULL');
                     } else if (preg_match('/^\[:[^:\'"]+?:\]$/', $operand, $foo)) {
-                        $calculation[] = $this->wrapLiteral(substr($foo[0], 2, strlen($foo[0]) - 4), $textMode, $numericContext);
+                        $pushToken($this->wrapLiteral(substr($foo[0], 2, strlen($foo[0]) - 4), $textMode, $numericContext));
                     } else {
-                        $calculation[] = $operand;
+                        $pushToken($operand);
                     }
+                }
+                if ($absPending) {
+                    $calculation[] = 'abs';
                 }
                 $to_calculate = implode(" ",$calculation);
                 try {
@@ -880,5 +897,29 @@ class TemplateRenderer
         }
 
         return 0.0;
+    }
+
+    private function applyFieldLimit(string $marker, string $value, array $matching): string
+    {
+        $limitKey = $marker.'maxlen';
+        if (!isset($matching[$limitKey])) {
+            return $value;
+        }
+
+        $rawLimit = $matching[$limitKey];
+        if ($rawLimit === null || $rawLimit === '') {
+            return $value;
+        }
+
+        $limit = (int) $rawLimit;
+        if ($limit <= 0) {
+            return $value;
+        }
+
+        if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+            return mb_strlen($value) > $limit ? mb_substr($value, 0, $limit) : $value;
+        }
+
+        return strlen($value) > $limit ? substr($value, 0, $limit) : $value;
     }
 }

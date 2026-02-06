@@ -60,6 +60,14 @@
                         $data[$v] = $_POST["tag".$id];
                         $data[$v."group"] = $_POST["group".$id];
                     }
+                    $maxLenKey = "maxlen".$id;
+                    if (isset($_POST[$maxLenKey]) && $_POST[$maxLenKey] !== "") {
+                        $maxLen = intval($_POST[$maxLenKey]);
+                        if ($maxLen > 0) {
+                            $data[$v."maxlen"] = $maxLen;
+                        }
+                    }
+
                     if ($_POST["group".$id]!="0" && $_POST["function".$id]=="1") {
                         $functiondef = $_POST["functiondef".$id];
                         $regex_set = ["/^(\[IF\](\[(STARTSWITH|ENDSWITH|L|LE|G|GE|E):[^\]]+\])\[(.+)\])+\[(.+)\]$/",

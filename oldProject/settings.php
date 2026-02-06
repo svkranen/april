@@ -885,6 +885,16 @@
             td3.appendChild(fixinput);
             td3.appendChild(functioninput);
             tr.appendChild(td3);
+            let td4 = document.createElement("td");
+            let maxleninput = document.createElement("input");
+            maxleninput.setAttribute("type","number");
+            maxleninput.setAttribute("min","1");
+            maxleninput.classList.add("uk-input");
+            maxleninput.classList.add("savevalues");
+            maxleninput.setAttribute("id","maxlen"+rowcount);
+            maxleninput.setAttribute("placeholder","Maxlänge (optional)");
+            td4.appendChild(maxleninput);
+            tr.appendChild(td4);
             tbody.appendChild(tr);
 
             let found = false;
@@ -921,6 +931,9 @@
                 if (typeof matching[match+"func"] !== "undefined") {
                     document.getElementById("function"+rowcount).value="1";
                     document.getElementById("functiondef"+rowcount).value = matching[match+"func"];
+                }
+                if (typeof matching[match+"maxlen"] !== "undefined") {
+                    document.getElementById("maxlen"+rowcount).value = matching[match+"maxlen"];
                 }
             }
             let trigger = new Event("change");
