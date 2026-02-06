@@ -20,21 +20,22 @@
 		
         public function fibu_saveMatching() {
             $oldcontent = "[]";
-            if ($_POST["system"]=="onprem") {
+            $system = $_POST["system"] ?? "onprem";
+            if ($system === "onprem") {
                 if (file_exists("matching.json")) {
                     $oldcontent = file_get_contents("matching.json");
                 }
             } else {
                 $db = Factory::getDBO();
-                $db->setQuery("SELECT userid from #__apianbindungen_user where token=".$db->quote($_POST["user"]));
+                $db->setQuery("SELECT userid from #__apianbindungen_user where token=".$db->quote($_POST["user"] ?? ""));
                 $userid = $db->loadResult();
                 if (file_exists("components/com_apianbindungen/fibuExport/{$userid}/matchings")) {
-                    $matchingfilepath = "components/com_apianbindungen/fibuExport/{$userid}/matchings/".$userid."_".$_POST["system"]."_matching.json";
+                    $matchingfilepath = "components/com_apianbindungen/fibuExport/{$userid}/matchings/".$userid."_".$system."_matching.json";
                     if (file_exists($matchingfilepath)) {
                         $oldcontent = file_get_contents($matchingfilepath);
                     }
                 } else {
-                    $matchingfilepath = "components/com_apianbindungen/fibuExport/matchings/".$userid."_".$_POST["system"]."_matching.json";
+                    $matchingfilepath = "components/com_apianbindungen/fibuExport/matchings/".$userid."_".$system."_matching.json";
                     if (file_exists($matchingfilepath)) {
                         $oldcontent = file_get_contents($matchingfilepath);
                     }
