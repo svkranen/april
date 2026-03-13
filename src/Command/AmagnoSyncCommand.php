@@ -20,6 +20,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 )]
 class AmagnoSyncCommand extends Command
 {
+    /** @var resource|null */
+    private $lockHandle = null;
+
     public function __construct(
         private readonly FibuExportService $fibuExportService,
         private readonly ConnectionRegistry $connectionRegistry
@@ -66,23 +69,33 @@ class AmagnoSyncCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $runAllConnections = (bool) $input->getOption('all-connections');
-        $connectionId = $input->getOption('connection') ?: null;
+        if (!$this->acquireRunLock()) {
+            $output->writeln('<comment>Ein amagno:sync-Lauf ist bereits aktiv. Dieser Start wird übersprungen.</comment>');
 
-        if ($runAllConnections || ($connectionId === null && !$this->connectionRegistry->hasConnections())) {
-            return $this->runAllConnections($input, $output);
+            return Command::SUCCESS;
         }
 
-        if ($connectionId !== null) {
-            $connection = $this->connectionRegistry->get($connectionId);
-            $options = $this->createOptionsFromConnection($connection, $input);
-        } else {
-            $options = $this->createOptionsFromInput($input);
+        try {
+            $runAllConnections = (bool) $input->getOption('all-connections');
+            $connectionId = $input->getOption('connection') ?: null;
+
+            if ($runAllConnections || ($connectionId === null && !$this->connectionRegistry->hasConnections())) {
+                return $this->runAllConnections($input, $output);
+            }
+
+            if ($connectionId !== null) {
+                $connection = $this->connectionRegistry->get($connectionId);
+                $options = $this->createOptionsFromConnection($connection, $input);
+            } else {
+                $options = $this->createOptionsFromInput($input);
+            }
+
+            $this->performSync($options, $output);
+
+            return Command::SUCCESS;
+        } finally {
+            $this->releaseRunLock();
         }
-
-        $this->performSync($options, $output);
-
-        return Command::SUCCESS;
     }
 
     /**
@@ -266,5 +279,44 @@ class AmagnoSyncCommand extends Command
         }
 
         return (string) $exportTarget;
+    }
+
+    private function acquireRunLock(): bool
+    {
+        $lockDir = \dirname(__DIR__, 2).'/var/lock';
+        if (!is_dir($lockDir) && !mkdir($lockDir, 0775, true) && !is_dir($lockDir)) {
+            throw new RuntimeException(sprintf('Lock-Verzeichnis "%s" konnte nicht erstellt werden.', $lockDir));
+        }
+
+        $lockPath = $lockDir.'/amagno-sync.lock';
+        $handle = fopen($lockPath, 'c+');
+        if ($handle === false) {
+            throw new RuntimeException(sprintf('Lock-Datei "%s" konnte nicht geöffnet werden.', $lockPath));
+        }
+
+        if (!flock($handle, LOCK_EX | LOCK_NB)) {
+            fclose($handle);
+
+            return false;
+        }
+
+        ftruncate($handle, 0);
+        fwrite($handle, (string) getmypid());
+        fflush($handle);
+
+        $this->lockHandle = $handle;
+
+        return true;
+    }
+
+    private function releaseRunLock(): void
+    {
+        if (!is_resource($this->lockHandle)) {
+            return;
+        }
+
+        flock($this->lockHandle, LOCK_UN);
+        fclose($this->lockHandle);
+        $this->lockHandle = null;
     }
 }
