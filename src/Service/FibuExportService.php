@@ -91,6 +91,7 @@ class FibuExportService
 
         $tagCache = [];
         $selectionCache = [];
+        $debugInfo = [];
 
         $documents = $this->documentFetcher->fetchDocuments(
             $payload['magnetid'],
@@ -99,6 +100,7 @@ class FibuExportService
             $token,
             $baseUri
         );
+        $documents = $this->deduplicateDocuments($documents, $debugInfo);
 
         $tagFetcher = function (string $documentId) use (&$tagCache, $token, $baseUri) {
             if (!array_key_exists($documentId, $tagCache)) {
@@ -123,7 +125,7 @@ class FibuExportService
             $matchingContext->matching
         );
 
-        $debug = [];
+        $debug = $debugInfo;
         $rendered = $this->templateRenderer->render(
             $matrix,
             $matchingContext->matching,
@@ -154,6 +156,44 @@ class FibuExportService
             'dry_run' => $options->dryRun,
             'matching_profile' => $payload['profile'] ?? null,
         ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $documents
+     * @param array<int, string> $debug
+     * @return array<int, array<string, mixed>>
+     */
+    private function deduplicateDocuments(array $documents, array &$debug = []): array
+    {
+        $unique = [];
+        $seenIds = [];
+        $duplicates = 0;
+
+        foreach ($documents as $document) {
+            $documentId = isset($document['id']) ? (string) $document['id'] : null;
+            if ($documentId === null || $documentId === '') {
+                $unique[] = $document;
+                continue;
+            }
+
+            if (isset($seenIds[$documentId])) {
+                $duplicates++;
+                continue;
+            }
+
+            $seenIds[$documentId] = true;
+            $unique[] = $document;
+        }
+
+        if ($duplicates > 0) {
+            $debug[] = sprintf(
+                'Dokumentenliste enthielt %d Dublette(n); Verarbeitung auf %d eindeutige Dokumente reduziert.',
+                $duplicates,
+                count($unique)
+            );
+        }
+
+        return $unique;
     }
 
     private function buildPayload(SyncOptions $options): array
