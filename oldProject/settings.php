@@ -1273,7 +1273,7 @@
         </div>
         <div>
             <legend class="uk-form-label uk-text-bolder">On Premise URL</legend>
-            <input class="uk-input uk-width-1-1" id="aurl" placeholder="" aria-label="" value="" type="text">
+            <input class="uk-input uk-width-1-1" id="aurl" placeholder="" aria-label="" value="https://amagno.me" type="text">
         </div>
         <div>
             <legend class="uk-form-label uk-text-bolder">Login-Typ</legend>
