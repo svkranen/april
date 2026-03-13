@@ -34,7 +34,7 @@ if errorlevel 1 (
 )
 
 rem Symfony Command
-"%PHP%" bin\console amagno:sync --all-connections >> "%LOG%" 2>&1
+"%PHP%" bin\console amagno:sync --all-connections --use-checkpoint >> "%LOG%" 2>&1
 set RC=%ERRORLEVEL%
 
 rem Optional: Verbindung wieder trennen
