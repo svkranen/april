@@ -339,9 +339,10 @@ AMAGNO_CHECKPOINT_DIR=var/checkpoints</code></pre>
                     <p>Die JSON-Datei besteht aus zwei Listen:</p>
                     <ul class="notes">
                         <li><code>credentials</code>: technische Amagno-Logins</li>
-                        <li><code>configurations</code>: konkrete fachliche Verbindungen mit Magnet, Vault, Exportziel und optionalem Signaturblock</li>
+                        <li><code>configurations</code>: konkrete fachliche Verbindungen mit Magnet, Vault, Exportziel oder einem reinen Signatur-Check</li>
                     </ul>
 
+                    <p>Beispiel fuer reinen Datenexport:</p>
                     <pre><code>{
   "credentials": [
     {
@@ -354,7 +355,7 @@ AMAGNO_CHECKPOINT_DIR=var/checkpoints</code></pre>
   ],
   "configurations": [
     {
-      "id": "nev-onprem",
+      "id": "nev-onprem-export",
       "active": true,
       "credential_id": 1,
       "vault_id": "GUID",
@@ -368,8 +369,36 @@ AMAGNO_CHECKPOINT_DIR=var/checkpoints</code></pre>
   ]
 }</code></pre>
 
+                    <p>Beispiel fuer reinen Signature Check:</p>
+                    <pre><code>{
+  "credentials": [
+    {
+      "cid": 1,
+      "base_uri": "https://amagno.me",
+      "username": "demo@example.com",
+      "password": "SECRET",
+      "auth_type": null
+    }
+  ],
+  "configurations": [
+    {
+      "id": "nev-onprem-signature-check",
+      "active": true,
+      "credential_id": 1,
+      "vault_id": "GUID",
+      "magnet_id": "GUID",
+      "signature_check": {
+        "required_tag": "GUID-ZU-PRUEFEN-DURCH",
+        "confirmed_tag": "GUID-GEPRUEFT-DURCH",
+        "success_stamp": "GUID-ERFOLGREICH",
+        "checkpoint_key": "nev-onprem-signature-check"
+      }
+    }
+  ]
+}</code></pre>
+
                     <div class="warning">
-                        <strong>Wichtig:</strong> Wenn <code>credential_id</code> nicht zu einem Eintrag in <code>credentials</code> passt, startet der Lauf nicht.
+                        <strong>Wichtig:</strong> Wenn <code>credential_id</code> nicht zu einem Eintrag in <code>credentials</code> passt, startet der Lauf nicht. Fuer einen reinen Signature-Check werden keine Exportfelder benoetigt, <code>vault_id</code> muss aktuell aber trotzdem befuellt sein.
                     </div>
                 </section>
 
@@ -432,6 +461,10 @@ bin/console amagno:verify-signatures --connection=nev-onprem --use-checkpoint</c
                         <li><code>success_stamp</code> bzw. <code>complete_stamp</code>: Stempel fuer vollstaendige Dokumente</li>
                         <li><code>incomplete_stamp</code>: Stempel fuer unvollstaendige Dokumente</li>
                     </ul>
+
+                    <div class="status">
+                        <strong>Wichtig:</strong> Doppelte Namen in <code>required_tag</code> oder <code>confirmed_tag</code> werden absichtlich ignoriert. Die Pruefung erwartet nur, dass jeder erforderliche Name mindestens einmal in den bestaetigten Namen wiedergefunden wird.
+                    </div>
                 </section>
 
                 <section class="card" id="checkpoint">

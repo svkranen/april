@@ -23,7 +23,9 @@ Dieses Projekt zieht Dokumente aus Amagno, bereitet sie anhand einer `matching.j
        amagno.connections_file: '%kernel.project_dir%/config/amagno_connections.local.json'
    ```
 
-3. `config/amagno_connections.local.json` aufbauen:
+3. `config/amagno_connections.local.json` aufbauen. Es gibt typischerweise zwei Varianten:
+
+   Reiner Datenexport:
    ```json
    {
      "credentials": [
@@ -37,7 +39,7 @@ Dieses Projekt zieht Dokumente aus Amagno, bereitet sie anhand einer `matching.j
      ],
      "configurations": [
        {
-         "id": "nev-onprem",
+         "id": "nev-onprem-export",
          "active": true,
          "credential_id": 1,
          "vault_id": "GUID",
@@ -54,11 +56,43 @@ Dieses Projekt zieht Dokumente aus Amagno, bereitet sie anhand einer `matching.j
      ]
    }
    ```
+
+   Reiner Signature Check:
+   ```json
+   {
+     "credentials": [
+       {
+         "cid": 1,
+         "base_uri": "https://amagno.me",
+         "username": "demo@example.com",
+         "password": "SECRET",
+         "auth_type": null
+       }
+     ],
+     "configurations": [
+       {
+         "id": "nev-onprem-signature-check",
+         "active": true,
+         "credential_id": 1,
+         "vault_id": "GUID",
+         "magnet_id": "GUID",
+         "signature_check": {
+           "required_tag": "GUID-ZU-PRUEFEN-DURCH",
+           "confirmed_tag": "GUID-GEPRUEFT-DURCH",
+           "success_stamp": "GUID-ERFOLGREICH",
+           "checkpoint_key": "nev-onprem-signature-check"
+         }
+       }
+     ]
+   }
+   ```
    * `credentials`: technische Amagno-Accounts inkl. Basis-URL und Login.
-   * `configurations`: beschreibt je Verbindung Magnet/Vault, Matching-Profil, Exportziel etc. Inaktive Einträge (`"active": false`) werden ignoriert.
+   * `configurations`: beschreibt je Verbindung Magnet/Vault, Matching-Profil, Exportziel oder Signaturpruefung. Inaktive Einträge (`"active": false`) werden ignoriert.
    * `export`: `local`, `ftp`, `amagno` oder `sql`. Optional kannst du `ftp_*`, `db_*` usw. weiterhin über CLI setzen.
    * `folder`: Zielpfad für lokale Exporte (UNC-Pfade möglich).
    * `success_stamp`, `error_stamp`, `error_attribute`: GUIDs für Stempel/Merkmal (optional).
+   * Bei einem reinen Signature-Check-Eintrag koennen `profile`, `template`, `system`, `export`, `folder`, `error_stamp` und `error_attribute` weggelassen werden.
+   * `vault_id` muss aktuell trotzdem gesetzt sein, weil die gemeinsame Verbindungsvalidierung es noch verlangt.
 
 4. `oldProject/matching.json` über `/settings` pflegen. Die Oberfläche ruft intern die alte `save.php` auf.
 
@@ -139,10 +173,11 @@ In `config/amagno_connections.local.json` kann pro Verbindung optional ein Block
 
 * `required_tag`: Merkmal fuer die erwarteten Pruefer, z. B. `Zu pruefen durch`
 * `confirmed_tag`: Merkmal fuer die vorhandenen Unterschriften, z. B. `Geprueft durch`
-* Die Pruefung vergleicht die Namen als Menge inklusive Mehrfachvorkommen. Wenn dreimal `Zu pruefen durch` gesetzt ist, muessen auch drei passende Eintraege in `Geprueft durch` vorhanden sein.
+* Die Pruefung vergleicht die Namen als eindeutige Namensmenge. Doppelte Eintraege in `required_tag` oder `confirmed_tag` werden ignoriert, damit zusaetzliche oder doppelt aufgetragene Merkmale in Amagno nicht zu false negatives fuehren.
 * `success_stamp` ist der Stempel fuer erfolgreich vollstaendige Dokumente.
 * `complete_stamp` bleibt als abwaertskompatibler Alias unterstuetzt.
 * `result_attribute` und `incomplete_stamp` sind optional.
+* Fuer einen reinen Signature-Check-Eintrag werden keine Export-Felder wie `folder` oder `export` benoetigt.
 
 ### Manuell starten
 

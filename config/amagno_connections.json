@@ -10,11 +10,11 @@
     ],
     "configurations": [
         {
-            "id": "example",
+            "id": "example-export",
             "active": true,
             "credential_id": 1,
-            "vault_id": "",
-            "magnet_id": "",
+            "vault_id": "VAULT-GUID",
+            "magnet_id": "MAGNET-GUID",
             "profile": null,
             "template": null,
             "system": "onprem",
@@ -22,14 +22,18 @@
             "folder": "\\\\server\\share\\amagno",
             "success_stamp": null,
             "error_stamp": null,
-            "error_attribute": null,
+            "error_attribute": null
+        },
+        {
+            "id": "example-signature-check",
+            "active": true,
+            "credential_id": 1,
+            "vault_id": "VAULT-GUID",
+            "magnet_id": "MAGNET-GUID",
             "signature_check": {
-                "required_tag": "",
-                "confirmed_tag": "",
-                "result_attribute": null,
-                "success_stamp": null,
-                "complete_stamp": null,
-                "incomplete_stamp": null,
+                "required_tag": "GUID-ZU-PRUEFEN-DURCH",
+                "confirmed_tag": "GUID-GEPRUEFT-DURCH",
+                "success_stamp": "GUID-ERFOLGREICH",
                 "checkpoint_key": "example-signature-check"
             }
         }

@@ -10,25 +10,23 @@ final class SignatureCompletenessChecker
      */
     public function check(array $requiredNames, array $confirmedNames): SignatureCheckResult
     {
-        $required = array_values(array_filter(array_map([$this, 'sanitize'], $requiredNames), static fn (?string $value) => $value !== null));
-        $confirmed = array_values(array_filter(array_map([$this, 'sanitize'], $confirmedNames), static fn (?string $value) => $value !== null));
+        $required = $this->buildUniqueValues($requiredNames);
+        $confirmed = $this->buildUniqueValues($confirmedNames);
 
-        $requiredCounts = $this->buildCounts($required);
-        $confirmedCounts = $this->buildCounts($confirmed);
+        $requiredLookup = $this->buildLookup($required);
+        $confirmedLookup = $this->buildLookup($confirmed);
 
         $missing = [];
-        foreach ($requiredCounts as $key => $count) {
-            $delta = $count['count'] - ($confirmedCounts[$key]['count'] ?? 0);
-            for ($i = 0; $i < $delta; $i++) {
-                $missing[] = $requiredCounts[$key]['display'];
+        foreach ($requiredLookup as $key => $display) {
+            if (!isset($confirmedLookup[$key])) {
+                $missing[] = $display;
             }
         }
 
         $unexpected = [];
-        foreach ($confirmedCounts as $key => $count) {
-            $delta = $count['count'] - ($requiredCounts[$key]['count'] ?? 0);
-            for ($i = 0; $i < $delta; $i++) {
-                $unexpected[] = $confirmedCounts[$key]['display'];
+        foreach ($confirmedLookup as $key => $display) {
+            if (!isset($requiredLookup[$key])) {
+                $unexpected[] = $display;
             }
         }
 
@@ -48,24 +46,31 @@ final class SignatureCompletenessChecker
 
     /**
      * @param array<int, string> $values
-     * @return array<string, array{count: int, display: string}>
+     * @return array<int, string>
      */
-    private function buildCounts(array $values): array
+    private function buildUniqueValues(array $values): array
     {
-        $counts = [];
+        return array_values($this->buildLookup(array_values(array_filter(
+            array_map([$this, 'sanitize'], $values),
+            static fn (?string $value) => $value !== null
+        ))));
+    }
+
+    /**
+     * @param array<int, string> $values
+     * @return array<string, string>
+     */
+    private function buildLookup(array $values): array
+    {
+        $lookup = [];
 
         foreach ($values as $value) {
             $key = mb_strtolower($value);
-            if (!isset($counts[$key])) {
-                $counts[$key] = [
-                    'count' => 0,
-                    'display' => $value,
-                ];
+            if (!isset($lookup[$key])) {
+                $lookup[$key] = $value;
             }
-
-            $counts[$key]['count']++;
         }
 
-        return $counts;
+        return $lookup;
     }
 }

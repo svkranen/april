@@ -427,7 +427,7 @@
                             <h3>Fachlicher Kern</h3>
                             <ul class="notes">
                                 <li><a href="../src/SignatureCheck/AmagnoTagValueExtractor.php">AmagnoTagValueExtractor</a>: extrahiert Werte aus normalen Tags und Selection-Tags</li>
-                                <li><a href="../src/SignatureCheck/SignatureCompletenessChecker.php">SignatureCompletenessChecker</a>: vergleicht erwartete und best&auml;tigte Namen, inkl. Mehrfachvorkommen und case-insensitive Z&auml;hlung</li>
+                                <li><a href="../src/SignatureCheck/SignatureCompletenessChecker.php">SignatureCompletenessChecker</a>: vergleicht erwartete und best&auml;tigte Namen case-insensitive als eindeutige Namensmenge</li>
                                 <li><a href="../src/SignatureCheck/SignatureCheckResult.php">SignatureCheckResult</a>: kapselt Ergebnis und erzeugt lesbare Meldungen</li>
                             </ul>
                         </div>
@@ -454,7 +454,7 @@
                     <ul class="notes">
                         <li>Die fachliche Kernlogik ist nicht an Symfony gebunden und sollte auch k&uuml;nftig dort bleiben.</li>
                         <li>Vergleich ist case-insensitive, aber die urspr&uuml;ngliche Schreibweise wird f&uuml;r Meldungen erhalten.</li>
-                        <li>Mehrfachnennungen z&auml;hlen. Drei erwartete Eintr&auml;ge erfordern drei passende Best&auml;tigungen.</li>
+                        <li>Doppelte Namen in <code>required_tag</code> oder <code>confirmed_tag</code> werden ignoriert. Entscheidend ist, ob jeder erforderliche Name mindestens einmal bestaetigt wurde.</li>
                         <li>Selection-Tags werden aufgel&ouml;st, normale String-/Zahlwerte werden direkt verarbeitet.</li>
                     </ul>
                 </section>

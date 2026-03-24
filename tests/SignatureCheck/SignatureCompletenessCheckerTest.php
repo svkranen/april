@@ -35,7 +35,7 @@ class SignatureCompletenessCheckerTest extends TestCase
         $this->assertSame(['Dirk'], $result->unexpectedNames);
     }
 
-    public function testItRespectsDuplicateRequiredNames(): void
+    public function testItIgnoresDuplicateRequiredNames(): void
     {
         $checker = new SignatureCompletenessChecker();
 
@@ -44,7 +44,22 @@ class SignatureCompletenessCheckerTest extends TestCase
             ['Anna', 'Bernd']
         );
 
-        $this->assertFalse($result->isComplete());
-        $this->assertSame(['Anna'], $result->missingNames);
+        $this->assertTrue($result->isComplete());
+        $this->assertSame(['Anna', 'Bernd'], $result->requiredNames);
+        $this->assertSame([], $result->missingNames);
+    }
+
+    public function testItIgnoresDuplicateConfirmedNames(): void
+    {
+        $checker = new SignatureCompletenessChecker();
+
+        $result = $checker->check(
+            ['Anna', 'Bernd'],
+            ['Anna', 'Anna', 'Bernd', 'Bernd']
+        );
+
+        $this->assertTrue($result->isComplete());
+        $this->assertSame(['Anna', 'Bernd'], $result->confirmedNames);
+        $this->assertSame([], $result->unexpectedNames);
     }
 }
