@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Amagno / Nevaris Interface - Administrator Guide</title>
+    <style>
+        :root {
+            --bg: #eef2ef;
+            --paper: #fbfcfa;
+            --ink: #1d2a22;
+            --muted: #5d6d63;
+            --line: #d4ddd7;
+            --accent: #2d6a4f;
+            --accent-soft: #e4f0ea;
+            --warn: #a63d40;
+            --code: #eef3ef;
+            --shadow: 0 16px 38px rgba(35, 49, 41, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+            color: var(--ink);
+            line-height: 1.55;
+            background:
+                radial-gradient(circle at top left, rgba(45, 106, 79, 0.10), transparent 24rem),
+                linear-gradient(180deg, #e6efe9 0%, var(--bg) 18rem, #f6f8f6 100%);
+        }
+
+        a {
+            color: var(--accent);
+        }
+
+        code {
+            font-family: Consolas, "Liberation Mono", monospace;
+            background: var(--code);
+            padding: 0.12rem 0.35rem;
+            border-radius: 0.3rem;
+        }
+
+        pre {
+            margin: 0;
+            overflow-x: auto;
+            padding: 1rem;
+            background: #15211b;
+            color: #eef7f1;
+            border-radius: 0.75rem;
+        }
+
+        .page {
+            width: min(1180px, calc(100% - 2rem));
+            margin: 2rem auto 4rem;
+        }
+
+        .hero {
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            color: #f4fbf6;
+            background: linear-gradient(135deg, rgba(45, 106, 79, 0.96), rgba(22, 54, 39, 0.96));
+            box-shadow: var(--shadow);
+        }
+
+        .hero h1 {
+            margin: 0 0 0.6rem;
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            line-height: 1.05;
+        }
+
+        .hero p {
+            max-width: 58rem;
+            margin: 0.5rem 0;
+            color: rgba(244, 251, 246, 0.9);
+        }
+
+        .meta {
+            margin-top: 1.2rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 0.42rem 0.72rem;
+            border-radius: 999px;
+            text-decoration: none;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #f4fbf6;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 290px minmax(0, 1fr);
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+            align-items: start;
+        }
+
+        .toc,
+        .card {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 1.25rem;
+            box-shadow: var(--shadow);
+        }
+
+        .toc {
+            position: sticky;
+            top: 1rem;
+            padding: 1.25rem;
+        }
+
+        .toc h2 {
+            margin-top: 0;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+
+        .toc a {
+            display: block;
+            text-decoration: none;
+            padding: 0.35rem 0;
+        }
+
+        .content {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .card {
+            padding: 1.5rem;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.55rem;
+        }
+
+        .card h3 {
+            margin-top: 1.4rem;
+            margin-bottom: 0.55rem;
+        }
+
+        .lead {
+            color: var(--muted);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .mini,
+        .status,
+        .warning,
+        .ok {
+            border-radius: 1rem;
+            padding: 1rem;
+        }
+
+        .mini {
+            background: #fcfdfb;
+            border: 1px solid var(--line);
+        }
+
+        .mini h3 {
+            margin-top: 0;
+        }
+
+        .status {
+            background: var(--accent-soft);
+            border-left: 4px solid var(--accent);
+        }
+
+        .warning {
+            background: #fff0f0;
+            border-left: 4px solid var(--warn);
+        }
+
+        .ok {
+            background: #edf8f0;
+            border-left: 4px solid #40916c;
+        }
+
+        .steps,
+        .notes {
+            margin: 0;
+            padding-left: 1.1rem;
+        }
+
+        .steps li,
+        .notes li {
+            margin: 0.35rem 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            vertical-align: top;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--line);
+        }
+
+        th {
+            font-size: 0.92rem;
+            color: var(--muted);
+        }
+
+        @media (max-width: 980px) {
+            .layout,
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .toc {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <section class="hero">
+            <h1>Administrator Guide</h1>
+            <p>Diese Seite ist die betriebliche Doku f&uuml;r Einrichtung, Jobbetrieb, Fehleranalyse und Routineaufgaben. Sie ist absichtlich weniger codezentriert als die technische Einstiegseite.</p>
+            <div class="meta">
+                <a class="pill" href="#start">Schnellstart</a>
+                <a class="pill" href="#konfiguration">Konfiguration</a>
+                <a class="pill" href="#jobs">Jobs</a>
+                <a class="pill" href="#fehler">Fehlerbilder</a>
+                <a class="pill" href="./index.html">Entwicklerdoku</a>
+            </div>
+        </section>
+
+        <div class="layout">
+            <aside class="toc">
+                <h2>Inhalt</h2>
+                <a href="#start">1. Schnellstart</a>
+                <a href="#konfiguration">2. Betriebsrelevante Dateien</a>
+                <a href="#einrichtung">3. Einrichtung</a>
+                <a href="#jobs">4. Regelbetrieb und Jobs</a>
+                <a href="#signatur">5. Signaturpruefung</a>
+                <a href="#checkpoint">6. Checkpoints</a>
+                <a href="#logs">7. Logs und Kontrolle</a>
+                <a href="#fehler">8. Typische Fehlerbilder</a>
+                <a href="#routine">9. Regelmaessige Aufgaben</a>
+            </aside>
+
+            <main class="content">
+                <section class="card" id="start">
+                    <h2>1. Schnellstart</h2>
+                    <p class="lead">Wenn das System neu aufgesetzt oder geprueft werden soll, ist dies die kuerzeste sinnvolle Reihenfolge.</p>
+                    <ol class="steps">
+                        <li><code>.env.local</code> bzw. produktive Environment-Werte setzen.</li>
+                        <li>Lokale Verbindungsdatei auf Basis von <a href="../config/amagno_connections.json">config/amagno_connections.json</a> anlegen.</li>
+                        <li>Zielpfade, FTP- oder SQL-Ziele pruefen.</li>
+                        <li><code>bin/console amagno:sync --all-connections --dry-run</code> ausfuehren.</li>
+                        <li>Wenn Signaturpruefung aktiv ist: <code>bin/console amagno:verify-signatures --all-connections --dry-run</code>.</li>
+                        <li>Erst danach geplante Tasks aktivieren.</li>
+                    </ol>
+                    <div class="ok">
+                        <strong>Faustregel:</strong> Erst mit <code>--dry-run</code> pruefen, dann produktive Rueckschreibungen und Stempel aktiv nutzen.
+                    </div>
+                </section>
+
+                <section class="card" id="konfiguration">
+                    <h2>2. Betriebsrelevante Dateien</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Datei</th>
+                                <th>Zweck</th>
+                                <th>Hinweis</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><a href="../.env">.env</a></td>
+                                <td>Defaultwerte fuer Base-URI, Credentials, Matching-Datei, Checkpoint-Verzeichnis</td>
+                                <td>In Produktion besser ueber echte Env-Variablen oder <code>.env.local</code> ueberschreiben</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../config/services.yaml">config/services.yaml</a></td>
+                                <td>verbindet Parameter mit Symfony-Services</td>
+                                <td>relevant, wenn Dateipfade oder Umgebungsvariablen geaendert werden</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../config/amagno_connections.json">config/amagno_connections.json</a></td>
+                                <td>Beispiel bzw. aktive Struktur fuer Verbindungen</td>
+                                <td>enthaelt Credentials und mehrere Konfigurationen</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../oldProject/matching.json">oldProject/matching.json</a></td>
+                                <td>Mapping fuer den Export</td>
+                                <td>wird ueber die Settings-Oberflaeche gepflegt</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../amagno_sync.bat">amagno_sync.bat</a></td>
+                                <td>Beispiel fuer einen Windows-Task mit Netzlaufwerk-Handling</td>
+                                <td>hilfreich bei UNC-Shares und Service-Accounts</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="card" id="einrichtung">
+                    <h2>3. Einrichtung</h2>
+                    <h3>Umgebungswerte</h3>
+                    <pre><code>AMAGNO_BASE_URI=https://amagno.me
+AMAGNO_API_USERNAME=
+AMAGNO_API_PASSWORD=
+AMAGNO_API_AUTH_TYPE=
+AMAGNO_CREDENTIAL_ID=1
+AMAGNO_CONNECTIONS_FILE=config/amagno_connections.local.json
+AMAGNO_MATCHING_FILE=oldProject/matching.json
+AMAGNO_TEMPLATE_DIR=oldProject
+AMAGNO_CHECKPOINT_DIR=var/checkpoints</code></pre>
+
+                    <h3>Verbindungsdatei</h3>
+                    <p>Die JSON-Datei besteht aus zwei Listen:</p>
+                    <ul class="notes">
+                        <li><code>credentials</code>: technische Amagno-Logins</li>
+                        <li><code>configurations</code>: konkrete fachliche Verbindungen mit Magnet, Vault, Exportziel und optionalem Signaturblock</li>
+                    </ul>
+
+                    <pre><code>{
+  "credentials": [
+    {
+      "cid": 1,
+      "base_uri": "https://amagno.me",
+      "username": "demo@example.com",
+      "password": "SECRET",
+      "auth_type": null
+    }
+  ],
+  "configurations": [
+    {
+      "id": "nev-onprem",
+      "active": true,
+      "credential_id": 1,
+      "vault_id": "GUID",
+      "magnet_id": "GUID",
+      "profile": "Nevaris Export",
+      "template": "debitoren",
+      "system": "onprem",
+      "export": "local",
+      "folder": "\\\\server\\share\\amagno"
+    }
+  ]
+}</code></pre>
+
+                    <div class="warning">
+                        <strong>Wichtig:</strong> Wenn <code>credential_id</code> nicht zu einem Eintrag in <code>credentials</code> passt, startet der Lauf nicht.
+                    </div>
+                </section>
+
+                <section class="card" id="jobs">
+                    <h2>4. Regelbetrieb und Jobs</h2>
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h3>Sync manuell</h3>
+                            <pre><code>bin/console amagno:sync --all-connections
+bin/console amagno:sync --connection=nev-onprem
+bin/console amagno:sync --all-connections --dry-run
+bin/console amagno:sync --all-connections --use-checkpoint</code></pre>
+                        </div>
+                        <div class="mini">
+                            <h3>Wichtige Optionen</h3>
+                            <ul class="notes">
+                                <li><code>--all-connections</code>: alle aktiven Profile nacheinander</li>
+                                <li><code>--connection=&lt;id&gt;</code>: genau eine Verbindung</li>
+                                <li><code>--dry-run</code>: keine Exporte, keine Rueckschreibungen</li>
+                                <li><code>--use-checkpoint</code>: nur geaenderte Dokumente seit letztem Lauf</li>
+                                <li><code>--since=ISO-DATUM</code>: manueller Startpunkt</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3>Windows-Aufgabenplanung</h3>
+                    <p>Fuer produktive Laeufe unter Windows ist ein Batch-Skript sinnvoll, besonders bei UNC-Freigaben. Ein vorhandenes Beispiel liegt in <a href="../amagno_sync.bat">amagno_sync.bat</a>.</p>
+                    <pre><code>@echo off
+set APP_ENV=prod
+set APP_DEBUG=0
+cd /d C:\inetpub\amagno_nev_interface
+php bin\console amagno:sync --all-connections --use-checkpoint &gt;&gt; C:\logs\amagno_sync.log 2&gt;&amp;1</code></pre>
+
+                    <div class="status">
+                        <strong>Empfehlung:</strong> Den produktiven Sync zuerst ohne Signaturpruefung stabil betreiben und die zweite Task erst danach zuschalten.
+                    </div>
+                </section>
+
+                <section class="card" id="signatur">
+                    <h2>5. Signaturpruefung</h2>
+                    <p>Die Signaturpruefung ist optional und wird pro Verbindung ueber den Block <code>signature_check</code> aktiviert.</p>
+                    <pre><code>"signature_check": {
+  "required_tag": "GUID-ZU-PRUEFEN-DURCH",
+  "confirmed_tag": "GUID-GEPRUEFT-DURCH",
+  "result_attribute": "GUID-ERGEBNIS",
+  "success_stamp": "GUID-ERFOLGREICH",
+  "complete_stamp": "GUID-VOLLSTAENDIG",
+  "incomplete_stamp": "GUID-UNVOLLSTAENDIG",
+  "checkpoint_key": "nev-onprem-signature-check"
+}</code></pre>
+
+                    <h3>Manuelle Aufrufe</h3>
+                    <pre><code>bin/console amagno:verify-signatures --all-connections --dry-run
+bin/console amagno:verify-signatures --connection=nev-onprem --use-checkpoint</code></pre>
+
+                    <ul class="notes">
+                        <li><code>required_tag</code>: erwartete Pruefer</li>
+                        <li><code>confirmed_tag</code>: vorhandene Unterschriften bzw. Freigaben</li>
+                        <li><code>result_attribute</code>: Textfeld fuer das Pruefergebnis</li>
+                        <li><code>success_stamp</code> bzw. <code>complete_stamp</code>: Stempel fuer vollstaendige Dokumente</li>
+                        <li><code>incomplete_stamp</code>: Stempel fuer unvollstaendige Dokumente</li>
+                    </ul>
+                </section>
+
+                <section class="card" id="checkpoint">
+                    <h2>6. Checkpoints</h2>
+                    <p>Checkpoints verhindern, dass bei jedem Lauf alle Dokumente erneut bearbeitet werden. Gespeichert wird der letzte bekannte <code>changeDate</code>-Wert als JSON-Datei im konfigurierten Checkpoint-Verzeichnis.</p>
+                    <ul class="notes">
+                        <li>Standardpfad laut Env: <code>var/checkpoints</code></li>
+                        <li>Der Dateiname wird aus dem Checkpoint-Key erzeugt.</li>
+                        <li>Ein geloeschter Checkpoint fuehrt dazu, dass beim naechsten Lauf wieder breiter gelesen wird.</li>
+                    </ul>
+                    <div class="warning">
+                        <strong>Wichtig:</strong> Wenn "keine neuen Dokumente" gemeldet wird, obwohl etwas erwartet wird, ist der Checkpoint einer der ersten Pruefpunkte.
+                    </div>
+                </section>
+
+                <section class="card" id="logs">
+                    <h2>7. Logs und Kontrolle</h2>
+                    <h3>Was beobachten?</h3>
+                    <ul class="notes">
+                        <li>Exit-Code des Batch- oder Console-Laufs</li>
+                        <li>eigene Task-Logs, z. B. in <code>C:\logs</code> oder <code>var\log</code></li>
+                        <li>Anzahl gefundener und verarbeiteter Dokumente</li>
+                        <li>Rueckschreibungen von Fehlertexten, Erfolgs- oder Fehlerstempeln</li>
+                    </ul>
+
+                    <h3>Nutzliche Befehle</h3>
+                    <pre><code>bin/console amagno:sync --all-connections --dry-run -vvv
+bin/console amagno:verify-signatures --all-connections --dry-run -vvv</code></pre>
+
+                    <p>Die Anwendung verwendet Monolog. Je nach Umgebung landen Logs typischerweise in <code>var/log/dev.log</code> oder <code>var/log/prod.log</code>.</p>
+                </section>
+
+                <section class="card" id="fehler">
+                    <h2>8. Typische Fehlerbilder</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Symptom</th>
+                                <th>Ursache</th>
+                                <th>Pruefung</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>Credential-ID ... nicht vorhanden</code></td>
+                                <td>Verbindung verweist auf ungueltige Credential-ID</td>
+                                <td><code>credential_id</code> gegen <code>credentials[].cid</code> pruefen</td>
+                            </tr>
+                            <tr>
+                                <td><code>Keine Amagno Base URI</code></td>
+                                <td>weder Env noch Verbindung liefert <code>base_uri</code></td>
+                                <td><code>.env.local</code> und JSON vergleichen</td>
+                            </tr>
+                            <tr>
+                                <td>Keine neuen Dokumente gefunden</td>
+                                <td>Checkpoint oder falscher Magnet</td>
+                                <td>mit <code>--dry-run</code> und ggf. ohne <code>--use-checkpoint</code> testen</td>
+                            </tr>
+                            <tr>
+                                <td>Lokaler Export scheitert</td>
+                                <td>Zielordner existiert nicht oder Rechte fehlen</td>
+                                <td>Ordner manuell pruefen, ggf. Service-Account testen</td>
+                            </tr>
+                            <tr>
+                                <td>Windows-Task kommt nicht auf Netzlaufwerk</td>
+                                <td>Task laeuft mit anderem Benutzerkontext</td>
+                                <td>Batch mit <code>net use</code> und expliziten Credentials nutzen</td>
+                            </tr>
+                            <tr>
+                                <td><code>No route found for POST .../save.php</code></td>
+                                <td>Legacy-Settings-Route nicht verfuegbar</td>
+                                <td><a href="../src/Controller/SettingsActionController.php">SettingsActionController</a> und Webrouting pruefen</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="card" id="routine">
+                    <h2>9. Regelmaessige Aufgaben</h2>
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h3>Vor einem Release</h3>
+                            <ul class="notes">
+                                <li>lokale Konfigurationsdatei sichern</li>
+                                <li><code>--dry-run</code> fuer Sync und Signaturpruefung ausfuehren</li>
+                                <li>Zielpfade und Freigaben erreichbar pruefen</li>
+                            </ul>
+                        </div>
+                        <div class="mini">
+                            <h3>Im Stoerungsfall</h3>
+                            <ul class="notes">
+                                <li>zuletzt geaenderte Konfiguration identifizieren</li>
+                                <li>mit einer einzelnen Verbindung testen</li>
+                                <li>Checkpoints kontrollieren</li>
+                                <li>erst danach globale Tasks erneut freigeben</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3>Nicht vergessen</h3>
+                    <ul class="notes">
+                        <li>Die Settings-Oberflaeche unter <code>/settings</code> basiert auf Legacy-Code und ist funktional, aber nicht modernisiert.</li>
+                        <li>Credentials und produktive JSON-Dateien nicht versehentlich ins Repository einchecken.</li>
+                        <li>Bei grossen Aenderungen immer zuerst einen manuellen Lauf mit einer einzelnen Verbindung pruefen.</li>
+                    </ul>
+                </section>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

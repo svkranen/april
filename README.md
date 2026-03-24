@@ -112,3 +112,74 @@ php bin\console amagno:sync --all-connections >> C:\logs\amagno_sync.log 2>&1
 * Monolog schreiben in `var/log/dev.log` bzw. `var/log/prod.log` (nach Installation des `symfony/monolog-bundle`).
 * `bin/console amagno:sync ... -vvv` für ausführlichere CLI-Ausgaben.
 * Fehlgeschlagene Stempel/Merkmale werden im Logger protokolliert.
+
+## 5. Signatur-Pruefung
+
+Es gibt zusaetzlich ein separates Modul fuer Signatur-Vollstaendigkeit. Die Kernlogik liegt unter `src/SignatureCheck/` und ist bewusst ohne Symfony-/Amagno-Abhaengigkeit gehalten; Amagno-spezifisch sind nur der Adapter-Service und das CLI-Command.
+
+### Konfiguration je Verbindung
+
+In `config/amagno_connections.local.json` kann pro Verbindung optional ein Block `signature_check` hinterlegt werden:
+
+```json
+{
+  "id": "nev-onprem",
+  "magnet_id": "GUID",
+  "signature_check": {
+    "required_tag": "GUID-ZU-PRUEFEN-DURCH",
+    "confirmed_tag": "GUID-GEPRUEFT-DURCH",
+    "result_attribute": "GUID-ERGEBNIS",
+    "success_stamp": "GUID-ERFOLGREICH",
+    "complete_stamp": "GUID-VOLLSTAENDIG",
+    "incomplete_stamp": "GUID-UNVOLLSTAENDIG",
+    "checkpoint_key": "nev-onprem-signature-check"
+  }
+}
+```
+
+* `required_tag`: Merkmal fuer die erwarteten Pruefer, z. B. `Zu pruefen durch`
+* `confirmed_tag`: Merkmal fuer die vorhandenen Unterschriften, z. B. `Geprueft durch`
+* Die Pruefung vergleicht die Namen als Menge inklusive Mehrfachvorkommen. Wenn dreimal `Zu pruefen durch` gesetzt ist, muessen auch drei passende Eintraege in `Geprueft durch` vorhanden sein.
+* `success_stamp` ist der Stempel fuer erfolgreich vollstaendige Dokumente.
+* `complete_stamp` bleibt als abwaertskompatibler Alias unterstuetzt.
+* `result_attribute` und `incomplete_stamp` sind optional.
+
+### Manuell starten
+
+```bash
+bin/console amagno:verify-signatures --connection=nev-onprem --use-checkpoint
+```
+
+Oder direkt ohne Verbindungsdefinition:
+
+```bash
+bin/console amagno:verify-signatures \
+  --magnet=GUID \
+  --required-tag=GUID-ZU-PRUEFEN-DURCH \
+  --confirmed-tag=GUID-GEPRUEFT-DURCH \
+  --result-attribute=GUID-ERGEBNIS \
+  --success-stamp=GUID-ERFOLGREICH \
+  --use-checkpoint
+```
+
+Wichtige Optionen:
+
+* `--all-connections`: verarbeitet alle Verbindungen mit `signature_check`
+* `--use-checkpoint`: prueft nur seit dem letzten Lauf geaenderte Dokumente
+* `--dry-run`: schreibt weder Ergebnis-Merkmal noch Stempel zurueck
+* `--success-stamp`: optionaler Stempel fuer erfolgreich gepruefte Dokumente
+* `--incomplete-stamp`: optionaler Stempel fuer unvollstaendige Dokumente
+
+### Alle 5 Minuten unter Windows
+
+Beispiel fuer eine zweite Batch-Datei:
+
+```bat
+@echo off
+set APP_ENV=prod
+set APP_DEBUG=0
+cd /d C:\inetpub\amagno_nev_interface
+php bin\console amagno:verify-signatures --all-connections --use-checkpoint >> C:\logs\amagno_signature_check.log 2>&1
+```
+
+In der Aufgabenplanung dann einen Trigger "taeglich" mit Wiederholung alle 5 Minuten hinterlegen.

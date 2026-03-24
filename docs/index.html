@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Amagno / Nevaris Interface - Administrator- und Entwicklerdoku</title>
+    <style>
+        :root {
+            --bg: #f4f1ea;
+            --paper: #fffdf8;
+            --ink: #1f2933;
+            --muted: #5d6b78;
+            --line: #d8cfc1;
+            --accent: #005f73;
+            --accent-soft: #e3f0f2;
+            --warn: #9b2226;
+            --code: #f1ece3;
+            --shadow: 0 18px 40px rgba(48, 55, 61, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top right, rgba(0, 95, 115, 0.10), transparent 28rem),
+                linear-gradient(180deg, #efe8dc 0%, var(--bg) 18rem, #f8f5ee 100%);
+            line-height: 1.55;
+        }
+
+        a {
+            color: var(--accent);
+        }
+
+        code {
+            font-family: Consolas, "Liberation Mono", monospace;
+            background: var(--code);
+            padding: 0.12rem 0.35rem;
+            border-radius: 0.3rem;
+        }
+
+        pre {
+            margin: 0;
+            overflow-x: auto;
+            padding: 1rem;
+            background: #172026;
+            color: #eef6f7;
+            border-radius: 0.75rem;
+        }
+
+        .page {
+            width: min(1180px, calc(100% - 2rem));
+            margin: 2rem auto 4rem;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, rgba(0, 95, 115, 0.96), rgba(10, 35, 66, 0.95));
+            color: #f6fbfc;
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .hero h1 {
+            margin: 0 0 0.5rem;
+            font-size: clamp(2rem, 4vw, 3.3rem);
+            line-height: 1.05;
+        }
+
+        .hero p {
+            max-width: 54rem;
+            margin: 0.6rem 0;
+            color: rgba(246, 251, 252, 0.88);
+        }
+
+        .hero .meta {
+            margin-top: 1.25rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .pill {
+            display: inline-block;
+            padding: 0.4rem 0.7rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #f6fbfc;
+            text-decoration: none;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 290px minmax(0, 1fr);
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+            align-items: start;
+        }
+
+        .toc,
+        .card {
+            background: var(--paper);
+            border: 1px solid rgba(216, 207, 193, 0.9);
+            border-radius: 1.25rem;
+            box-shadow: var(--shadow);
+        }
+
+        .toc {
+            position: sticky;
+            top: 1rem;
+            padding: 1.25rem;
+        }
+
+        .toc h2 {
+            margin-top: 0;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+
+        .toc a {
+            display: block;
+            padding: 0.35rem 0;
+            text-decoration: none;
+        }
+
+        .content {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .card {
+            padding: 1.5rem;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.55rem;
+        }
+
+        .card h3 {
+            margin-bottom: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .lead {
+            color: var(--muted);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .mini {
+            padding: 1rem;
+            border-radius: 1rem;
+            background: #fcfaf5;
+            border: 1px solid var(--line);
+        }
+
+        .mini h3,
+        .mini h4 {
+            margin-top: 0;
+        }
+
+        .tree,
+        .steps,
+        .notes {
+            margin: 0;
+            padding-left: 1.1rem;
+        }
+
+        .tree li,
+        .steps li,
+        .notes li {
+            margin: 0.35rem 0;
+        }
+
+        .flow {
+            display: grid;
+            gap: 0.7rem;
+        }
+
+        .flow div {
+            padding: 0.9rem 1rem;
+            border-left: 4px solid var(--accent);
+            background: var(--accent-soft);
+            border-radius: 0.8rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            vertical-align: top;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--line);
+        }
+
+        th {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .warning {
+            border-left: 4px solid var(--warn);
+            background: #fff0ef;
+            padding: 1rem;
+            border-radius: 0.8rem;
+        }
+
+        @media (max-width: 980px) {
+            .layout,
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .toc {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <section class="hero">
+            <h1>Amagno / Nevaris Interface</h1>
+            <p>Diese Seite ist als Einstieg f&uuml;r Administratoren und Folgeentwickler gedacht. Sie beschreibt den technischen Aufbau, die wichtigsten Laufwege, relevante Konfigurationen und verweist direkt auf die zentralen Dateien im Repository.</p>
+            <p>Die Seite ist lokal klickbar: Abschnittslinks springen innerhalb der Doku, Dateilinks &ouml;ffnen die zugeh&ouml;rigen Dateien relativ zum Projektverzeichnis.</p>
+            <div class="meta">
+                <a class="pill" href="#ueberblick">Projekt&uuml;berblick</a>
+                <a class="pill" href="#betrieb">Betrieb</a>
+                <a class="pill" href="#architektur">Architektur</a>
+                <a class="pill" href="#signatur">Signaturpr&uuml;fung</a>
+                <a class="pill" href="./admin-guide.html">Admin Guide</a>
+                <a class="pill" href="../README.md">README.md</a>
+            </div>
+        </section>
+
+        <div class="layout">
+            <aside class="toc">
+                <h2>Inhalt</h2>
+                <a href="#ueberblick">1. Projekt&uuml;berblick</a>
+                <a href="#struktur">2. Verzeichnisstruktur</a>
+                <a href="#betrieb">3. Betrieb und Konfiguration</a>
+                <a href="#sync">4. Ablauf Sync / Export</a>
+                <a href="#signatur">5. Ablauf Signaturpr&uuml;fung</a>
+                <a href="#architektur">6. Wichtige Klassen</a>
+                <a href="#settings-ui">7. Legacy-Settings-UI</a>
+                <a href="#tests">8. Tests und Qualit&auml;t</a>
+                <a href="#aenderung">9. &Auml;nderungen sicher umsetzen</a>
+            </aside>
+
+            <main class="content">
+                <section class="card" id="ueberblick">
+                    <h2>1. Projekt&uuml;berblick</h2>
+                    <p class="lead">Das Projekt ist eine Symfony-7.4-Anwendung, die Dokumente aus Amagno abholt, mit einem Mapping aufbereitet und je nach Konfiguration in unterschiedliche Ziele exportiert. Daneben existiert ein separates Modul zur Pr&uuml;fung von Unterschriften bzw. Freigaben.</p>
+                    <p><strong>F&uuml;r den Betrieb:</strong> Die praxisnahe Administrator-Doku liegt separat unter <a href="./admin-guide.html">docs/admin-guide.html</a>. Diese Seite hier bleibt der technische Einstieg f&uuml;r Folgeentwickler.</p>
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h3>Hauptaufgaben</h3>
+                            <ul class="notes">
+                                <li>Dokumente aus einem Amagno-Magneten lesen</li>
+                                <li>Metadaten anhand von <code>matching.json</code> in eine Export-Matrix &uuml;berf&uuml;hren</li>
+                                <li>Templates rendern und nach <code>local</code>, <code>ftp</code>, <code>amagno</code> oder <code>sql</code> exportieren</li>
+                                <li>Erfolgs- oder Fehlerstempel auf Dokumente zur&uuml;ckschreiben</li>
+                                <li>Signaturvollst&auml;ndigkeit pr&uuml;fen und Ergebnis zur&uuml;ck nach Amagno schreiben</li>
+                            </ul>
+                        </div>
+                        <div class="mini">
+                            <h3>Zentrale Einstiegspunkte</h3>
+                            <ul class="notes">
+                                <li>CLI Sync: <a href="../src/Command/AmagnoSyncCommand.php">src/Command/AmagnoSyncCommand.php</a></li>
+                                <li>CLI Signaturpr&uuml;fung: <a href="../src/Command/AmagnoVerifySignaturesCommand.php">src/Command/AmagnoVerifySignaturesCommand.php</a></li>
+                                <li>Service Sync: <a href="../src/Service/FibuExportService.php">src/Service/FibuExportService.php</a></li>
+                                <li>Service Signaturpr&uuml;fung: <a href="../src/Service/SignatureCheck/AmagnoSignatureCheckService.php">src/Service/SignatureCheck/AmagnoSignatureCheckService.php</a></li>
+                                <li>Legacy-Settings-UI: <a href="../src/Controller/SettingsController.php">src/Controller/SettingsController.php</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card" id="struktur">
+                    <h2>2. Verzeichnisstruktur</h2>
+                    <ul class="tree">
+                        <li><code>src/Command</code>: CLI-Kommandos f&uuml;r Batch-Betrieb</li>
+                        <li><code>src/Controller</code>: kleine Web-Einstiegspunkte, vor allem Home und Settings-Bridge</li>
+                        <li><code>src/Service/Amagno</code>: Konfiguration, API-Kommunikation, Credentials, Tag-Schreibzugriffe</li>
+                        <li><code>src/Service/Processing</code>: Matching, Matrixaufbau, Rendering, Stempel</li>
+                        <li><code>src/Service/Export</code>: Exportziele und Registry</li>
+                        <li><code>src/Service/SignatureCheck</code>: Amagno-gebundener Orchestrator f&uuml;r Signaturpr&uuml;fung</li>
+                        <li><code>src/SignatureCheck</code>: fachliche Kernlogik ohne Symfony-Abh&auml;ngigkeit</li>
+                        <li><code>config</code>: Symfony-Services und JSON-Verbindungsdefinitionen</li>
+                        <li><code>oldProject</code>: altes UI, Templates und Altcode, der weiterhin eingebunden wird</li>
+                        <li><code>tests</code>: PHPUnit-Tests f&uuml;r Export-, Rendering- und Signaturlogik</li>
+                    </ul>
+                </section>
+
+                <section class="card" id="betrieb">
+                    <h2>3. Betrieb und Konfiguration</h2>
+                    <p>Konfiguration kommt aus zwei Quellen: Symfony-Umgebungsvariablen als Default und einer JSON-Datei f&uuml;r konkrete Verbindungen.</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Datei</th>
+                                <th>Rolle</th>
+                                <th>Wichtig f&uuml;r</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><a href="../.env">.env</a></td>
+                                <td>globale Defaults wie Base-URI, Credential-ID, Matching-Datei, Template-Verzeichnis</td>
+                                <td>Initiale Einrichtung, lokale Defaults</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../config/services.yaml">config/services.yaml</a></td>
+                                <td>verdrahtet Parameter und Services</td>
+                                <td>Dependency Injection, Dateipfade</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../config/amagno_connections.json">config/amagno_connections.json</a></td>
+                                <td>Credentials und Verbindungsdefinitionen</td>
+                                <td>Batch-Betrieb, mehrere Profile</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../oldProject/matching.json">oldProject/matching.json</a></td>
+                                <td>Tag-Mapping f&uuml;r das Rendering</td>
+                                <td>Inhaltliche Zuordnung von Amagno-Metadaten</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Konfigurationsladeweg</h3>
+                    <div class="flow">
+                        <div><strong>Symfony Parameter</strong> werden in <a href="../config/services.yaml">config/services.yaml</a> aus <code>.env</code> bzw. echten Environment-Variablen gelesen.</div>
+                        <div><strong>ConnectionConfigLoader</strong> liest die JSON-Datei ein: <a href="../src/Service/Amagno/ConnectionConfigLoader.php">src/Service/Amagno/ConnectionConfigLoader.php</a>.</div>
+                        <div><strong>ConnectionRegistry</strong> validiert Credentials und baut daraus <code>ConnectionDefinition</code>-Objekte: <a href="../src/Service/Amagno/ConnectionRegistry.php">src/Service/Amagno/ConnectionRegistry.php</a>.</div>
+                        <div><strong>Die Commands</strong> kombinieren JSON-Werte mit CLI-Optionen. CLI &uuml;berschreibt die Verbindungsdefinition.</div>
+                    </div>
+
+                    <div class="warning">
+                        <strong>Wichtig:</strong> Die produktive JSON-Datei sollte lokal oder deployment-spezifisch gepflegt und nicht unkontrolliert versioniert werden, weil sie technische Zugangsdaten enthalten kann.
+                    </div>
+                </section>
+
+                <section class="card" id="sync">
+                    <h2>4. Ablauf Sync / Export</h2>
+                    <p>Der technische Hauptlauf startet &uuml;ber <code>bin/console amagno:sync</code>. Das Command setzt einen Lock, l&auml;dt Optionen und delegiert dann an den zentralen Service.</p>
+
+                    <div class="flow">
+                        <div><strong>1. CLI:</strong> <a href="../src/Command/AmagnoSyncCommand.php">AmagnoSyncCommand</a> liest Optionen, verarbeitet optional alle aktiven Verbindungen und erzeugt <a href="../src/Dto/SyncOptions.php">SyncOptions</a>.</div>
+                        <div><strong>2. Checkpoint:</strong> <a href="../src/Service/FibuExportService.php">FibuExportService</a> liest bei Bedarf den letzten Lauf aus <a href="../src/Service/Checkpoint/CheckpointStore.php">CheckpointStore</a>.</div>
+                        <div><strong>3. Authentifizierung:</strong> Token wird direkt verwendet oder aus Benutzer/Passwort plus Credential-ID aufgebaut.</div>
+                        <div><strong>4. Dokumentabruf:</strong> <a href="../src/Service/Amagno/DocumentFetcher.php">DocumentFetcher</a> ruft Dokumente, Tags und Selection-Nodes per HTTP ab.</div>
+                        <div><strong>5. Datenaufbereitung:</strong> <a href="../src/Service/Processing/DocumentMatrixBuilder.php">DocumentMatrixBuilder</a> erzeugt die interne Matrix auf Basis des Matchings.</div>
+                        <div><strong>6. Rendering:</strong> <a href="../src/Service/Processing/TemplateRenderer.php">TemplateRenderer</a> rendert die Matrix in Text- oder Excel-nahe Ausgabebl&ouml;cke.</div>
+                        <div><strong>7. Export:</strong> <a href="../src/Service/Export/ExporterRegistry.php">ExporterRegistry</a> w&auml;hlt das Ziel und ruft den passenden Exporter auf.</div>
+                        <div><strong>8. R&uuml;ckmeldung:</strong> optional werden Erfolgs- oder Fehlerstempel gesetzt und der Checkpoint fortgeschrieben.</div>
+                    </div>
+
+                    <h3>Exporter</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Ziel</th>
+                                <th>Klasse</th>
+                                <th>Besonderheiten</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>local</code></td>
+                                <td><a href="../src/Service/Export/LocalExporter.php">LocalExporter</a></td>
+                                <td>schreibt direkt in ein lokales Verzeichnis oder UNC-Share</td>
+                            </tr>
+                            <tr>
+                                <td><code>ftp</code></td>
+                                <td><a href="../src/Service/Export/FtpExporter.php">FtpExporter</a></td>
+                                <td>nutzt PHP-FTP-Funktionen, validiert alle Zugangsdaten zur Laufzeit</td>
+                            </tr>
+                            <tr>
+                                <td><code>amagno</code></td>
+                                <td><a href="../src/Service/Export/AmagnoExporter.php">AmagnoExporter</a></td>
+                                <td>legt Dokumente in einem Ziel-Vault an und l&auml;dt die Datei anschlie&szlig;end hoch</td>
+                            </tr>
+                            <tr>
+                                <td><code>sql</code></td>
+                                <td><a href="../src/Service/Export/SqlExporter.php">SqlExporter</a></td>
+                                <td>interpretiert gerenderte Inhalte als SQL-Statements; kein Excel-Template m&ouml;glich</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Typische Debug-Pfade</h3>
+                    <ul class="notes">
+                        <li>Keine Dokumente gefunden: Magnet-ID, Checkpoint oder <code>modifiedSince</code> pr&uuml;fen</li>
+                        <li>Templatefehler: <a href="../src/Service/Processing/MatchingProvider.php">MatchingProvider</a> und Template-Datei in <code>oldProject/</code> pr&uuml;fen</li>
+                        <li>Falsche Werte im Export: Matching und Matrixaufbau vergleichen</li>
+                        <li>Exportfehler trotz korrekter Daten: Zielsystem-spezifischen Exporter lesen</li>
+                    </ul>
+                </section>
+
+                <section class="card" id="signatur">
+                    <h2>5. Ablauf Signaturpr&uuml;fung</h2>
+                    <p>Die Signaturpr&uuml;fung ist als eigenes Modul aufgebaut. Die fachliche Vergleichslogik liegt bewusst isoliert unter <code>src/SignatureCheck</code>. Dadurch kann sie leicht getestet und weiterentwickelt werden.</p>
+
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h3>Fachlicher Kern</h3>
+                            <ul class="notes">
+                                <li><a href="../src/SignatureCheck/AmagnoTagValueExtractor.php">AmagnoTagValueExtractor</a>: extrahiert Werte aus normalen Tags und Selection-Tags</li>
+                                <li><a href="../src/SignatureCheck/SignatureCompletenessChecker.php">SignatureCompletenessChecker</a>: vergleicht erwartete und best&auml;tigte Namen, inkl. Mehrfachvorkommen und case-insensitive Z&auml;hlung</li>
+                                <li><a href="../src/SignatureCheck/SignatureCheckResult.php">SignatureCheckResult</a>: kapselt Ergebnis und erzeugt lesbare Meldungen</li>
+                            </ul>
+                        </div>
+                        <div class="mini">
+                            <h3>Amagno-Anbindung</h3>
+                            <ul class="notes">
+                                <li><a href="../src/Service/SignatureCheck/AmagnoSignatureCheckService.php">AmagnoSignatureCheckService</a>: holt Dokumente, ruft die Fachlogik auf und schreibt Ergebnisattribute oder Stempel zur&uuml;ck</li>
+                                <li><a href="../src/Command/AmagnoVerifySignaturesCommand.php">AmagnoVerifySignaturesCommand</a>: CLI-Einstieg, Mehrfachlauf &uuml;ber Verbindungen, Locking</li>
+                                <li><a href="../src/Dto/SignatureCheckOptions.php">SignatureCheckOptions</a>: transportiert die Laufparameter</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3>Technischer Laufweg</h3>
+                    <div class="flow">
+                        <div><strong>1.</strong> Das Command baut <code>SignatureCheckOptions</code> entweder aus einer Verbindungsdefinition oder direkt aus CLI-Parametern.</div>
+                        <div><strong>2.</strong> Der Service l&auml;dt bei Bedarf einen Checkpoint und ermittelt ein API-Token.</div>
+                        <div><strong>3.</strong> Dokumente werden aus dem Magneten gelesen, Tags pro Dokument geladen und in Namenslisten umgewandelt.</div>
+                        <div><strong>4.</strong> Der Checker berechnet fehlende und unerwartete Namen.</div>
+                        <div><strong>5.</strong> Optional werden Ergebnistext, Vollst&auml;ndig-Stempel und Unvollst&auml;ndig-Stempel nach Amagno zur&uuml;ckgeschrieben.</div>
+                    </div>
+
+                    <h3>Wichtig f&uuml;r Folgeentwickler</h3>
+                    <ul class="notes">
+                        <li>Die fachliche Kernlogik ist nicht an Symfony gebunden und sollte auch k&uuml;nftig dort bleiben.</li>
+                        <li>Vergleich ist case-insensitive, aber die urspr&uuml;ngliche Schreibweise wird f&uuml;r Meldungen erhalten.</li>
+                        <li>Mehrfachnennungen z&auml;hlen. Drei erwartete Eintr&auml;ge erfordern drei passende Best&auml;tigungen.</li>
+                        <li>Selection-Tags werden aufgel&ouml;st, normale String-/Zahlwerte werden direkt verarbeitet.</li>
+                    </ul>
+                </section>
+
+                <section class="card" id="architektur">
+                    <h2>6. Wichtige Klassen und Verantwortlichkeiten</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Klasse</th>
+                                <th>Verantwortung</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><a href="../src/Service/Amagno/ConnectionConfigLoader.php">ConnectionConfigLoader</a></td>
+                                <td>liest die JSON-Konfiguration robust ein und validiert die Grundstruktur</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../src/Service/Amagno/ConnectionRegistry.php">ConnectionRegistry</a></td>
+                                <td>erzeugt aktive Verbindungsobjekte und pr&uuml;ft Credential-Referenzen</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../src/Service/Amagno/ConnectionDefinition.php">ConnectionDefinition</a></td>
+                                <td>Value Object f&uuml;r eine Verbindung inklusive Signaturblock</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../src/Service/Amagno/DocumentFetcher.php">DocumentFetcher</a></td>
+                                <td>HTTP-Adapter f&uuml;r Dokumente, Tags und Selection-Nodes</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../src/Service/Amagno/DocumentTagWriter.php">DocumentTagWriter</a></td>
+                                <td>schreibt Merkmalswerte zur&uuml;ck nach Amagno, etwa Fehlertexte oder Pr&uuml;fergebnisse</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../src/Service/Processing/MatchingProvider.php">MatchingProvider</a></td>
+                                <td>holt Matching-Profil und bestimmt das zugeh&ouml;rige Template</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../src/Service/Processing/DocumentMatrixBuilder.php">DocumentMatrixBuilder</a></td>
+                                <td>transformiert Amagno-Daten in das vom Renderer erwartete Format</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../src/Service/Processing/TemplateRenderer.php">TemplateRenderer</a></td>
+                                <td>komplexester fachlicher Altbestand; rendert die Daten in Ausgabeformate und unterst&uuml;tzt Split-Logik</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../src/Service/Processing/StampService.php">StampService</a></td>
+                                <td>setzt Stempel mit Retry-Logik auf Dokumente</td>
+                            </tr>
+                            <tr>
+                                <td><a href="../src/Service/Checkpoint/CheckpointStore.php">CheckpointStore</a></td>
+                                <td>persistiert den letzten verarbeiteten &Auml;nderungszeitpunkt in JSON-Dateien</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Dateien, die man zuerst lesen sollte</h3>
+                    <ol class="steps">
+                        <li><a href="../README.md">README.md</a> f&uuml;r Betrieb und Beispiele</li>
+                        <li><a href="../config/services.yaml">config/services.yaml</a> f&uuml;r DI und Pfade</li>
+                        <li><a href="../src/Command/AmagnoSyncCommand.php">AmagnoSyncCommand</a> und <a href="../src/Service/FibuExportService.php">FibuExportService</a> f&uuml;r den Hauptfluss</li>
+                        <li><a href="../src/Command/AmagnoVerifySignaturesCommand.php">AmagnoVerifySignaturesCommand</a> und <a href="../src/Service/SignatureCheck/AmagnoSignatureCheckService.php">AmagnoSignatureCheckService</a> f&uuml;r das neue Modul</li>
+                        <li><a href="../src/Service/Processing/TemplateRenderer.php">TemplateRenderer</a> nur dann im Detail, wenn das Ausgabeformat ge&auml;ndert werden muss</li>
+                    </ol>
+                </section>
+
+                <section class="card" id="settings-ui">
+                    <h2>7. Legacy-Settings-UI</h2>
+                    <p>Die Route <code>/settings</code> ist keine neu implementierte Symfony-Oberfl&auml;che, sondern eine Einbindung des Altbestands aus <code>oldProject/settings.php</code>. Das ist wichtig, weil Verhalten und JavaScript dort weiterhin stark auf die alte Struktur zugeschnitten sind.</p>
+                    <ul class="notes">
+                        <li>Bridge-Controller: <a href="../src/Controller/SettingsController.php">SettingsController</a></li>
+                        <li>POST-Bridge f&uuml;r Speichern: <a href="../src/Controller/SettingsActionController.php">SettingsActionController</a></li>
+                        <li>Alte Ansicht: <a href="../oldProject/settings.php">oldProject/settings.php</a></li>
+                        <li>Altes Speicherskript: <a href="../oldProject/save.php">oldProject/save.php</a></li>
+                    </ul>
+                    <div class="warning">
+                        <strong>Wichtig:</strong> Wenn sich die Settings-Oberfl&auml;che merkw&uuml;rdig verh&auml;lt, ist die Ursache oft nicht in Symfony selbst, sondern im eingebundenen Legacy-Skript oder in dessen Browser-seitiger Session-/Token-Logik zu suchen.
+                    </div>
+                </section>
+
+                <section class="card" id="tests">
+                    <h2>8. Tests und Qualit&auml;t</h2>
+                    <p>Das Projekt hat bereits gezielte PHPUnit-Tests, vor allem f&uuml;r Exporter, Rendering-nahe Services und das Signaturmodul.</p>
+                    <ul class="notes">
+                        <li><a href="../tests/SignatureCheck/SignatureCompletenessCheckerTest.php">tests/SignatureCheck/SignatureCompletenessCheckerTest.php</a></li>
+                        <li><a href="../tests/SignatureCheck/AmagnoTagValueExtractorTest.php">tests/SignatureCheck/AmagnoTagValueExtractorTest.php</a></li>
+                        <li><a href="../tests/Export/LocalExporterTest.php">tests/Export/LocalExporterTest.php</a></li>
+                        <li><a href="../tests/Export/SqlExporterTest.php">tests/Export/SqlExporterTest.php</a></li>
+                        <li><a href="../tests/Service/Processing/TemplateRendererCalculateTest.php">tests/Service/Processing/TemplateRendererCalculateTest.php</a></li>
+                        <li><a href="../tests/Service/FibuExportServiceTest.php">tests/Service/FibuExportServiceTest.php</a></li>
+                    </ul>
+                    <pre><code>php bin/phpunit</code></pre>
+                </section>
+
+                <section class="card" id="aenderung">
+                    <h2>9. &Auml;nderungen sicher umsetzen</h2>
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h3>Bei Konfigurations&auml;nderungen</h3>
+                            <ul class="notes">
+                                <li>erst JSON-Struktur und Referenzen in <code>credential_id</code> pr&uuml;fen</li>
+                                <li>danach den betroffenen CLI-Lauf mit <code>--dry-run</code> testen</li>
+                                <li>Checkpoint-Dateien im Blick behalten, falls ein Lauf scheinbar nichts findet</li>
+                            </ul>
+                        </div>
+                        <div class="mini">
+                            <h3>Bei Code&auml;nderungen</h3>
+                            <ul class="notes">
+                                <li>fachliche Kernlogik m&ouml;glichst in testbare Services ohne Framework-Kopplung verlagern</li>
+                                <li>bei neuen Exportzielen nur einen weiteren Exporter plus Registrierung &uuml;ber das Interface erg&auml;nzen</li>
+                                <li>am <code>TemplateRenderer</code> vorsichtig arbeiten, weil dort viele Altregeln stecken</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <h3>Empfohlene erste Orientierung f&uuml;r neue Entwickler</h3>
+                    <ol class="steps">
+                        <li>Diese Doku und die <a href="../README.md">README</a> lesen.</li>
+                        <li><a href="../config/amagno_connections.json">config/amagno_connections.json</a> und <a href="../config/services.yaml">config/services.yaml</a> verstehen.</li>
+                        <li>Den Lauf <code>amagno:sync</code> von Command bis Exporter verfolgen.</li>
+                        <li>Danach das Signaturmodul getrennt ansehen, weil es sauberer geschnitten ist als Teile des Altbestands.</li>
+                    </ol>
+                </section>
+            </main>
+        </div>
+    </div>
+</body>
+</html>

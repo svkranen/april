@@ -22,7 +22,16 @@
             "folder": "\\\\server\\share\\amagno",
             "success_stamp": null,
             "error_stamp": null,
-            "error_attribute": null
+            "error_attribute": null,
+            "signature_check": {
+                "required_tag": "",
+                "confirmed_tag": "",
+                "result_attribute": null,
+                "success_stamp": null,
+                "complete_stamp": null,
+                "incomplete_stamp": null,
+                "checkpoint_key": "example-signature-check"
+            }
         }
     ]
 }

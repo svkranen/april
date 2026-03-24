@@ -22,7 +22,8 @@ class ConnectionDefinition
         private readonly ?string $localFolder,
         private readonly ?string $successStampId,
         private readonly ?string $errorStampId,
-        private readonly ?string $errorAttributeId
+        private readonly ?string $errorAttributeId,
+        private readonly ?array $signatureCheck
     ) {
         if ($this->id === '') {
             throw new InvalidArgumentException('Connection id darf nicht leer sein.');
@@ -73,7 +74,10 @@ class ConnectionDefinition
             localFolder: $config['folder'] ?? null,
             successStampId: $config['success_stamp'] ?? null,
             errorStampId: $config['error_stamp'] ?? null,
-            errorAttributeId: $config['error_attribute'] ?? null
+            errorAttributeId: $config['error_attribute'] ?? null,
+            signatureCheck: isset($config['signature_check']) && is_array($config['signature_check'])
+                ? $config['signature_check']
+                : null
         );
     }
 
@@ -155,5 +159,13 @@ class ConnectionDefinition
     public function errorAttributeId(): ?string
     {
         return $this->errorAttributeId;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function signatureCheck(): ?array
+    {
+        return $this->signatureCheck;
     }
 }

@@ -89,6 +89,14 @@ services:
             $defaultApiPassword: '%amagno.api_password%'
             $defaultApiAuthType: '%amagno.api_auth_type%'
 
+    App\Service\SignatureCheck\AmagnoSignatureCheckService:
+        arguments:
+            $defaultBaseUri: '%amagno.base_uri%'
+            $defaultCredentialId: '%amagno.credential_id%'
+            $defaultApiToken: '%amagno.api_token%'
+            $defaultApiUsername: '%amagno.api_username%'
+            $defaultApiPassword: '%amagno.api_password%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
     
