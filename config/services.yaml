@@ -17,6 +17,7 @@ parameters:
     amagno.matching_file: '%kernel.project_dir%/%env(string:AMAGNO_MATCHING_FILE)%'
     amagno.template_dir: '%kernel.project_dir%/%env(string:AMAGNO_TEMPLATE_DIR)%'
     amagno.checkpoint_dir: '%kernel.project_dir%/%env(string:AMAGNO_CHECKPOINT_DIR)%'
+    amagno.stamp_retries: 3
 
 services:
     # default configuration for services in *this* file
@@ -69,6 +70,10 @@ services:
     App\Service\Processing\MatchingProvider:
         arguments:
             $templateDir: '%amagno.template_dir%'
+
+    App\Service\Processing\StampService:
+        arguments:
+            $defaultMaxRetries: '%amagno.stamp_retries%'
 
     App\Service\Export\ExporterRegistry:
         arguments:

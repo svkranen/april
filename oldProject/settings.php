@@ -9,7 +9,7 @@
     }
 
     .settings-wrapper {
-        max-width: 1200px;
+        max-width: 1480px;
         margin: 30px auto;
         padding: 0 18px 40px;
     }
@@ -28,6 +28,33 @@
 
     #settingsdiv {
         padding-top: 32px;
+    }
+
+    .settings-title {
+        margin: 0 0 18px;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .settings-subtitle {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .input-preview {
+        margin-top: 6px;
+        padding: 8px 10px;
+        border: 1px solid #dce3ec;
+        border-radius: 6px;
+        background: #f8fafc;
+        color: #475569;
+        font-size: 0.82rem;
+        line-height: 1.35;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
     }
 
     #settingsStatus {
@@ -746,15 +773,45 @@
     function setValueInputMode(row, useFixValue) {
         const tagselect = document.getElementById("tag"+row);
         const fixinput = document.getElementById("fix"+row);
+        const fixPreview = document.getElementById("fixpreview"+row);
         if (!tagselect || !fixinput) {
             return;
         }
         if (useFixValue) {
             tagselect.classList.add("uk-hidden");
             fixinput.classList.remove("uk-hidden");
+            updateInputPreview(fixinput, fixPreview);
         } else {
             tagselect.classList.remove("uk-hidden");
             fixinput.classList.add("uk-hidden");
+            if (fixPreview) {
+                fixPreview.classList.add("uk-hidden");
+            }
+        }
+    }
+
+    function updateInputPreview(input, preview) {
+        if (!input || !preview) {
+            return;
+        }
+        const value = input.value || "";
+        preview.textContent = value;
+        preview.classList.toggle("uk-hidden", value.trim() === "");
+    }
+
+    function updateFunctionInputMode(row) {
+        const functionselect = document.getElementById("function"+row);
+        const functioninput = document.getElementById("functiondef"+row);
+        const functionPreview = document.getElementById("functionpreview"+row);
+        if (!functionselect || !functioninput) {
+            return;
+        }
+        const enabled = functionselect.value === "1";
+        functioninput.classList.toggle("uk-hidden", !enabled);
+        if (enabled) {
+            updateInputPreview(functioninput, functionPreview);
+        } else if (functionPreview) {
+            functionPreview.classList.add("uk-hidden");
         }
     }
 
@@ -765,6 +822,7 @@
 		rows = [...new Set(rows)];
 
         rows.forEach((match)=>{
+            const currentRow = rowcount;
             
             let tr = document.createElement("tr");
             let td1 = document.createElement("td");
@@ -803,7 +861,7 @@
             selectfunction.setAttribute("id","function"+rowcount);
             let tempoption1 = document.createElement("option");
             tempoption1.textContent="keine Zusatzfunktion";
-            tempoption1.id = "0";
+            tempoption1.value = "0";
             
             let tempoption2 = document.createElement("option");
             tempoption2.textContent="Zusatzfunktion";
@@ -812,6 +870,9 @@
                 selectfunction.appendChild(tempoption1);
                 selectfunction.appendChild(tempoption2);
             }
+            selectfunction.addEventListener("change", ()=>{
+                updateFunctionInputMode(currentRow);
+            });
             td2.appendChild(selectfunction);
             tr.appendChild(td2);
             let td3 = document.createElement("td");
@@ -872,18 +933,35 @@
             fixinput.classList.add("uk-hidden");
             fixinput.setAttribute("id","fix"+rowcount);
             fixinput.setAttribute("placeholder","Fixwert");
+            let fixPreview = document.createElement("div");
+            fixPreview.classList.add("input-preview");
+            fixPreview.classList.add("uk-hidden");
+            fixPreview.setAttribute("id","fixpreview"+rowcount);
             let functioninput = document.createElement("input");
             functioninput.setAttribute("type","text");
             functioninput.classList.add("uk-input");
             functioninput.classList.add("uk-margin-top");
             functioninput.classList.add("savevalues");
+            functioninput.classList.add("uk-hidden");
             functioninput.setAttribute("id","functiondef"+rowcount);
             if (match!="[::Stempel::]") {
                 functioninput.setAttribute("placeholder","Funktion");
             }
+            let functionPreview = document.createElement("div");
+            functionPreview.classList.add("input-preview");
+            functionPreview.classList.add("uk-hidden");
+            functionPreview.setAttribute("id","functionpreview"+rowcount);
+            fixinput.addEventListener("input", ()=>{
+                updateInputPreview(fixinput, fixPreview);
+            });
+            functioninput.addEventListener("input", ()=>{
+                updateInputPreview(functioninput, functionPreview);
+            });
             td3.appendChild(select2);
             td3.appendChild(fixinput);
+            td3.appendChild(fixPreview);
             td3.appendChild(functioninput);
+            td3.appendChild(functionPreview);
             tr.appendChild(td3);
             let td4 = document.createElement("td");
             let maxleninput = document.createElement("input");
@@ -938,6 +1016,8 @@
             }
             let trigger = new Event("change");
             select1.dispatchEvent(trigger);
+            updateInputPreview(fixinput, fixPreview);
+            updateFunctionInputMode(rowcount);
             rowcount++;
         });
     }
@@ -1289,8 +1369,9 @@
     <?php endif;?>
 </div>
 <div id="settingsdiv" class="settings-card uk-hidden">
+    <h1 class="settings-title">Amagno Multiexport</h1>
     <div class="uk-flex uk-flex-between uk-flex-middle uk-margin-bottom">
-        <h3 class="uk-margin-remove">Einstellungen</h3>
+        <h3 class="settings-subtitle">Einstellungen</h3>
         <button class="uk-button uk-button-default" type="button" onclick="logout()">Abmelden</button>
     </div>
     <div class="uk-grid-small uk-child-width-1-2@m settings-grid" uk-grid>

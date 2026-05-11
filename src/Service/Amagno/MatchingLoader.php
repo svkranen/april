@@ -39,18 +39,4 @@ class MatchingLoader
         return $data[$profile];
     }
 
-    /**
-     * @return list<string>
-     */
-    public function availableProfiles(): array
-    {
-        if (!is_file($this->matchingFile)) {
-            return [];
-        }
-
-        $content = file_get_contents($this->matchingFile);
-        $data = json_decode($content ?: '', true);
-
-        return is_array($data) ? array_keys($data) : [];
-    }
 }

@@ -308,7 +308,7 @@
                         <li><code>src/Service/SignatureCheck</code>: Amagno-gebundener Orchestrator f&uuml;r Signaturpr&uuml;fung</li>
                         <li><code>src/SignatureCheck</code>: fachliche Kernlogik ohne Symfony-Abh&auml;ngigkeit</li>
                         <li><code>config</code>: Symfony-Services und JSON-Verbindungsdefinitionen</li>
-                        <li><code>oldProject</code>: altes UI, Templates und Altcode, der weiterhin eingebunden wird</li>
+                        <li><code>oldProject</code>: Legacy-Settings-UI, Matching-Datei und Templates; alte Export-Endpunkte sind nicht mehr angebunden</li>
                         <li><code>tests</code>: PHPUnit-Tests f&uuml;r Export-, Rendering- und Signaturlogik</li>
                     </ul>
                 </section>
@@ -524,15 +524,16 @@
 
                 <section class="card" id="settings-ui">
                     <h2>7. Legacy-Settings-UI</h2>
-                    <p>Die Route <code>/settings</code> ist keine neu implementierte Symfony-Oberfl&auml;che, sondern eine Einbindung des Altbestands aus <code>oldProject/settings.php</code>. Das ist wichtig, weil Verhalten und JavaScript dort weiterhin stark auf die alte Struktur zugeschnitten sind.</p>
+                    <p>Die Route <code>/settings</code> ist keine neu implementierte Symfony-Oberfl&auml;che, sondern eine Einbindung des Altbestands aus <code>oldProject/settings.php</code>. Angebunden ist nur noch die Pflege von <code>oldProject/matching.json</code>; Export und Signaturpr&uuml;fung laufen &uuml;ber Symfony-Commands.</p>
                     <ul class="notes">
                         <li>Bridge-Controller: <a href="../src/Controller/SettingsController.php">SettingsController</a></li>
                         <li>POST-Bridge f&uuml;r Speichern: <a href="../src/Controller/SettingsActionController.php">SettingsActionController</a></li>
                         <li>Alte Ansicht: <a href="../oldProject/settings.php">oldProject/settings.php</a></li>
                         <li>Altes Speicherskript: <a href="../oldProject/save.php">oldProject/save.php</a></li>
+                        <li>Aktive Webrouten: <code>/</code>, <code>/settings</code>, <code>/save.php</code>, <code>/settings/save.php</code></li>
                     </ul>
                     <div class="warning">
-                        <strong>Wichtig:</strong> Wenn sich die Settings-Oberfl&auml;che merkw&uuml;rdig verh&auml;lt, ist die Ursache oft nicht in Symfony selbst, sondern im eingebundenen Legacy-Skript oder in dessen Browser-seitiger Session-/Token-Logik zu suchen.
+                        <strong>Wichtig:</strong> Alte URLs wie <code>/api/fibu_get</code>, <code>/api/fibu_deleteProfile</code> oder <code>oldProject/export.php</code> sind im aktuellen Symfony-Routing nicht verf&uuml;gbar. Wenn die Settings-Oberfl&auml;che merkw&uuml;rdig verh&auml;lt, zuerst pr&uuml;fen, ob ein Browser-Skript noch einen dieser alten Endpunkte erwartet.
                     </div>
                 </section>
 
@@ -547,7 +548,7 @@
                         <li><a href="../tests/Service/Processing/TemplateRendererCalculateTest.php">tests/Service/Processing/TemplateRendererCalculateTest.php</a></li>
                         <li><a href="../tests/Service/FibuExportServiceTest.php">tests/Service/FibuExportServiceTest.php</a></li>
                     </ul>
-                    <pre><code>php bin/phpunit</code></pre>
+                    <pre><code>vendor/bin/simple-phpunit</code></pre>
                 </section>
 
                 <section class="card" id="aenderung">

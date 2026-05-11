@@ -94,7 +94,9 @@ Dieses Projekt zieht Dokumente aus Amagno, bereitet sie anhand einer `matching.j
    * Bei einem reinen Signature-Check-Eintrag koennen `profile`, `template`, `system`, `export`, `folder`, `error_stamp` und `error_attribute` weggelassen werden.
    * `vault_id` muss aktuell trotzdem gesetzt sein, weil die gemeinsame Verbindungsvalidierung es noch verlangt.
 
-4. `oldProject/matching.json` über `/settings` pflegen. Die Oberfläche ruft intern die alte `save.php` auf.
+4. `oldProject/matching.json` über `/settings` pflegen. Die Oberfläche bindet `oldProject/settings.php` ein und speichert über die Symfony-Routen `/save.php` bzw. `/settings/save.php`.
+
+   Wichtig: Aus dem Legacy-Ordner ist nur noch die Settings-/Matching-Pflege angebunden. Der alte Exportpfad (`oldProject/export.php`, `fibu_export`, alte Helper-HTTP-/Stamping-Funktionen) wurde entfernt; Exporte laufen über `bin/console amagno:sync`.
 
 ## 2. Sync ausführen
 
@@ -137,6 +139,7 @@ php bin\console amagno:sync --all-connections >> C:\logs\amagno_sync.log 2>&1
 | Problem | Ursache / Lösung |
 | ------- | ---------------- |
 | `No route found for "POST .../save.php"` | Controller nicht eingebunden oder `/settings` nicht neu geladen; sicherstellen, dass `SettingsActionController` aktiv ist. |
+| Aufruf alter URLs wie `/api/fibu_get`, `/api/fibu_deleteProfile` oder `oldProject/export.php` | Diese Legacy-Endpunkte sind im Symfony-Projekt nicht mehr angebunden. Aktive Webrouten sind `/`, `/settings`, `/save.php` und `/settings/save.php`; Exporte laufen über die CLI. |
 | `Credential-ID ... nicht vorhanden` | `credential_id` in der Verbindung stimmt nicht mit einem Eintrag in `credentials` überein. |
 | `Keine Amagno Base URI` | Weder in `.env` noch in der Verbindung wurde `base_uri` gesetzt. |
 | CORS-Fehler im Browser bei `/settings` | Die alte Oberfläche versucht, direkt auf `https://amagno.me` zu posten – diese Logins müssen in Zukunft serverseitig ersetzt werden (Proxy/Controller). |

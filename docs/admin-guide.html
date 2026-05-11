@@ -301,7 +301,7 @@
                             <tr>
                                 <td><a href="../config/services.yaml">config/services.yaml</a></td>
                                 <td>verbindet Parameter mit Symfony-Services</td>
-                                <td>relevant, wenn Dateipfade oder Umgebungsvariablen geaendert werden</td>
+                                <td>relevant, wenn Dateipfade, Umgebungsvariablen oder zentrale Defaults wie <code>amagno.stamp_retries</code> geaendert werden</td>
                             </tr>
                             <tr>
                                 <td><a href="../config/amagno_connections.json">config/amagno_connections.json</a></td>
@@ -311,7 +311,7 @@
                             <tr>
                                 <td><a href="../oldProject/matching.json">oldProject/matching.json</a></td>
                                 <td>Mapping fuer den Export</td>
-                                <td>wird ueber die Settings-Oberflaeche gepflegt</td>
+                                <td>wird ueber die Settings-Oberflaeche gepflegt; nur diese Matching-Pflege ist aus dem Legacy-Ordner noch angebunden</td>
                             </tr>
                             <tr>
                                 <td><a href="../amagno_sync.bat">amagno_sync.bat</a></td>
@@ -400,6 +400,14 @@ AMAGNO_CHECKPOINT_DIR=var/checkpoints</code></pre>
                     <div class="warning">
                         <strong>Wichtig:</strong> Wenn <code>credential_id</code> nicht zu einem Eintrag in <code>credentials</code> passt, startet der Lauf nicht. Fuer einen reinen Signature-Check werden keine Exportfelder benoetigt, <code>vault_id</code> muss aktuell aber trotzdem befuellt sein.
                     </div>
+
+                    <h3>Settings-Oberflaeche</h3>
+                    <p>Die Weboberflaeche unter <code>/settings</code> bindet weiterhin <code>oldProject/settings.php</code> ein und speichert Matchings ueber <code>/save.php</code> bzw. <code>/settings/save.php</code>. Alte Export- oder API-Endpunkte aus dem Legacy-Projekt sind nicht mehr Teil des Symfony-Routings.</p>
+                    <ul class="notes">
+                        <li>Aktive Webrouten: <code>/</code>, <code>/settings</code>, <code>/save.php</code>, <code>/settings/save.php</code></li>
+                        <li>Produktiver Export: <code>bin/console amagno:sync</code></li>
+                        <li>Produktive Signaturpruefung: <code>bin/console amagno:verify-signatures</code></li>
+                    </ul>
                 </section>
 
                 <section class="card" id="jobs">
@@ -538,6 +546,11 @@ bin/console amagno:verify-signatures --all-connections --dry-run -vvv</code></pr
                                 <td>Legacy-Settings-Route nicht verfuegbar</td>
                                 <td><a href="../src/Controller/SettingsActionController.php">SettingsActionController</a> und Webrouting pruefen</td>
                             </tr>
+                            <tr>
+                                <td><code>404</code> auf <code>/api/fibu_get</code>, <code>/api/fibu_deleteProfile</code> oder <code>oldProject/export.php</code></td>
+                                <td>alter Legacy-Endpunkt wird aufgerufen</td>
+                                <td>nicht mehr verwenden; Matchings ueber <code>/settings</code> speichern und Exporte per CLI starten</td>
+                            </tr>
                         </tbody>
                     </table>
                 </section>
@@ -566,7 +579,7 @@ bin/console amagno:verify-signatures --all-connections --dry-run -vvv</code></pr
 
                     <h3>Nicht vergessen</h3>
                     <ul class="notes">
-                        <li>Die Settings-Oberflaeche unter <code>/settings</code> basiert auf Legacy-Code und ist funktional, aber nicht modernisiert.</li>
+                        <li>Die Settings-Oberflaeche unter <code>/settings</code> basiert auf Legacy-Code und ist nur fuer die Matching-Pflege angebunden.</li>
                         <li>Credentials und produktive JSON-Dateien nicht versehentlich ins Repository einchecken.</li>
                         <li>Bei grossen Aenderungen immer zuerst einen manuellen Lauf mit einer einzelnen Verbindung pruefen.</li>
                     </ul>

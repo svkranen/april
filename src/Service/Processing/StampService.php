@@ -7,7 +7,8 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 class StampService
 {
     public function __construct(
-        private readonly HttpClientInterface $httpClient
+        private readonly HttpClientInterface $httpClient,
+        private readonly int $defaultMaxRetries = 3
     ) {
     }
 
@@ -19,10 +20,12 @@ class StampService
         string $baseUri,
         string $token,
         string $stampId,
-        int $maxRetries = 3,
+        ?int $maxRetries = null,
         int $sleepSeconds = 2
     ): void
     {
+        $maxRetries ??= $this->defaultMaxRetries;
+
         foreach ($documents as $document) {
             if (!isset($document['id'])) {
                 continue;

@@ -901,6 +901,8 @@ class TemplateRenderer
 
     private function applyFieldLimit(string $marker, string $value, array $matching): string
     {
+        $value = $this->sanitizeExportValue($value);
+
         $limitKey = $marker.'maxlen';
         if (!isset($matching[$limitKey])) {
             return $value;
@@ -921,5 +923,13 @@ class TemplateRenderer
         }
 
         return strlen($value) > $limit ? substr($value, 0, $limit) : $value;
+    }
+
+    private function sanitizeExportValue(string $value): string
+    {
+        $value = str_replace(["\r\n", "\r", "\n", "\t"], ' ', $value);
+        $value = str_replace('|', ' / ', $value);
+
+        return preg_replace('/ {2,}/', ' ', trim($value)) ?? trim($value);
     }
 }

@@ -21,4 +21,20 @@ class TemplateRendererCalculateTest extends TestCase
 
         $this->assertSame('465,43', $result);
     }
+
+    public function testApplyFieldLimitSanitizesPipeAndLineBreaks(): void
+    {
+        $renderer = new TemplateRenderer();
+        $method = (new \ReflectionClass($renderer))->getMethod('applyFieldLimit');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $renderer,
+            '[:Beschreibung:]',
+            "2100423850 |\nzweite Zeile",
+            []
+        );
+
+        $this->assertSame('2100423850 / zweite Zeile', $result);
+    }
 }
