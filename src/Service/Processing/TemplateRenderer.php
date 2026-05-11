@@ -7,6 +7,14 @@ use RuntimeException;
 
 class TemplateRenderer
 {
+    private const EXPORT_VALUE_REPLACEMENTS = [
+        "\r\n" => ' ',
+        "\r" => ' ',
+        "\n" => ' ',
+        "\t" => ' ',
+        '|' => ' / ',
+    ];
+
     /**
      * @param array<int, array<string, array<int, object>>> $matrix
      * @param array<int, array<string, mixed>> $documentList
@@ -927,8 +935,7 @@ class TemplateRenderer
 
     private function sanitizeExportValue(string $value): string
     {
-        $value = str_replace(["\r\n", "\r", "\n", "\t"], ' ', $value);
-        $value = str_replace('|', ' / ', $value);
+        $value = strtr($value, self::EXPORT_VALUE_REPLACEMENTS);
 
         return preg_replace('/ {2,}/', ' ', trim($value)) ?? trim($value);
     }

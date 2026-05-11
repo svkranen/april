@@ -37,4 +37,41 @@ class TemplateRendererCalculateTest extends TestCase
 
         $this->assertSame('2100423850 / zweite Zeile', $result);
     }
+
+    public function testRenderSanitizesPipeInsideExportValues(): void
+    {
+        $renderer = new TemplateRenderer();
+
+        $externalReference = (object) [
+            'tagDefinitionId' => 'external-reference',
+            'type' => 'singleLineStrings',
+            'value' => 'RE-123|A',
+        ];
+        $bookingText = (object) [
+            'tagDefinitionId' => 'booking-text',
+            'type' => 'singleLineStrings',
+            'value' => "Text mit | Pipe\nund Umbruch",
+        ];
+
+        $blocks = $renderer->render(
+            [
+                [
+                    [$externalReference],
+                    [$bookingText],
+                ],
+            ],
+            [
+                '[:ExterneBelegnr:]' => 'external-reference',
+                '[:Beschreibung:]' => 'booking-text',
+            ],
+            "ExterneBelegnr|Beschreibung\n[:ExterneBelegnr:]|[:Beschreibung:]\n{format_excel}",
+            static fn (string $nodeId): array => []
+        );
+
+        $this->assertCount(1, $blocks);
+        $this->assertSame(
+            "ExterneBelegnr|Beschreibung\nRE-123 / A|Text mit / Pipe und Umbruch",
+            $blocks[0]->content
+        );
+    }
 }
