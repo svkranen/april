@@ -9,7 +9,8 @@
     }
 
     .settings-wrapper {
-        max-width: 1480px;
+        width: min(96vw, 1760px);
+        max-width: none;
         margin: 30px auto;
         padding: 0 18px 40px;
     }
@@ -69,6 +70,49 @@
 
     .button-row .uk-button {
         min-width: 180px;
+    }
+
+    .matching-table {
+        table-layout: fixed;
+        min-width: 1180px;
+    }
+
+    .matching-table th {
+        color: #475569;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .matching-table td {
+        vertical-align: top;
+    }
+
+    .matching-table .col-marker {
+        width: 21%;
+    }
+
+    .matching-table .col-source {
+        width: 20%;
+    }
+
+    .matching-table .col-value {
+        width: 49%;
+    }
+
+    .matching-table .col-limit {
+        width: 10%;
+        min-width: 130px;
+    }
+
+    .matching-table .uk-select,
+    .matching-table .uk-input {
+        min-width: 0;
+    }
+
+    .matching-table .col-limit .uk-input {
+        min-width: 118px;
     }
 </style>
 <script>
@@ -826,11 +870,13 @@
             
             let tr = document.createElement("tr");
             let td1 = document.createElement("td");
+            td1.classList.add("col-marker");
             td1.classList.add("savenames");
             td1.textContent = match;
             td1.id = "name"+rowcount;
             tr.appendChild(td1);
             let td2 = document.createElement("td");
+            td2.classList.add("col-source");
             let select1 = document.createElement("select");
             select1.classList.add("savevalues");
             select1.classList.add("uk-select");
@@ -876,6 +922,7 @@
             td2.appendChild(selectfunction);
             tr.appendChild(td2);
             let td3 = document.createElement("td");
+            td3.classList.add("col-value");
             let select2 = document.createElement("select");
             // console.log(match);
             if (match=="[::Stempel::]") {
@@ -964,6 +1011,7 @@
             td3.appendChild(functionPreview);
             tr.appendChild(td3);
             let td4 = document.createElement("td");
+            td4.classList.add("col-limit");
             let maxleninput = document.createElement("input");
             maxleninput.setAttribute("type","number");
             maxleninput.setAttribute("min","1");
@@ -1418,7 +1466,15 @@
     </div>
     <div id="settingsStatus" class="uk-alert uk-hidden" uk-alert></div>
     <div class="uk-overflow-auto uk-margin-top">
-        <table class="uk-table uk-table-striped">
+        <table class="uk-table uk-table-striped matching-table">
+            <thead>
+                <tr>
+                    <th class="col-marker">Platzhalter</th>
+                    <th class="col-source">Quelle / Funktion</th>
+                    <th class="col-value">Merkmal, Fixwert oder Formel</th>
+                    <th class="col-limit">Maxlänge</th>
+                </tr>
+            </thead>
             <tbody id="tablebody">
             </tbody>
         </table>
