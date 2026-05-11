@@ -8,7 +8,7 @@ class StampService
 {
     public function __construct(
         private readonly HttpClientInterface $httpClient,
-        private readonly int $defaultMaxRetries = 3
+        private readonly int $defaultMaxRetries = 10
     ) {
     }
 
