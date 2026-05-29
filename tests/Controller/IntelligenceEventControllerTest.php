@@ -4,11 +4,15 @@ namespace App\Tests\Controller;
 
 use App\Controller\IntelligenceEventController;
 use App\Intelligence\Application\EventReceiver;
+use App\Intelligence\Application\ContextSnapshotService;
 use App\Intelligence\Application\ProcessInstanceManager;
+use App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider;
+use App\Intelligence\Infrastructure\Context\InMemoryContextSnapshotStore;
 use App\Intelligence\Infrastructure\EventStore\InMemoryEventStore;
 use App\Intelligence\Infrastructure\Normalizer\GenericPayloadEventNormalizer;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessInstanceRepository;
 use App\Tests\Fake\FakeSignatureVerifier;
+use App\Tests\Fake\RecordingContextProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -107,7 +111,12 @@ class IntelligenceEventControllerTest extends TestCase
         return new EventReceiver(
             new GenericPayloadEventNormalizer(),
             $store,
-            new ProcessInstanceManager(new InMemoryProcessInstanceRepository())
+            new ProcessInstanceManager(new InMemoryProcessInstanceRepository()),
+            new ContextSnapshotService(
+                new InMemoryContextProfileProvider(),
+                new RecordingContextProvider([]),
+                new InMemoryContextSnapshotStore()
+            )
         );
     }
 }

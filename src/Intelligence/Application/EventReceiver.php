@@ -15,7 +15,8 @@ final class EventReceiver
     public function __construct(
         private readonly EventNormalizer $eventNormalizer,
         private readonly EventStore $eventStore,
-        private readonly ProcessInstanceManager $processInstanceManager
+        private readonly ProcessInstanceManager $processInstanceManager,
+        private readonly ContextSnapshotService $contextSnapshotService
     ) {
     }
 
@@ -52,6 +53,7 @@ final class EventReceiver
         }
 
         $instance = $this->processInstanceManager->findOrCreateForEvent($result->event);
+        $this->contextSnapshotService->captureForEvent($result->event);
 
         return new EventStoreResult($result->event->withProcessInstanceId((int) $instance->id), false);
     }
