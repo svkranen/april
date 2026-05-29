@@ -28,6 +28,14 @@ final class InMemoryEventStore implements EventStore
         return count($this->eventsByExternalKey);
     }
 
+    public function attachProcessInstance(ProcessEvent $event, int $processInstanceId): ProcessEvent
+    {
+        $stored = ($this->eventsByExternalKey[$event->externalEventKey] ?? $event)->withProcessInstanceId($processInstanceId);
+        $this->eventsByExternalKey[$stored->externalEventKey] = $stored;
+
+        return $stored;
+    }
+
     /**
      * @return array<int, ProcessEvent>
      */

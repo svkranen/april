@@ -53,9 +53,10 @@ final class EventReceiver
         }
 
         $instance = $this->processInstanceManager->findOrCreateForEvent($result->event);
-        $this->contextSnapshotService->captureForEvent($result->event);
+        $eventWithInstance = $this->eventStore->attachProcessInstance($result->event, (int) $instance->id);
+        $this->contextSnapshotService->captureForEvent($eventWithInstance);
 
-        return new EventStoreResult($result->event->withProcessInstanceId((int) $instance->id), false);
+        return new EventStoreResult($eventWithInstance, false);
     }
 
     /**

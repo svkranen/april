@@ -16,7 +16,8 @@ final readonly class ContextSnapshot
         public array $attributes = [],
         public array $warnings = [],
         public ?string $processKey = null,
-        public ?string $externalEventKey = null
+        public ?string $externalEventKey = null,
+        public ?int $processInstanceId = null
     ) {
     }
 }

@@ -109,19 +109,25 @@ services:
         alias: App\Intelligence\Infrastructure\Normalizer\GenericPayloadEventNormalizer
 
     App\Intelligence\Port\EventStore:
-        alias: App\Intelligence\Infrastructure\EventStore\JsonFileEventStore
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineEventStore
 
     App\Intelligence\Port\SignatureVerifier:
         alias: App\Intelligence\Infrastructure\Security\HmacSignatureVerifier
 
     App\Intelligence\Application\ProcessInstanceRepository:
-        alias: App\Intelligence\Infrastructure\Process\InMemoryProcessInstanceRepository
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessInstanceRepository
 
     App\Intelligence\Application\ContextProfileProvider:
         alias: App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider
 
     App\Intelligence\Application\ContextSnapshotStore:
-        alias: App\Intelligence\Infrastructure\Context\InMemoryContextSnapshotStore
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineContextSnapshotRepository
+
+    App\Intelligence\Application\ProcessStatusReportProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessStatusReportProvider
+
+    App\Intelligence\Application\DocumentTimelineProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineDocumentTimelineProvider
 
     App\Intelligence\Port\ContextProvider:
         alias: App\Intelligence\Infrastructure\Context\NullContextProvider

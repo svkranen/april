@@ -59,6 +59,44 @@ final class JsonFileEventStore implements EventStore
         return $count;
     }
 
+    public function attachProcessInstance(ProcessEvent $event, int $processInstanceId): ProcessEvent
+    {
+        if (!is_file($this->path)) {
+            return $event->withProcessInstanceId($processInstanceId);
+        }
+
+        $this->ensureDirectory();
+        $handle = fopen($this->path, 'c+');
+        if ($handle === false) {
+            throw new RuntimeException(sprintf('Event-Store "%s" konnte nicht geoeffnet werden.', $this->path));
+        }
+
+        try {
+            flock($handle, LOCK_EX);
+            $events = $this->readEvents($handle);
+            $updatedEvent = $event->withProcessInstanceId($processInstanceId);
+            foreach ($events as $index => $stored) {
+                if ($stored->externalEventKey === $event->externalEventKey) {
+                    $updatedEvent = $stored->withProcessInstanceId($processInstanceId);
+                    $events[$index] = $updatedEvent;
+                    break;
+                }
+            }
+
+            ftruncate($handle, 0);
+            rewind($handle);
+            foreach ($events as $stored) {
+                fwrite($handle, json_encode($stored->toArray(), JSON_THROW_ON_ERROR).PHP_EOL);
+            }
+            fflush($handle);
+
+            return $updatedEvent;
+        } finally {
+            flock($handle, LOCK_UN);
+            fclose($handle);
+        }
+    }
+
     private function ensureDirectory(): void
     {
         $directory = dirname($this->path);

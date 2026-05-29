@@ -1,0 +1,22 @@
+key: eingangsrechnung
+name: Eingangsrechnung
+version: draft
+steps:
+  -
+    key: pruefung
+    name: Pruefung
+  -
+    key: freigabe_bauleiter
+    name: 'Freigabe Bauleiter'
+  -
+    key: export_nevaris
+    name: 'Export Nevaris'
+transitions:
+  -
+    from: pruefung
+    to: freigabe_bauleiter
+  -
+    from: freigabe_bauleiter
+    to: export_nevaris
+context_profile:
+  required: []

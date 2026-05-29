@@ -35,7 +35,8 @@ final class ContextSnapshotService
             $attributes,
             $warnings,
             $event->processKey,
-            $event->externalEventKey
+            $event->externalEventKey,
+            $event->processInstanceId
         );
 
         return new ContextSnapshotResult($this->snapshotStore->save($snapshot), $warnings);
