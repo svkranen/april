@@ -14,7 +14,8 @@ final class EventReceiver
 {
     public function __construct(
         private readonly EventNormalizer $eventNormalizer,
-        private readonly EventStore $eventStore
+        private readonly EventStore $eventStore,
+        private readonly ProcessInstanceManager $processInstanceManager
     ) {
     }
 
@@ -45,7 +46,14 @@ final class EventReceiver
             $normalizedJson
         );
 
-        return $this->eventStore->append($event);
+        $result = $this->eventStore->append($event);
+        if ($result->duplicate) {
+            return $result;
+        }
+
+        $instance = $this->processInstanceManager->findOrCreateForEvent($result->event);
+
+        return new EventStoreResult($result->event->withProcessInstanceId((int) $instance->id), false);
     }
 
     /**

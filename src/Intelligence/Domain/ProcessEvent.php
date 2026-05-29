@@ -20,7 +20,8 @@ final readonly class ProcessEvent
         public DateTimeImmutable $occurredAt,
         public DateTimeImmutable $receivedAt,
         public string $rawPayloadJson,
-        public string $normalizedEventJson
+        public string $normalizedEventJson,
+        public ?int $processInstanceId = null
     ) {
     }
 
@@ -40,7 +41,29 @@ final readonly class ProcessEvent
             $this->occurredAt,
             $this->receivedAt,
             $this->rawPayloadJson,
-            $this->normalizedEventJson
+            $this->normalizedEventJson,
+            $this->processInstanceId
+        );
+    }
+
+    public function withProcessInstanceId(int $processInstanceId): self
+    {
+        return new self(
+            $this->id,
+            $this->externalEventKey,
+            $this->sourceSystem,
+            $this->processKey,
+            $this->eventKey,
+            $this->stepKey,
+            $this->documentExternalId,
+            $this->documentUuid,
+            $this->documentVersion,
+            $this->actorRef,
+            $this->occurredAt,
+            $this->receivedAt,
+            $this->rawPayloadJson,
+            $this->normalizedEventJson,
+            $processInstanceId
         );
     }
 
@@ -64,6 +87,7 @@ final readonly class ProcessEvent
             'receivedAt' => $this->receivedAt->format(DateTimeImmutable::ATOM),
             'rawPayloadJson' => $this->rawPayloadJson,
             'normalizedEventJson' => $this->normalizedEventJson,
+            'processInstanceId' => $this->processInstanceId,
         ];
     }
 
@@ -86,7 +110,8 @@ final readonly class ProcessEvent
             new DateTimeImmutable((string) $data['occurredAt']),
             new DateTimeImmutable((string) $data['receivedAt']),
             (string) $data['rawPayloadJson'],
-            (string) $data['normalizedEventJson']
+            (string) $data['normalizedEventJson'],
+            isset($data['processInstanceId']) ? (int) $data['processInstanceId'] : null
         );
     }
 }

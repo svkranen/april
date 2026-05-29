@@ -4,8 +4,10 @@ namespace App\Tests\Controller;
 
 use App\Controller\IntelligenceEventController;
 use App\Intelligence\Application\EventReceiver;
+use App\Intelligence\Application\ProcessInstanceManager;
 use App\Intelligence\Infrastructure\EventStore\InMemoryEventStore;
 use App\Intelligence\Infrastructure\Normalizer\GenericPayloadEventNormalizer;
+use App\Intelligence\Infrastructure\Process\InMemoryProcessInstanceRepository;
 use App\Tests\Fake\FakeSignatureVerifier;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,7 +19,7 @@ class IntelligenceEventControllerTest extends TestCase
         $store = new InMemoryEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            new EventReceiver(new GenericPayloadEventNormalizer(), $store)
+            $this->receiver($store)
         );
 
         $response = $controller($this->request($this->payload()));
@@ -35,7 +37,7 @@ class IntelligenceEventControllerTest extends TestCase
         $store = new InMemoryEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(false),
-            new EventReceiver(new GenericPayloadEventNormalizer(), $store)
+            $this->receiver($store)
         );
 
         $response = $controller($this->request($this->payload(), 'bad-signature'));
@@ -52,7 +54,7 @@ class IntelligenceEventControllerTest extends TestCase
         $store = new InMemoryEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            new EventReceiver(new GenericPayloadEventNormalizer(), $store)
+            $this->receiver($store)
         );
 
         $first = $controller($this->request($this->payload()));
@@ -98,5 +100,14 @@ class IntelligenceEventControllerTest extends TestCase
             'step_key' => 'invoice.received',
             'occurred_at' => '2026-05-29T10:00:00+00:00',
         ];
+    }
+
+    private function receiver(InMemoryEventStore $store): EventReceiver
+    {
+        return new EventReceiver(
+            new GenericPayloadEventNormalizer(),
+            $store,
+            new ProcessInstanceManager(new InMemoryProcessInstanceRepository())
+        );
     }
 }
