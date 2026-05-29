@@ -113,6 +113,9 @@ services:
     App\Intelligence\Port\SignatureVerifier:
         alias: App\Intelligence\Infrastructure\Security\HmacSignatureVerifier
 
+    App\Intelligence\Application\ProcessInstanceRepository:
+        alias: App\Intelligence\Infrastructure\Process\InMemoryProcessInstanceRepository
+
     App\Intelligence\Infrastructure\EventStore\JsonFileEventStore:
         arguments:
             $path: '%intelligence.event_store_file%'
