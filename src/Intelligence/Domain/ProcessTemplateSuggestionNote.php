@@ -11,7 +11,8 @@ final readonly class ProcessTemplateSuggestionNote
         public string $type,
         public string $message,
         public ?string $parallelGroupKey = null,
-        public array $documentUuids = []
+        public array $documentUuids = [],
+        public ?float $confidence = null
     ) {
     }
 }

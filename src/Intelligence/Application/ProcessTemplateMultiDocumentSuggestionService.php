@@ -2,6 +2,15 @@
 
 namespace App\Intelligence\Application;
 
+use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateParallelGroup;
+use App\Intelligence\Domain\ProcessTemplateStep;
+use App\Intelligence\Domain\ProcessTemplateSuggestionNote;
+use App\Intelligence\Domain\ProcessTemplateSuggestionResult;
+use App\Intelligence\Domain\ProcessTemplateSuggestionWarning;
+use App\Intelligence\Domain\ProcessTemplateTransition;
+use App\Intelligence\Domain\SuggestedTransition;
+
 final class ProcessTemplateMultiDocumentSuggestionService
 {
     public function __construct(
@@ -20,7 +29,6 @@ final class ProcessTemplateMultiDocumentSuggestionService
 
     /**
      * @param array<int, string> $documentUuids
-     * @return array<string, mixed>|null
      */
     public function suggest(
         array $documentUuids,
@@ -28,7 +36,7 @@ final class ProcessTemplateMultiDocumentSuggestionService
         ?int $documentVersion = null,
         bool $includeBefore = false,
         EventTimelineOrder $order = EventTimelineOrder::DEFAULT
-    ): ?array
+    ): ?ProcessTemplateSuggestionResult
     {
         $steps = [];
         $transitions = [];
@@ -81,45 +89,51 @@ final class ProcessTemplateMultiDocumentSuggestionService
         $warnings = $this->conflictingTransitionWarnings($transitions);
         $suggestions = [];
         foreach ($parallelGroups as $parallelGroup) {
-            $warnings[] = [
-                'type' => 'possible_parallel',
-                'message' => sprintf(
+            $warnings[] = new ProcessTemplateSuggestionWarning(
+                'possible_parallel',
+                sprintf(
                     'Possible parallel steps detected: %s. Documents: %s.',
                     implode(', ', $parallelGroup['required_steps']),
                     implode(', ', $parallelGroup['document_uuids'])
                 ),
-                'document_uuids' => $parallelGroup['document_uuids'],
-            ];
-            $suggestions[] = [
-                'type' => 'possible_parallel_group',
-                'parallel_group_key' => $parallelGroup['key'],
-                'message' => $parallelGroup['reason'],
-                'document_uuids' => $parallelGroup['document_uuids'],
-            ];
+                $parallelGroup['document_uuids']
+            );
+            $suggestions[] = new ProcessTemplateSuggestionNote(
+                'possible_parallel_group',
+                $parallelGroup['reason'],
+                $parallelGroup['key'],
+                $parallelGroup['document_uuids'],
+                $parallelGroup['confidence']
+            );
         }
 
-        $template = [
-            'key' => $processKey,
-            'version' => 'draft',
-            'documents_used' => count($usedDocumentUuids),
-            'document_uuids' => $usedDocumentUuids,
-            'steps' => array_map(
-                static fn (string $stepKey): array => ['key' => $stepKey],
-                array_values($steps)
+        return new ProcessTemplateSuggestionResult(
+            new ProcessTemplate(
+                $processKey,
+                'draft',
+                steps: array_map(
+                    static fn (string $stepKey): ProcessTemplateStep => new ProcessTemplateStep($stepKey),
+                    array_values($steps)
+                ),
+                transitions: array_map(
+                    static fn (array $transition): ProcessTemplateTransition => new ProcessTemplateTransition($transition['from'], $transition['to']),
+                    array_values($transitions)
+                ),
+                parallelGroups: array_map(
+                    static fn (array $parallelGroup): ProcessTemplateParallelGroup => new ProcessTemplateParallelGroup(
+                        $parallelGroup['key'],
+                        $parallelGroup['after'] ?? null,
+                        $parallelGroup['required_steps'],
+                        $parallelGroup['order']
+                    ),
+                    $parallelGroups
+                )
             ),
-            'transitions' => $this->publicTransitions($transitions, $maxObservedCount),
-            'warnings' => $warnings,
-        ];
-
-        if ($parallelGroups !== []) {
-            $template['parallel_groups'] = $parallelGroups;
-        }
-
-        if ($suggestions !== []) {
-            $template['suggestions'] = $suggestions;
-        }
-
-        return $template;
+            $usedDocumentUuids,
+            $this->publicTransitions($transitions, $maxObservedCount),
+            $warnings,
+            $suggestions
+        );
     }
 
     /**
@@ -190,24 +204,24 @@ final class ProcessTemplateMultiDocumentSuggestionService
 
     /**
      * @param array<string, array{from: string, to: string, from_normalized: string, to_normalized: string, observed_count: int}> $transitions
-     * @return array<int, array{from: string, to: string, observed_count: int, confidence: float}>
+     * @return array<int, SuggestedTransition>
      */
     private function publicTransitions(array $transitions, int $maxObservedCount): array
     {
         return array_values(array_map(
-            static fn (array $transition): array => [
-                'from' => $transition['from'],
-                'to' => $transition['to'],
-                'observed_count' => $transition['observed_count'],
-                'confidence' => $maxObservedCount === 0 ? 0.0 : round($transition['observed_count'] / $maxObservedCount, 4),
-            ],
+            static fn (array $transition): SuggestedTransition => new SuggestedTransition(
+                $transition['from'],
+                $transition['to'],
+                $transition['observed_count'],
+                $maxObservedCount === 0 ? 0.0 : round($transition['observed_count'] / $maxObservedCount, 4)
+            ),
             $transitions
         ));
     }
 
     /**
      * @param array<string, array{from: string, to: string, from_normalized: string, to_normalized: string, observed_count: int}> $transitions
-     * @return array<int, array{type: string, message: string}>
+     * @return array<int, ProcessTemplateSuggestionWarning>
      */
     private function conflictingTransitionWarnings(array $transitions): array
     {
@@ -229,16 +243,16 @@ final class ProcessTemplateMultiDocumentSuggestionService
             $seenPairs[$pairKey] = true;
 
             $reverse = $transitions[$reverseKey];
-            $warnings[] = [
-                'type' => 'conflicting_transition',
-                'message' => sprintf(
+            $warnings[] = new ProcessTemplateSuggestionWarning(
+                'conflicting_transition',
+                sprintf(
                     'Observed both %s -> %s and %s -> %s',
                     $transition['from'],
                     $transition['to'],
                     $reverse['from'],
                     $reverse['to']
-                ),
-            ];
+                )
+            );
         }
 
         return $warnings;

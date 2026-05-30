@@ -83,7 +83,8 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
                     'possible_parallel_group',
                     'Observed both orders across document timelines.',
                     'suggested_parallel_1',
-                    ['doc-a', 'doc-b']
+                    ['doc-a', 'doc-b'],
+                    0.5
                 ),
             ]
         );
@@ -119,6 +120,9 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
                         'after' => 'A',
                         'required_steps' => ['B', 'C'],
                         'order' => 'any',
+                        'confidence' => 0.5,
+                        'reason' => 'Observed both orders across document timelines.',
+                        'document_uuids' => ['doc-a', 'doc-b'],
                     ],
                 ],
                 'suggestions' => [

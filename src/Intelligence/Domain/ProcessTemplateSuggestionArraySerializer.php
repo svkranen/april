@@ -30,6 +30,7 @@ final class ProcessTemplateSuggestionArraySerializer
         if ($result->usedDocumentUuids !== []) {
             $data['documents_used'] = count($result->usedDocumentUuids);
             $data['document_uuids'] = $result->usedDocumentUuids;
+            $data['warnings'] = [];
         }
 
         if ($result->warnings !== []) {
@@ -41,7 +42,7 @@ final class ProcessTemplateSuggestionArraySerializer
 
         if ($template->parallelGroups !== []) {
             $data['parallel_groups'] = array_map(
-                static fn (ProcessTemplateParallelGroup $parallelGroup): array => self::parallelGroupToArray($parallelGroup),
+                fn (ProcessTemplateParallelGroup $parallelGroup): array => $this->parallelGroupToArray($parallelGroup, $result->suggestions),
                 $template->parallelGroups
             );
         }
@@ -129,9 +130,10 @@ final class ProcessTemplateSuggestionArraySerializer
     }
 
     /**
+     * @param array<int, ProcessTemplateSuggestionNote> $suggestions
      * @return array<string, mixed>
      */
-    private static function parallelGroupToArray(ProcessTemplateParallelGroup $parallelGroup): array
+    private function parallelGroupToArray(ProcessTemplateParallelGroup $parallelGroup, array $suggestions): array
     {
         $data = [
             'key' => $parallelGroup->key,
@@ -144,7 +146,32 @@ final class ProcessTemplateSuggestionArraySerializer
             'order' => $parallelGroup->order,
         ];
 
+        $suggestion = $this->suggestionForParallelGroup($parallelGroup->key, $suggestions);
+        if ($suggestion !== null) {
+            if ($suggestion->confidence !== null) {
+                $data['confidence'] = $suggestion->confidence;
+            }
+            $data['reason'] = $suggestion->message;
+            if ($suggestion->documentUuids !== []) {
+                $data['document_uuids'] = $suggestion->documentUuids;
+            }
+        }
+
         return $data;
+    }
+
+    /**
+     * @param array<int, ProcessTemplateSuggestionNote> $suggestions
+     */
+    private function suggestionForParallelGroup(string $parallelGroupKey, array $suggestions): ?ProcessTemplateSuggestionNote
+    {
+        foreach ($suggestions as $suggestion) {
+            if ($suggestion->parallelGroupKey === $parallelGroupKey) {
+                return $suggestion;
+            }
+        }
+
+        return null;
     }
 
     /**
