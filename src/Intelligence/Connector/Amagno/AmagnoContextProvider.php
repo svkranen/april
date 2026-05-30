@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Intelligence\Infrastructure\Amagno;
+namespace App\Intelligence\Connector\Amagno;
 
 use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Port\ContextProvider;

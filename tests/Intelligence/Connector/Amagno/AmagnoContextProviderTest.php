@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Tests\Intelligence\Infrastructure\Amagno;
+namespace App\Tests\Intelligence\Connector\Amagno;
 
 use App\Intelligence\Domain\DocumentRef;
-use App\Intelligence\Infrastructure\Amagno\AmagnoContextProvider;
-use App\Intelligence\Infrastructure\Amagno\AmagnoTagValueResolver;
+use App\Intelligence\Connector\Amagno\AmagnoContextProvider;
+use App\Intelligence\Connector\Amagno\AmagnoTagValueResolver;
 use App\Intelligence\Port\ContextProvider;
 use App\Service\Amagno\DocumentFetcher;
 use PHPUnit\Framework\TestCase;

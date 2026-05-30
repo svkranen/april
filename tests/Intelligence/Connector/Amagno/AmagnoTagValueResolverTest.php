@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Tests\Intelligence\Infrastructure\Amagno;
+namespace App\Tests\Intelligence\Connector\Amagno;
 
-use App\Intelligence\Infrastructure\Amagno\AmagnoTagValueResolver;
+use App\Intelligence\Connector\Amagno\AmagnoTagValueResolver;
 use PHPUnit\Framework\TestCase;
 
 class AmagnoTagValueResolverTest extends TestCase

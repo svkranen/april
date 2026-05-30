@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Intelligence\Infrastructure\Amagno;
+namespace App\Intelligence\Connector\Amagno;
 
 final class AmagnoTagValueResolver
 {
