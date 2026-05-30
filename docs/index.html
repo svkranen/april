@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Amagno / Nevaris Interface - Administrator- und Entwicklerdoku</title>
+    <title>Amagno Intelligence Tool - Entwicklerdoku</title>
     <style>
         :root {
             --bg: #f4f1ea;
@@ -241,9 +241,9 @@
 <body>
     <div class="page">
         <section class="hero">
-            <h1>Amagno / Nevaris Interface</h1>
-            <p>Diese Seite ist als Einstieg f&uuml;r Administratoren und Folgeentwickler gedacht. Sie beschreibt den technischen Aufbau, die wichtigsten Laufwege, relevante Konfigurationen und verweist direkt auf die zentralen Dateien im Repository.</p>
-            <p>Die Seite ist lokal klickbar: Abschnittslinks springen innerhalb der Doku, Dateilinks &ouml;ffnen die zugeh&ouml;rigen Dateien relativ zum Projektverzeichnis.</p>
+            <h1>Amagno Intelligence Tool</h1>
+            <p>Diese Seite ist als technischer Einstieg f&uuml;r das Intelligence Tool gedacht. Das Zielbild ist ein Process-Intelligence-Werkzeug f&uuml;r dokumentenbasierte Prozesse: Templates vorschlagen, Dokument-Timelines pr&uuml;fen, Heatmaps und KPIs erzeugen.</p>
+            <p>Ein Teil dieser Doku beschreibt noch den alten AmagnoExporter. Diese Bereiche sind als Legacy-Kontext zu verstehen, nicht als neues Produktziel.</p>
             <div class="meta">
                 <a class="pill" href="#ueberblick">Projekt&uuml;berblick</a>
                 <a class="pill" href="#betrieb">Betrieb</a>
@@ -271,27 +271,27 @@
             <main class="content">
                 <section class="card" id="ueberblick">
                     <h2>1. Projekt&uuml;berblick</h2>
-                    <p class="lead">Das Projekt ist eine Symfony-7.4-Anwendung, die Dokumente aus Amagno abholt, mit einem Mapping aufbereitet und je nach Konfiguration in unterschiedliche Ziele exportiert. Daneben existiert ein separates Modul zur Pr&uuml;fung von Unterschriften bzw. Freigaben.</p>
-                    <p><strong>F&uuml;r den Betrieb:</strong> Die praxisnahe Administrator-Doku liegt separat unter <a href="./admin-guide.html">docs/admin-guide.html</a>. Diese Seite hier bleibt der technische Einstieg f&uuml;r Folgeentwickler.</p>
+                    <p class="lead">Das Projekt entwickelt sich vom fr&uuml;heren Amagno / Nevaris Exporter zum Amagno Intelligence Tool. Der aktuelle Schwerpunkt liegt auf Process Intelligence: Ereignisse, Prozessinstanzen, Process Templates, Template-Pr&uuml;fung, Heatmaps und KPIs.</p>
+                    <p><strong>F&uuml;r den Betrieb:</strong> Die praxisnahe Administrator-Doku liegt separat unter <a href="./admin-guide.html">docs/admin-guide.html</a>. Diese Seite hier bleibt der technische Einstieg f&uuml;r Folgeentwickler und markiert alte Exporter-Pfade als Legacy.</p>
                     <div class="grid-2">
                         <div class="mini">
                             <h3>Hauptaufgaben</h3>
                             <ul class="notes">
-                                <li>Dokumente aus einem Amagno-Magneten lesen</li>
-                                <li>Metadaten anhand von <code>matching.json</code> in eine Export-Matrix &uuml;berf&uuml;hren</li>
-                                <li>Templates rendern und nach <code>local</code>, <code>ftp</code>, <code>amagno</code> oder <code>sql</code> exportieren</li>
-                                <li>Erfolgs- oder Fehlerstempel auf Dokumente zur&uuml;ckschreiben</li>
-                                <li>Signaturvollst&auml;ndigkeit pr&uuml;fen und Ergebnis zur&uuml;ck nach Amagno schreiben</li>
+                                <li>Prozessereignisse erfassen und zu Prozessinstanzen verdichten</li>
+                                <li>Process Templates aus Dokument-Timelines vorschlagen</li>
+                                <li>Dokumente gegen Soll-Templates pr&uuml;fen</li>
+                                <li>Flow- und Duration-Heatmaps erzeugen</li>
+                                <li>Amagno als ersten Connector f&uuml;r Dokumentkontext und Merkmale nutzen</li>
                             </ul>
                         </div>
                         <div class="mini">
                             <h3>Zentrale Einstiegspunkte</h3>
                             <ul class="notes">
-                                <li>CLI Sync: <a href="../src/Command/AmagnoSyncCommand.php">src/Command/AmagnoSyncCommand.php</a></li>
-                                <li>CLI Signaturpr&uuml;fung: <a href="../src/Command/AmagnoVerifySignaturesCommand.php">src/Command/AmagnoVerifySignaturesCommand.php</a></li>
-                                <li>Service Sync: <a href="../src/Service/FibuExportService.php">src/Service/FibuExportService.php</a></li>
-                                <li>Service Signaturpr&uuml;fung: <a href="../src/Service/SignatureCheck/AmagnoSignatureCheckService.php">src/Service/SignatureCheck/AmagnoSignatureCheckService.php</a></li>
-                                <li>Legacy-Settings-UI: <a href="../src/Controller/SettingsController.php">src/Controller/SettingsController.php</a></li>
+                                <li>Template-Vorschlag: <a href="../src/Command/IntelligenceTemplateSuggestFromDocumentCommand.php">IntelligenceTemplateSuggestFromDocumentCommand</a></li>
+                                <li>Multi-Dokument-Vorschlag: <a href="../src/Command/IntelligenceTemplateSuggestFromDocumentsCommand.php">IntelligenceTemplateSuggestFromDocumentsCommand</a></li>
+                                <li>Template-Pr&uuml;fung: <a href="../src/Command/IntelligenceTemplateCheckDocumentCommand.php">IntelligenceTemplateCheckDocumentCommand</a></li>
+                                <li>Heatmap-Report: <a href="../src/Command/IntelligenceTemplateHeatmapCommand.php">IntelligenceTemplateHeatmapCommand</a></li>
+                                <li>Legacy Sync: <a href="../src/Command/AmagnoSyncCommand.php">src/Command/AmagnoSyncCommand.php</a></li>
                             </ul>
                         </div>
                     </div>
@@ -302,14 +302,18 @@
                     <ul class="tree">
                         <li><code>src/Command</code>: CLI-Kommandos f&uuml;r Batch-Betrieb</li>
                         <li><code>src/Controller</code>: kleine Web-Einstiegspunkte, vor allem Home und Settings-Bridge</li>
-                        <li><code>src/Service/Amagno</code>: Konfiguration, API-Kommunikation, Credentials, Tag-Schreibzugriffe</li>
-                        <li><code>src/Service/Processing</code>: Matching, Matrixaufbau, Rendering, Stempel</li>
-                        <li><code>src/Service/Export</code>: Exportziele und Registry</li>
+                        <li><code>src/Intelligence/Domain</code>: fachlicher Core ohne Symfony-, Doctrine- oder Amagno-Abh&auml;ngigkeit</li>
+                        <li><code>src/Intelligence/Application</code>: Anwendungsservices f&uuml;r Events, Prozessinstanzen, Template-Pr&uuml;fung und Vorschl&auml;ge</li>
+                        <li><code>src/Intelligence/Template</code>: Heatmap-Builder f&uuml;r Templates und Timelines</li>
+                        <li><code>src/Intelligence/Infrastructure/Amagno</code>: aktueller Amagno-Kontextadapter</li>
+                        <li><code>src/Service/Amagno</code>: wiederverwendbare, aber historisch gewachsene Amagno-Zugriffsklassen; perspektivisch Connector/Amagno</li>
+                        <li><code>src/Service/Processing</code>: Legacy Matching, Matrixaufbau, Rendering, Stempel</li>
+                        <li><code>src/Service/Export</code>: Legacy Exportziele und Registry</li>
                         <li><code>src/Service/SignatureCheck</code>: Amagno-gebundener Orchestrator f&uuml;r Signaturpr&uuml;fung</li>
                         <li><code>src/SignatureCheck</code>: fachliche Kernlogik ohne Symfony-Abh&auml;ngigkeit</li>
                         <li><code>config</code>: Symfony-Services und JSON-Verbindungsdefinitionen</li>
                         <li><code>oldProject</code>: Legacy-Settings-UI, Matching-Datei und Templates; alte Export-Endpunkte sind nicht mehr angebunden</li>
-                        <li><code>tests</code>: PHPUnit-Tests f&uuml;r Export-, Rendering- und Signaturlogik</li>
+                        <li><code>tests</code>: PHPUnit-Tests f&uuml;r Intelligence-, Export-, Rendering- und Signaturlogik</li>
                     </ul>
                 </section>
 
@@ -363,6 +367,9 @@
 
                 <section class="card" id="sync">
                     <h2>4. Ablauf Sync / Export</h2>
+                    <div class="warning">
+                        <strong>Legacy:</strong> Dieser Abschnitt beschreibt den fr&uuml;heren AmagnoExporter. Neue Process-Intelligence-Funktionen sollen nicht auf Matching-Renderer, Export-Matrix oder <code>oldProject</code> aufbauen.
+                    </div>
                     <p>Der technische Hauptlauf startet &uuml;ber <code>bin/console amagno:sync</code>. Das Command setzt einen Lock, l&auml;dt Optionen und delegiert dann an den zentralen Service.</p>
 
                     <div class="flow">
@@ -514,11 +521,11 @@
 
                     <h3>Dateien, die man zuerst lesen sollte</h3>
                     <ol class="steps">
-                        <li><a href="../README.md">README.md</a> f&uuml;r Betrieb und Beispiele</li>
+                        <li><a href="../README.md">README.md</a> f&uuml;r Zielbild, Architektur und aktuelle Intelligence-Commands</li>
                         <li><a href="../config/services.yaml">config/services.yaml</a> f&uuml;r DI und Pfade</li>
-                        <li><a href="../src/Command/AmagnoSyncCommand.php">AmagnoSyncCommand</a> und <a href="../src/Service/FibuExportService.php">FibuExportService</a> f&uuml;r den Hauptfluss</li>
-                        <li><a href="../src/Command/AmagnoVerifySignaturesCommand.php">AmagnoVerifySignaturesCommand</a> und <a href="../src/Service/SignatureCheck/AmagnoSignatureCheckService.php">AmagnoSignatureCheckService</a> f&uuml;r das neue Modul</li>
-                        <li><a href="../src/Service/Processing/TemplateRenderer.php">TemplateRenderer</a> nur dann im Detail, wenn das Ausgabeformat ge&auml;ndert werden muss</li>
+                        <li><a href="../src/Intelligence/Domain/ProcessTemplate.php">ProcessTemplate</a> und verwandte Value Objects f&uuml;r das Core-Modell</li>
+                        <li><a href="../src/Command/IntelligenceTemplateCheckDocumentCommand.php">IntelligenceTemplateCheckDocumentCommand</a> und <a href="../src/Command/IntelligenceTemplateHeatmapCommand.php">IntelligenceTemplateHeatmapCommand</a> f&uuml;r aktuelle CLI-Flows</li>
+                        <li><a href="../src/Command/AmagnoSyncCommand.php">AmagnoSyncCommand</a> und <a href="../src/Service/FibuExportService.php">FibuExportService</a> nur f&uuml;r Legacy-Exporter-Kontext</li>
                     </ol>
                 </section>
 
@@ -576,8 +583,8 @@
                     <ol class="steps">
                         <li>Diese Doku und die <a href="../README.md">README</a> lesen.</li>
                         <li><a href="../config/amagno_connections.json">config/amagno_connections.json</a> und <a href="../config/services.yaml">config/services.yaml</a> verstehen.</li>
-                        <li>Den Lauf <code>amagno:sync</code> von Command bis Exporter verfolgen.</li>
-                        <li>Danach das Signaturmodul getrennt ansehen, weil es sauberer geschnitten ist als Teile des Altbestands.</li>
+                        <li>Die Intelligence-Commands f&uuml;r Template-Vorschlag, Template-Pr&uuml;fung und Heatmaps verfolgen.</li>
+                        <li>Den Lauf <code>amagno:sync</code> nur lesen, wenn Legacy-Exporter-Verhalten betroffen ist.</li>
                     </ol>
                 </section>
             </main>

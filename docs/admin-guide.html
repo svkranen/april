@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Amagno / Nevaris Interface - Administrator Guide</title>
+    <title>Amagno Intelligence Tool - Administrator Guide</title>
     <style>
         :root {
             --bg: #eef2ef;
@@ -240,8 +240,9 @@
 <body>
     <div class="page">
         <section class="hero">
-            <h1>Administrator Guide</h1>
-            <p>Diese Seite ist die betriebliche Doku f&uuml;r Einrichtung, Jobbetrieb, Fehleranalyse und Routineaufgaben. Sie ist absichtlich weniger codezentriert als die technische Einstiegseite.</p>
+            <h1>Amagno Intelligence Tool</h1>
+            <p>Diese Seite ist die betriebliche Doku f&uuml;r Einrichtung, Jobbetrieb, Fehleranalyse und Routineaufgaben. Das Zielbild ist Process Intelligence fuer dokumentenbasierte Prozesse.</p>
+            <p>Historische Export-/Sync-Abl&auml;ufe sind weiterhin dokumentiert, gelten aber als Legacy-Bereich und nicht mehr als Produktkern.</p>
             <div class="meta">
                 <a class="pill" href="#start">Schnellstart</a>
                 <a class="pill" href="#konfiguration">Konfiguration</a>
@@ -268,17 +269,18 @@
             <main class="content">
                 <section class="card" id="start">
                     <h2>1. Schnellstart</h2>
-                    <p class="lead">Wenn das System neu aufgesetzt oder geprueft werden soll, ist dies die kuerzeste sinnvolle Reihenfolge.</p>
+                    <p class="lead">Wenn das Intelligence Tool neu aufgesetzt oder geprueft werden soll, ist dies die kuerzeste sinnvolle Reihenfolge. Legacy-Exporter-Jobs nur pruefen, wenn sie im konkreten Betrieb noch genutzt werden.</p>
                     <ol class="steps">
                         <li><code>.env.local</code> bzw. produktive Environment-Werte setzen.</li>
                         <li>Lokale Verbindungsdatei auf Basis von <a href="../config/amagno_connections.json">config/amagno_connections.json</a> anlegen.</li>
-                        <li>Zielpfade, FTP- oder SQL-Ziele pruefen.</li>
-                        <li><code>bin/console amagno:sync --all-connections --dry-run</code> ausfuehren.</li>
-                        <li>Wenn Signaturpruefung aktiv ist: <code>bin/console amagno:verify-signatures --all-connections --dry-run</code>.</li>
-                        <li>Erst danach geplante Tasks aktivieren.</li>
+                        <li>Doctrine-/Event-Store-Konfiguration fuer Intelligence-Funktionen pruefen.</li>
+                        <li><code>bin/console intelligence:template:suggest-from-documents &lt;processKey&gt; --limit=10</code> fuer erste Template-Vorschlaege ausfuehren.</li>
+                        <li><code>bin/console intelligence:template:check-document &lt;documentUuid&gt; &lt;processKey&gt; --template=templates/&lt;processKey&gt;.yaml</code> pruefen.</li>
+                        <li><code>bin/console intelligence:template:heatmap &lt;processKey&gt; --template=templates/&lt;processKey&gt;.yaml</code> fuer Heatmap-Reports nutzen.</li>
+                        <li>Falls Legacy-Exporter noch produktiv laeuft: <code>bin/console amagno:sync --all-connections --dry-run</code> separat pruefen.</li>
                     </ol>
                     <div class="ok">
-                        <strong>Faustregel:</strong> Erst mit <code>--dry-run</code> pruefen, dann produktive Rueckschreibungen und Stempel aktiv nutzen.
+                        <strong>Faustregel:</strong> Neue Auswertungen zuerst mit begrenzter Dokumentmenge und Ausgabedateien pruefen. Rueckschreibungen und Stempel gehoeren zum Legacy-/Connector-Kontext.
                     </div>
                 </section>
 
@@ -412,9 +414,12 @@ AMAGNO_CHECKPOINT_DIR=var/checkpoints</code></pre>
 
                 <section class="card" id="jobs">
                     <h2>4. Regelbetrieb und Jobs</h2>
+                    <div class="warning">
+                        <strong>Legacy:</strong> Die folgenden <code>amagno:sync</code>-Jobs gehoeren zum alten AmagnoExporter. Fuer das Intelligence Tool sind vor allem Template-Vorschlag, Template-Pruefung und Heatmap-Reports relevant.
+                    </div>
                     <div class="grid-2">
                         <div class="mini">
-                            <h3>Sync manuell</h3>
+                            <h3>Legacy Sync manuell</h3>
                             <pre><code>bin/console amagno:sync --all-connections
 bin/console amagno:sync --connection=nev-onprem
 bin/console amagno:sync --all-connections --dry-run
@@ -433,7 +438,7 @@ bin/console amagno:sync --all-connections --use-checkpoint</code></pre>
                     </div>
 
                     <h3>Windows-Aufgabenplanung</h3>
-                    <p>Fuer produktive Laeufe unter Windows ist ein Batch-Skript sinnvoll, besonders bei UNC-Freigaben. Ein vorhandenes Beispiel liegt in <a href="../amagno_sync.bat">amagno_sync.bat</a>.</p>
+                    <p>Fuer produktive Legacy-Exporter-Laeufe unter Windows ist ein Batch-Skript sinnvoll, besonders bei UNC-Freigaben. Ein vorhandenes Beispiel liegt in <a href="../amagno_sync.bat">amagno_sync.bat</a>.</p>
                     <pre><code>@echo off
 set APP_ENV=prod
 set APP_DEBUG=0
@@ -441,7 +446,7 @@ cd /d C:\inetpub\amagno_nev_interface
 php bin\console amagno:sync --all-connections --use-checkpoint &gt;&gt; C:\logs\amagno_sync.log 2&gt;&amp;1</code></pre>
 
                     <div class="status">
-                        <strong>Empfehlung:</strong> Den produktiven Sync zuerst ohne Signaturpruefung stabil betreiben und die zweite Task erst danach zuschalten.
+                        <strong>Empfehlung:</strong> Neue Intelligence-Jobs getrennt vom alten Exporter betreiben. Den produktiven Legacy-Sync nur weiterfuehren, wenn er fachlich noch benoetigt wird.
                     </div>
                 </section>
 
@@ -494,13 +499,15 @@ bin/console amagno:verify-signatures --connection=nev-onprem --use-checkpoint</c
                     <ul class="notes">
                         <li>Exit-Code des Batch- oder Console-Laufs</li>
                         <li>eigene Task-Logs, z. B. in <code>C:\logs</code> oder <code>var\log</code></li>
-                        <li>Anzahl gefundener und verarbeiteter Dokumente</li>
-                        <li>Rueckschreibungen von Fehlertexten, Erfolgs- oder Fehlerstempeln</li>
+                        <li>Anzahl gefundener Events, Dokument-Timelines und ausgewerteter Dokumente</li>
+                        <li>Erzeugte Template-Vorschlaege, Pruefergebnisse und Heatmap-Reports</li>
+                        <li>Legacy: Rueckschreibungen von Fehlertexten, Erfolgs- oder Fehlerstempeln</li>
                     </ul>
 
                     <h3>Nutzliche Befehle</h3>
-                    <pre><code>bin/console amagno:sync --all-connections --dry-run -vvv
-bin/console amagno:verify-signatures --all-connections --dry-run -vvv</code></pre>
+                    <pre><code>bin/console intelligence:template:suggest-from-documents &lt;processKey&gt; --limit=10 -vvv
+bin/console intelligence:template:heatmap &lt;processKey&gt; --template=templates/&lt;processKey&gt;.yaml -vvv
+bin/console amagno:sync --all-connections --dry-run -vvv</code></pre>
 
                     <p>Die Anwendung verwendet Monolog. Je nach Umgebung landen Logs typischerweise in <code>var/log/dev.log</code> oder <code>var/log/prod.log</code>.</p>
                 </section>
