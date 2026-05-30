@@ -246,9 +246,11 @@
             <p>Ein Teil dieser Doku beschreibt noch den alten AmagnoExporter. Diese Bereiche sind als Legacy-Kontext zu verstehen, nicht als neues Produktziel.</p>
             <div class="meta">
                 <a class="pill" href="#ueberblick">Projekt&uuml;berblick</a>
+                <a class="pill" href="#analyse">Prozessanalyse</a>
                 <a class="pill" href="#betrieb">Betrieb</a>
                 <a class="pill" href="#architektur">Architektur</a>
                 <a class="pill" href="#signatur">Signaturpr&uuml;fung</a>
+                <a class="pill" href="./process-analysis-guide.md">Process Analysis Guide</a>
                 <a class="pill" href="./admin-guide.html">Admin Guide</a>
                 <a class="pill" href="../README.md">README.md</a>
             </div>
@@ -258,14 +260,15 @@
             <aside class="toc">
                 <h2>Inhalt</h2>
                 <a href="#ueberblick">1. Projekt&uuml;berblick</a>
-                <a href="#struktur">2. Verzeichnisstruktur</a>
-                <a href="#betrieb">3. Betrieb und Konfiguration</a>
-                <a href="#sync">4. Ablauf Sync / Export</a>
-                <a href="#signatur">5. Ablauf Signaturpr&uuml;fung</a>
-                <a href="#architektur">6. Wichtige Klassen</a>
-                <a href="#settings-ui">7. Legacy-Settings-UI</a>
-                <a href="#tests">8. Tests und Qualit&auml;t</a>
-                <a href="#aenderung">9. &Auml;nderungen sicher umsetzen</a>
+                <a href="#analyse">2. Prozessanalyse</a>
+                <a href="#struktur">3. Verzeichnisstruktur</a>
+                <a href="#betrieb">4. Betrieb und Konfiguration</a>
+                <a href="#sync">5. Ablauf Sync / Export</a>
+                <a href="#signatur">6. Ablauf Signaturpr&uuml;fung</a>
+                <a href="#architektur">7. Wichtige Klassen</a>
+                <a href="#settings-ui">8. Legacy-Settings-UI</a>
+                <a href="#tests">9. Tests und Qualit&auml;t</a>
+                <a href="#aenderung">10. &Auml;nderungen sicher umsetzen</a>
             </aside>
 
             <main class="content">
@@ -297,15 +300,49 @@
                     </div>
                 </section>
 
+                <section class="card" id="analyse">
+                    <h2>2. Prozessanalyse</h2>
+                    <p class="lead">Der aktuelle Hauptpfad ist die template-basierte Prozessanalyse. Details und Beispiele stehen im <a href="./process-analysis-guide.md">Process Analysis Guide</a>; die wichtigsten Einstiege sind hier zusammengefasst.</p>
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h3>Template und Check</h3>
+                            <pre><code>bin/console intelligence:template:list
+bin/console intelligence:template:check-document &lt;documentUuid&gt; &lt;processKey&gt; \
+  --template=templates/&lt;processKey&gt;.yaml
+bin/console intelligence:template:check-process &lt;processKey&gt; \
+  --template=templates/&lt;processKey&gt;.yaml</code></pre>
+                            <p>Der Batch-Check liefert Statusklassen <code>OK</code>, <code>WARNING</code>, <code>DEVIATION</code> und <code>ERROR</code>, Problem-Statistiken und priorisierte Top-Problem-Dokumente.</p>
+                        </div>
+                        <div class="mini">
+                            <h3>Heatmap und BPMN-View</h3>
+                            <pre><code>bin/console intelligence:template:heatmap &lt;processKey&gt; \
+  --template=templates/&lt;processKey&gt;.yaml \
+  --format=json --output=templates/&lt;processKey&gt;-heatmap.json --force
+bin/console intelligence:template:bpmn-view &lt;processKey&gt; \
+  --template=templates/&lt;processKey&gt;.yaml \
+  --heatmap=templates/&lt;processKey&gt;-heatmap.json \
+  --format=svg --view=summary --layout=process</code></pre>
+                            <p>SVG-Views unterstuetzen <code>summary</code>, <code>bottleneck</code>, <code>deviations</code>, <code>observed</code> und <code>combined</code>. Das Layout <code>process</code> ist fuer fachliche Prozessansichten gedacht, <code>graph</code> fuer Detailanalyse.</p>
+                        </div>
+                    </div>
+                    <h3>Template-Konzepte</h3>
+                    <ul class="notes">
+                        <li><code>required_steps</code> sind globale Pflichtschritte, nicht der vollstaendige Ablauf.</li>
+                        <li><code>decision_points</code> pruefen bedingte Pfade anhand von Kontextfeldern.</li>
+                        <li><code>parallel_groups</code> erlauben reihenfolgeunabhaengige Pflichtschritte.</li>
+                        <li><code>field_mapping</code> verbindet fachliche Felder mit Amagno-Tags per <code>tag_id</code> oder <code>tag_name</code>.</li>
+                    </ul>
+                </section>
+
                 <section class="card" id="struktur">
-                    <h2>2. Verzeichnisstruktur</h2>
+                    <h2>3. Verzeichnisstruktur</h2>
                     <ul class="tree">
                         <li><code>src/Command</code>: CLI-Kommandos f&uuml;r Batch-Betrieb</li>
                         <li><code>src/Controller</code>: kleine Web-Einstiegspunkte, vor allem Home und Settings-Bridge</li>
                         <li><code>src/Intelligence/Domain</code>: fachlicher Core ohne Symfony-, Doctrine- oder Amagno-Abh&auml;ngigkeit</li>
                         <li><code>src/Intelligence/Application</code>: Anwendungsservices f&uuml;r Events, Prozessinstanzen, Template-Pr&uuml;fung und Vorschl&auml;ge</li>
                         <li><code>src/Intelligence/Template</code>: Heatmap-Builder f&uuml;r Templates und Timelines</li>
-                        <li><code>src/Intelligence/Infrastructure/Amagno</code>: aktueller Amagno-Kontextadapter</li>
+                        <li><code>src/Intelligence/Connector/Amagno</code>: aktueller Amagno-Kontextadapter und Field-Mapping</li>
                         <li><code>src/Service/Amagno</code>: wiederverwendbare, aber historisch gewachsene Amagno-Zugriffsklassen; perspektivisch Connector/Amagno</li>
                         <li><code>src/Service/Processing</code>: Legacy Matching, Matrixaufbau, Rendering, Stempel</li>
                         <li><code>src/Service/Export</code>: Legacy Exportziele und Registry</li>
@@ -318,7 +355,7 @@
                 </section>
 
                 <section class="card" id="betrieb">
-                    <h2>3. Betrieb und Konfiguration</h2>
+                    <h2>4. Betrieb und Konfiguration</h2>
                     <p>Konfiguration kommt aus zwei Quellen: Symfony-Umgebungsvariablen als Default und einer JSON-Datei f&uuml;r konkrete Verbindungen.</p>
                     <table>
                         <thead>
@@ -366,7 +403,7 @@
                 </section>
 
                 <section class="card" id="sync">
-                    <h2>4. Ablauf Sync / Export</h2>
+                    <h2>5. Ablauf Sync / Export</h2>
                     <div class="warning">
                         <strong>Legacy:</strong> Dieser Abschnitt beschreibt den fr&uuml;heren AmagnoExporter. Neue Process-Intelligence-Funktionen sollen nicht auf Matching-Renderer, Export-Matrix oder <code>oldProject</code> aufbauen.
                     </div>
@@ -426,7 +463,7 @@
                 </section>
 
                 <section class="card" id="signatur">
-                    <h2>5. Ablauf Signaturpr&uuml;fung</h2>
+                    <h2>6. Ablauf Signaturpr&uuml;fung</h2>
                     <p>Die Signaturpr&uuml;fung ist als eigenes Modul aufgebaut. Die fachliche Vergleichslogik liegt bewusst isoliert unter <code>src/SignatureCheck</code>. Dadurch kann sie leicht getestet und weiterentwickelt werden.</p>
 
                     <div class="grid-2">
@@ -467,7 +504,7 @@
                 </section>
 
                 <section class="card" id="architektur">
-                    <h2>6. Wichtige Klassen und Verantwortlichkeiten</h2>
+                    <h2>7. Wichtige Klassen und Verantwortlichkeiten</h2>
                     <table>
                         <thead>
                             <tr>
@@ -530,7 +567,7 @@
                 </section>
 
                 <section class="card" id="settings-ui">
-                    <h2>7. Legacy-Settings-UI</h2>
+                    <h2>8. Legacy-Settings-UI</h2>
                     <p>Die Route <code>/settings</code> ist keine neu implementierte Symfony-Oberfl&auml;che, sondern eine Einbindung des Altbestands aus <code>oldProject/settings.php</code>. Angebunden ist nur noch die Pflege von <code>oldProject/matching.json</code>; Export und Signaturpr&uuml;fung laufen &uuml;ber Symfony-Commands.</p>
                     <ul class="notes">
                         <li>Bridge-Controller: <a href="../src/Controller/SettingsController.php">SettingsController</a></li>
@@ -545,7 +582,7 @@
                 </section>
 
                 <section class="card" id="tests">
-                    <h2>8. Tests und Qualit&auml;t</h2>
+                    <h2>9. Tests und Qualit&auml;t</h2>
                     <p>Das Projekt hat bereits gezielte PHPUnit-Tests, vor allem f&uuml;r Exporter, Rendering-nahe Services und das Signaturmodul.</p>
                     <ul class="notes">
                         <li><a href="../tests/SignatureCheck/SignatureCompletenessCheckerTest.php">tests/SignatureCheck/SignatureCompletenessCheckerTest.php</a></li>
@@ -559,7 +596,7 @@
                 </section>
 
                 <section class="card" id="aenderung">
-                    <h2>9. &Auml;nderungen sicher umsetzen</h2>
+                    <h2>10. &Auml;nderungen sicher umsetzen</h2>
                     <div class="grid-2">
                         <div class="mini">
                             <h3>Bei Konfigurations&auml;nderungen</h3>

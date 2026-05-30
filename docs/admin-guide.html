@@ -245,9 +245,11 @@
             <p>Historische Export-/Sync-Abl&auml;ufe sind weiterhin dokumentiert, gelten aber als Legacy-Bereich und nicht mehr als Produktkern.</p>
             <div class="meta">
                 <a class="pill" href="#start">Schnellstart</a>
+                <a class="pill" href="#analyse">Prozessanalyse</a>
                 <a class="pill" href="#konfiguration">Konfiguration</a>
                 <a class="pill" href="#jobs">Jobs</a>
                 <a class="pill" href="#fehler">Fehlerbilder</a>
+                <a class="pill" href="./process-analysis-guide.md">Analyse-Guide</a>
                 <a class="pill" href="./index.html">Entwicklerdoku</a>
             </div>
         </section>
@@ -256,14 +258,15 @@
             <aside class="toc">
                 <h2>Inhalt</h2>
                 <a href="#start">1. Schnellstart</a>
-                <a href="#konfiguration">2. Betriebsrelevante Dateien</a>
-                <a href="#einrichtung">3. Einrichtung</a>
-                <a href="#jobs">4. Regelbetrieb und Jobs</a>
-                <a href="#signatur">5. Signaturpruefung</a>
-                <a href="#checkpoint">6. Checkpoints</a>
-                <a href="#logs">7. Logs und Kontrolle</a>
-                <a href="#fehler">8. Typische Fehlerbilder</a>
-                <a href="#routine">9. Regelmaessige Aufgaben</a>
+                <a href="#analyse">2. Prozessanalyse</a>
+                <a href="#konfiguration">3. Betriebsrelevante Dateien</a>
+                <a href="#einrichtung">4. Einrichtung</a>
+                <a href="#jobs">5. Regelbetrieb und Jobs</a>
+                <a href="#signatur">6. Signaturpruefung</a>
+                <a href="#checkpoint">7. Checkpoints</a>
+                <a href="#logs">8. Logs und Kontrolle</a>
+                <a href="#fehler">9. Typische Fehlerbilder</a>
+                <a href="#routine">10. Regelmaessige Aufgaben</a>
             </aside>
 
             <main class="content">
@@ -284,8 +287,45 @@
                     </div>
                 </section>
 
+                <section class="card" id="analyse">
+                    <h2>2. Prozessanalyse</h2>
+                    <p class="lead">Die neuen betrieblichen Hauptfunktionen liegen in den <code>intelligence:template</code>-Commands. Sie pruefen Dokumentlaeufe gegen Soll-Templates, erzeugen Vorschlaege, bauen Heatmaps und visualisieren Prozesse.</p>
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h3>Template-Checks</h3>
+                            <pre><code>bin/console intelligence:template:list
+bin/console intelligence:template:check-document &lt;documentUuid&gt; &lt;processKey&gt; \
+  --template=templates/&lt;processKey&gt;.yaml
+bin/console intelligence:template:check-process &lt;processKey&gt; \
+  --template=templates/&lt;processKey&gt;.yaml --only-deviations</code></pre>
+                            <p>Der Batch-Check gruppiert Ergebnisse nach <code>OK</code>, <code>WARNING</code>, <code>DEVIATION</code> und <code>ERROR</code>. Standardmaessig werden OK-Dokumente ausgeblendet; mit <code>--show-ok</code> werden sie ebenfalls gelistet.</p>
+                        </div>
+                        <div class="mini">
+                            <h3>Heatmap und Prozessbild</h3>
+                            <pre><code>bin/console intelligence:template:heatmap &lt;processKey&gt; \
+  --template=templates/&lt;processKey&gt;.yaml \
+  --format=json --output=templates/&lt;processKey&gt;-heatmap.json --force
+bin/console intelligence:template:bpmn-view &lt;processKey&gt; \
+  --template=templates/&lt;processKey&gt;.yaml \
+  --heatmap=templates/&lt;processKey&gt;-heatmap.json \
+  --format=svg --view=summary --layout=process</code></pre>
+                            <p>Fuer SVG ist <code>summary</code> die lesbare Standardansicht. <code>bottleneck</code> fokussiert Engpaesse, <code>deviations</code> zeigt Abweichungskanten, <code>combined</code> ist eher fuer Detailanalyse.</p>
+                        </div>
+                    </div>
+                    <h3>Status und Priorisierung</h3>
+                    <ul class="notes">
+                        <li><code>WARNING</code>: fehlender Kontext oder Datenqualitaetsproblem, noch keine fachliche Verletzung.</li>
+                        <li><code>DEVIATION</code>: fehlende Pflichtschritte, Decision-Rule-Verletzungen oder unvollstaendige Parallelgruppen.</li>
+                        <li><code>ERROR</code>: technischer Fehler waehrend der Pruefung.</li>
+                        <li><code>problem_score</code> priorisiert Dokumente nach Schwere: technische Fehler 5, Missing Step 3, Decision Rule und Parallelgruppe 2, Missing Context 0.</li>
+                    </ul>
+                    <div class="status">
+                        <strong>Praxis:</strong> Erst <code>check-process --format=json</code> fuer maschinelle Auswertung nutzen, danach einzelne Dokumente mit <code>check-document</code> fachlich nachpruefen.
+                    </div>
+                </section>
+
                 <section class="card" id="konfiguration">
-                    <h2>2. Betriebsrelevante Dateien</h2>
+                    <h2>3. Betriebsrelevante Dateien</h2>
                     <table>
                         <thead>
                             <tr>
@@ -325,7 +365,7 @@
                 </section>
 
                 <section class="card" id="einrichtung">
-                    <h2>3. Einrichtung</h2>
+                    <h2>4. Einrichtung</h2>
                     <h3>Umgebungswerte</h3>
                     <pre><code>AMAGNO_BASE_URI=https://amagno.me
 AMAGNO_API_USERNAME=
@@ -413,7 +453,7 @@ AMAGNO_CHECKPOINT_DIR=var/checkpoints</code></pre>
                 </section>
 
                 <section class="card" id="jobs">
-                    <h2>4. Regelbetrieb und Jobs</h2>
+                    <h2>5. Regelbetrieb und Jobs</h2>
                     <div class="warning">
                         <strong>Legacy:</strong> Die folgenden <code>amagno:sync</code>-Jobs gehoeren zum alten AmagnoExporter. Fuer das Intelligence Tool sind vor allem Template-Vorschlag, Template-Pruefung und Heatmap-Reports relevant.
                     </div>
@@ -451,7 +491,7 @@ php bin\console amagno:sync --all-connections --use-checkpoint &gt;&gt; C:\logs\
                 </section>
 
                 <section class="card" id="signatur">
-                    <h2>5. Signaturpruefung</h2>
+                    <h2>6. Signaturpruefung</h2>
                     <p>Die Signaturpruefung ist optional und wird pro Verbindung ueber den Block <code>signature_check</code> aktiviert.</p>
                     <pre><code>"signature_check": {
   "required_tag": "GUID-ZU-PRUEFEN-DURCH",
@@ -481,7 +521,7 @@ bin/console amagno:verify-signatures --connection=nev-onprem --use-checkpoint</c
                 </section>
 
                 <section class="card" id="checkpoint">
-                    <h2>6. Checkpoints</h2>
+                    <h2>7. Checkpoints</h2>
                     <p>Checkpoints verhindern, dass bei jedem Lauf alle Dokumente erneut bearbeitet werden. Gespeichert wird der letzte bekannte <code>changeDate</code>-Wert als JSON-Datei im konfigurierten Checkpoint-Verzeichnis.</p>
                     <ul class="notes">
                         <li>Standardpfad laut Env: <code>var/checkpoints</code></li>
@@ -494,7 +534,7 @@ bin/console amagno:verify-signatures --connection=nev-onprem --use-checkpoint</c
                 </section>
 
                 <section class="card" id="logs">
-                    <h2>7. Logs und Kontrolle</h2>
+                    <h2>8. Logs und Kontrolle</h2>
                     <h3>Was beobachten?</h3>
                     <ul class="notes">
                         <li>Exit-Code des Batch- oder Console-Laufs</li>
@@ -513,7 +553,7 @@ bin/console amagno:sync --all-connections --dry-run -vvv</code></pre>
                 </section>
 
                 <section class="card" id="fehler">
-                    <h2>8. Typische Fehlerbilder</h2>
+                    <h2>9. Typische Fehlerbilder</h2>
                     <table>
                         <thead>
                             <tr>
@@ -563,7 +603,7 @@ bin/console amagno:sync --all-connections --dry-run -vvv</code></pre>
                 </section>
 
                 <section class="card" id="routine">
-                    <h2>9. Regelmaessige Aufgaben</h2>
+                    <h2>10. Regelmaessige Aufgaben</h2>
                     <div class="grid-2">
                         <div class="mini">
                             <h3>Vor einem Release</h3>
