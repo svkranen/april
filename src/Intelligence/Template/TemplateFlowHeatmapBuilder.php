@@ -2,16 +2,16 @@
 
 namespace App\Intelligence\Template;
 
+use App\Intelligence\Domain\ProcessTemplate;
 use DateTimeImmutable;
 
 final class TemplateFlowHeatmapBuilder
 {
     /**
-     * @param array<string, mixed> $template
      * @param array<int, array<string, mixed>> $documentTimelines
      * @return array<string, mixed>
      */
-    public function build(array $template, array $documentTimelines, bool $collapseDirectRepeats = true): array
+    public function build(ProcessTemplate $template, array $documentTimelines, bool $collapseDirectRepeats = true): array
     {
         $allowedTransitions = $this->allowedTransitions($template);
         $transitionCounts = [];
@@ -71,23 +71,13 @@ final class TemplateFlowHeatmapBuilder
     }
 
     /**
-     * @param array<string, mixed> $template
      * @return array<string, true>
      */
-    private function allowedTransitions(array $template): array
+    private function allowedTransitions(ProcessTemplate $template): array
     {
-        $transitions = $template['allowed_transitions'] ?? $template['transitions'] ?? [];
-        if (!is_array($transitions)) {
-            return [];
-        }
-
         $allowedTransitions = [];
-        foreach ($transitions as $transition) {
-            if (!is_array($transition) || !isset($transition['from'], $transition['to'])) {
-                continue;
-            }
-
-            $allowedTransitions[$this->transitionKey((string) $transition['from'], (string) $transition['to'])] = true;
+        foreach ($template->transitions as $transition) {
+            $allowedTransitions[$this->transitionKey($transition->from, $transition->to)] = true;
         }
 
         return $allowedTransitions;

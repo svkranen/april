@@ -2,6 +2,9 @@
 
 namespace App\Tests\Intelligence\Template;
 
+use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateStep;
+use App\Intelligence\Domain\ProcessTemplateTransition;
 use App\Intelligence\Template\TemplateDurationHeatmapBuilder;
 use App\Intelligence\Template\TemplateFlowHeatmapBuilder;
 use App\Intelligence\Template\TemplateHeatmapReportBuilder;
@@ -142,27 +145,24 @@ final class TemplateHeatmapBuilderTest extends TestCase
         self::assertSame(1, $this->transition($heatmap, '02 Versenden', '03 Ausgangsrechnung buchen')['count']);
     }
 
-    /**
-     * @return array<string, mixed>
-     */
-    private function template(): array
+    private function template(): ProcessTemplate
     {
-        return [
-            'key' => 'ai-ausgangsrechnungen',
-            'steps' => [
-                ['key' => '01 Ausgangsrechnung pruefen'],
-                ['key' => '02 Versenden'],
-                ['key' => '03 Ausgangsrechnung buchen'],
-                ['key' => '04 Zahlungseingang erwartet'],
+        return new ProcessTemplate(
+            'ai-ausgangsrechnungen',
+            steps: [
+                new ProcessTemplateStep('01 Ausgangsrechnung pruefen'),
+                new ProcessTemplateStep('02 Versenden'),
+                new ProcessTemplateStep('03 Ausgangsrechnung buchen'),
+                new ProcessTemplateStep('04 Zahlungseingang erwartet'),
             ],
-            'allowed_transitions' => [
-                ['from' => '01 Ausgangsrechnung pruefen', 'to' => '02 Versenden'],
-                ['from' => '02 Versenden', 'to' => '03 Ausgangsrechnung buchen'],
-                ['from' => '02 Versenden', 'to' => '04 Zahlungseingang erwartet'],
-                ['from' => '03 Ausgangsrechnung buchen', 'to' => '04 Zahlungseingang erwartet'],
-                ['from' => '04 Zahlungseingang erwartet', 'to' => '03 Ausgangsrechnung buchen'],
+            transitions: [
+                new ProcessTemplateTransition('01 Ausgangsrechnung pruefen', '02 Versenden'),
+                new ProcessTemplateTransition('02 Versenden', '03 Ausgangsrechnung buchen'),
+                new ProcessTemplateTransition('02 Versenden', '04 Zahlungseingang erwartet'),
+                new ProcessTemplateTransition('03 Ausgangsrechnung buchen', '04 Zahlungseingang erwartet'),
+                new ProcessTemplateTransition('04 Zahlungseingang erwartet', '03 Ausgangsrechnung buchen'),
             ],
-        ];
+        );
     }
 
     /**

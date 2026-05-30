@@ -6,6 +6,7 @@ use App\Intelligence\Application\DocumentTimelineEventRow;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\EventTimelineOrder;
 use App\Intelligence\Application\ProcessDocumentUuidProvider;
+use App\Intelligence\Domain\ProcessTemplateArrayFactory;
 use App\Intelligence\Template\TemplateHeatmapReportBuilder;
 use DateTimeImmutable;
 use Exception;
@@ -87,12 +88,13 @@ final class IntelligenceTemplateHeatmapCommand extends Command
             return Command::FAILURE;
         }
 
-        $template = Yaml::parseFile($templatePath);
-        if (!is_array($template)) {
+        $templateData = Yaml::parseFile($templatePath);
+        if (!is_array($templateData)) {
             $output->writeln(sprintf('<error>Template file is not a YAML mapping: %s</error>', $templatePath));
 
             return Command::FAILURE;
         }
+        $template = ProcessTemplateArrayFactory::fromArray($templateData);
 
         $documentUuids = $this->documentUuidProvider->documentUuidsForProcess($processKey, $since, $limit);
         if ($documentUuids === []) {

@@ -2,17 +2,18 @@
 
 namespace App\Intelligence\Template;
 
+use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateStep;
 use DateTimeImmutable;
 
 final class TemplateDurationHeatmapBuilder
 {
     /**
-     * @param array<string, mixed> $template
      * @param array<int, array<string, mixed>> $documentTimelines
      * @return array<string, mixed>
      */
     public function build(
-        array $template,
+        ProcessTemplate $template,
         array $documentTimelines,
         ?DateTimeImmutable $now = null,
         bool $collapseDirectRepeats = true
@@ -112,26 +113,14 @@ final class TemplateDurationHeatmapBuilder
     }
 
     /**
-     * @param array<string, mixed> $template
      * @return array<int, string>
      */
-    private function templateSteps(array $template): array
+    private function templateSteps(ProcessTemplate $template): array
     {
-        $steps = $template['steps'] ?? [];
-        if (!is_array($steps)) {
-            return [];
-        }
-
-        $stepKeys = [];
-        foreach ($steps as $step) {
-            if (!is_array($step) || !isset($step['key'])) {
-                continue;
-            }
-
-            $stepKeys[] = (string) $step['key'];
-        }
-
-        return $stepKeys;
+        return array_map(
+            static fn (ProcessTemplateStep $step): string => $step->key,
+            $template->steps
+        );
     }
 
     /**

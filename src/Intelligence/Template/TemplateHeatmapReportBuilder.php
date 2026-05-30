@@ -2,6 +2,7 @@
 
 namespace App\Intelligence\Template;
 
+use App\Intelligence\Domain\ProcessTemplate;
 use DateTimeImmutable;
 
 final class TemplateHeatmapReportBuilder
@@ -13,12 +14,11 @@ final class TemplateHeatmapReportBuilder
     }
 
     /**
-     * @param array<string, mixed> $template
      * @param array<int, array<string, mixed>> $documentTimelines
      * @return array<string, mixed>
      */
     public function build(
-        array $template,
+        ProcessTemplate $template,
         array $documentTimelines,
         ?DateTimeImmutable $now = null,
         bool $collapseDirectRepeats = true
@@ -26,7 +26,7 @@ final class TemplateHeatmapReportBuilder
         $now ??= new DateTimeImmutable();
 
         return [
-            'template_key' => (string) ($template['key'] ?? ''),
+            'template_key' => $template->key,
             'documents_used' => $this->documentsUsed($documentTimelines),
             'generated_at' => $now->format(DATE_ATOM),
             'flow_heatmap' => $this->flowHeatmapBuilder->build($template, $documentTimelines, $collapseDirectRepeats),
