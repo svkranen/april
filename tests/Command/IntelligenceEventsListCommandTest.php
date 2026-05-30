@@ -3,7 +3,7 @@
 namespace App\Tests\Command;
 
 use App\Command\IntelligenceEventsListCommand;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Process\InMemoryEventListProvider;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -105,10 +105,10 @@ class IntelligenceEventsListCommandTest extends TestCase
         string $stepKey,
         string $time,
         int $processInstanceId
-    ): ProcessEvent {
+    ): ProcessEventRecord {
         $dateTime = new DateTimeImmutable($time);
 
-        return new ProcessEvent(
+        return new ProcessEventRecord(
             $id,
             $externalEventKey,
             'amagno',

@@ -6,12 +6,12 @@ use App\Intelligence\Application\EventContextSnapshotDetails;
 use App\Intelligence\Application\EventDetails;
 use App\Intelligence\Application\EventDetailsProvider;
 use App\Intelligence\Domain\ContextSnapshot;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 
 final class InMemoryEventDetailsProvider implements EventDetailsProvider
 {
     /**
-     * @param array<int, ProcessEvent> $events
+     * @param array<int, ProcessEventRecord> $events
      * @param array<int, ContextSnapshot> $snapshots
      */
     public function __construct(

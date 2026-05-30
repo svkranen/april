@@ -8,14 +8,14 @@ use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\DocumentTimelineReport;
 use App\Intelligence\Application\EventTimelineOrder;
 use App\Intelligence\Domain\ContextSnapshot;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Domain\ProcessInstance;
 
 final class InMemoryDocumentTimelineProvider implements DocumentTimelineProvider
 {
     /**
      * @param array<int, ProcessInstance> $instances
-     * @param array<int, ProcessEvent> $events
+     * @param array<int, ProcessEventRecord> $events
      * @param array<int, ContextSnapshot> $snapshots
      */
     public function __construct(
@@ -35,9 +35,9 @@ final class InMemoryDocumentTimelineProvider implements DocumentTimelineProvider
 
         $events = array_values(array_filter(
             $this->events,
-            static fn (ProcessEvent $event): bool => $event->documentUuid === $documentUuid
+            static fn (ProcessEventRecord $event): bool => $event->documentUuid === $documentUuid
         ));
-        usort($events, static fn (ProcessEvent $left, ProcessEvent $right): int => $order->compareProcessEvents($left, $right));
+        usort($events, static fn (ProcessEventRecord $left, ProcessEventRecord $right): int => $order->compareProcessEvents($left, $right));
 
         $snapshotsByEventKey = $this->snapshotsByEventKey($documentUuid);
 
@@ -54,7 +54,7 @@ final class InMemoryDocumentTimelineProvider implements DocumentTimelineProvider
                 $instances
             ),
             array_map(
-                static fn (ProcessEvent $event): DocumentTimelineEventRow => new DocumentTimelineEventRow(
+                static fn (ProcessEventRecord $event): DocumentTimelineEventRow => new DocumentTimelineEventRow(
                     $event->externalEventKey,
                     $event->eventKey,
                     $event->stepKey,

@@ -4,7 +4,7 @@ namespace App\Tests\Command;
 
 use App\Command\IntelligenceTemplateCheckDocumentCommand;
 use App\Intelligence\Application\ProcessTemplateCheckService;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -177,9 +177,9 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
         $occurredB = new DateTimeImmutable('2026-05-29T10:00:00+00:00');
         $occurredC = new DateTimeImmutable('2026-05-29T11:00:00+00:00');
         $tester = new CommandTester($this->commandWithEvents([
-            new ProcessEvent(1, 'evt-a', 'amagno', 'eingangsrechnung', 'A', 'A', 'doc-1', 'uuid-1', 1, 'user-1', $occurredA, new DateTimeImmutable('2026-05-29T09:00:03+00:00'), '{}', '{}', 1),
-            new ProcessEvent(2, 'evt-b', 'amagno', 'eingangsrechnung', 'B', 'B', 'doc-1', 'uuid-1', 1, 'user-1', $occurredB, new DateTimeImmutable('2026-05-29T09:00:01+00:00'), '{}', '{}', 1),
-            new ProcessEvent(3, 'evt-c', 'amagno', 'eingangsrechnung', 'C', 'C', 'doc-1', 'uuid-1', 1, 'user-1', $occurredC, new DateTimeImmutable('2026-05-29T09:00:02+00:00'), '{}', '{}', 1),
+            new ProcessEventRecord(1, 'evt-a', 'amagno', 'eingangsrechnung', 'A', 'A', 'doc-1', 'uuid-1', 1, 'user-1', $occurredA, new DateTimeImmutable('2026-05-29T09:00:03+00:00'), '{}', '{}', 1),
+            new ProcessEventRecord(2, 'evt-b', 'amagno', 'eingangsrechnung', 'B', 'B', 'doc-1', 'uuid-1', 1, 'user-1', $occurredB, new DateTimeImmutable('2026-05-29T09:00:01+00:00'), '{}', '{}', 1),
+            new ProcessEventRecord(3, 'evt-c', 'amagno', 'eingangsrechnung', 'C', 'C', 'doc-1', 'uuid-1', 1, 'user-1', $occurredC, new DateTimeImmutable('2026-05-29T09:00:02+00:00'), '{}', '{}', 1),
         ]));
 
         $exitCode = $tester->execute([
@@ -204,14 +204,14 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
     private function command(array $steps): IntelligenceTemplateCheckDocumentCommand
     {
         return $this->commandWithEvents(array_map(
-            fn (array $step, int $index): ProcessEvent => $this->event($index + 1, $step[0], $step[1], $index),
+            fn (array $step, int $index): ProcessEventRecord => $this->event($index + 1, $step[0], $step[1], $index),
             $steps,
             array_keys($steps)
         ));
     }
 
     /**
-     * @param array<int, ProcessEvent> $events
+     * @param array<int, ProcessEventRecord> $events
      */
     private function commandWithEvents(array $events): IntelligenceTemplateCheckDocumentCommand
     {
@@ -225,11 +225,11 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
         );
     }
 
-    private function event(int $id, string $stepKey, int $documentVersion, int $minuteOffset): ProcessEvent
+    private function event(int $id, string $stepKey, int $documentVersion, int $minuteOffset): ProcessEventRecord
     {
         $time = (new DateTimeImmutable('2026-05-29T09:00:00+00:00'))->modify(sprintf('+%d minutes', $minuteOffset));
 
-        return new ProcessEvent(
+        return new ProcessEventRecord(
             $id,
             sprintf('evt-%d', $id),
             'amagno',

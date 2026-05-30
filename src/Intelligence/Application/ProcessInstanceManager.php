@@ -2,7 +2,7 @@
 
 namespace App\Intelligence\Application;
 
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Domain\ProcessInstance;
 use DateTimeImmutable;
 
@@ -13,7 +13,7 @@ final class ProcessInstanceManager
     ) {
     }
 
-    public function findOrCreateForEvent(ProcessEvent $event, string $templateVersion = 'draft'): ProcessInstance
+    public function findOrCreateForEvent(ProcessEventRecord $event, string $templateVersion = 'draft'): ProcessInstance
     {
         $instance = $this->repository->findByIdentity(
             $event->sourceSystem,

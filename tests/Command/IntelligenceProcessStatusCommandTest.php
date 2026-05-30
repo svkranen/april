@@ -3,7 +3,7 @@
 namespace App\Tests\Command;
 
 use App\Command\IntelligenceProcessStatusCommand;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Domain\ProcessInstance;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessStatusReportProvider;
 use DateTimeImmutable;
@@ -104,7 +104,7 @@ class IntelligenceProcessStatusCommandTest extends TestCase
                 ),
             ],
             [
-                new ProcessEvent(
+                new ProcessEventRecord(
                     1,
                     'evt-1',
                     'amagno',
@@ -121,7 +121,7 @@ class IntelligenceProcessStatusCommandTest extends TestCase
                     '{}',
                     1
                 ),
-                new ProcessEvent(
+                new ProcessEventRecord(
                     2,
                     'evt-2',
                     'amagno',

@@ -2,7 +2,7 @@
 
 namespace App\Intelligence\Infrastructure\EventStore;
 
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Port\EventStore;
 use App\Intelligence\Port\EventStoreResult;
 use RuntimeException;
@@ -14,7 +14,7 @@ final class JsonFileEventStore implements EventStore
     ) {
     }
 
-    public function append(ProcessEvent $event): EventStoreResult
+    public function append(ProcessEventRecord $event): EventStoreResult
     {
         $this->ensureDirectory();
         $handle = fopen($this->path, 'c+');
@@ -59,7 +59,7 @@ final class JsonFileEventStore implements EventStore
         return $count;
     }
 
-    public function attachProcessInstance(ProcessEvent $event, int $processInstanceId): ProcessEvent
+    public function attachProcessInstance(ProcessEventRecord $event, int $processInstanceId): ProcessEventRecord
     {
         if (!is_file($this->path)) {
             return $event->withProcessInstanceId($processInstanceId);
@@ -107,7 +107,7 @@ final class JsonFileEventStore implements EventStore
 
     /**
      * @param resource $handle
-     * @return array<int, ProcessEvent>
+     * @return array<int, ProcessEventRecord>
      */
     private function readEvents($handle): array
     {
@@ -121,7 +121,7 @@ final class JsonFileEventStore implements EventStore
 
             $data = json_decode($line, true, 512, JSON_THROW_ON_ERROR);
             if (is_array($data)) {
-                $events[] = ProcessEvent::fromArray($data);
+                $events[] = ProcessEventRecord::fromArray($data);
             }
         }
 

@@ -2,7 +2,7 @@
 
 namespace App\Intelligence\Application;
 
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 
 enum EventTimelineOrder: string
 {
@@ -25,7 +25,7 @@ enum EventTimelineOrder: string
         return array_map(static fn (self $order): string => $order->value, self::cases());
     }
 
-    public function compareProcessEvents(ProcessEvent $left, ProcessEvent $right): int
+    public function compareProcessEvents(ProcessEventRecord $left, ProcessEventRecord $right): int
     {
         return $this->comparisonTuple(
             $left->occurredAt,

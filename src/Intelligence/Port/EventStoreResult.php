@@ -2,12 +2,12 @@
 
 namespace App\Intelligence\Port;
 
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 
 final readonly class EventStoreResult
 {
     public function __construct(
-        public ProcessEvent $event,
+        public ProcessEventRecord $event,
         public bool $duplicate
     ) {
     }

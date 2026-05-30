@@ -3,7 +3,7 @@
 namespace App\Intelligence\Application;
 
 use App\Intelligence\Domain\CanonicalEvent;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Port\EventNormalizer;
 use App\Intelligence\Port\EventStore;
 use App\Intelligence\Port\EventStoreResult;
@@ -30,7 +30,7 @@ final class EventReceiver
         $canonicalEvent = $this->eventNormalizer->normalize($payload);
         $normalizedJson = json_encode($this->normalizeEvent($canonicalEvent), JSON_THROW_ON_ERROR);
 
-        $event = new ProcessEvent(
+        $event = new ProcessEventRecord(
             null,
             $this->externalEventKey($payload, $canonicalEvent),
             $canonicalEvent->document->sourceSystem,

@@ -5,12 +5,12 @@ namespace App\Intelligence\Infrastructure\Process;
 use App\Intelligence\Application\EventListFilter;
 use App\Intelligence\Application\EventListProvider;
 use App\Intelligence\Application\EventListRow;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 
 final class InMemoryEventListProvider implements EventListProvider
 {
     /**
-     * @param array<int, ProcessEvent> $events
+     * @param array<int, ProcessEventRecord> $events
      */
     public function __construct(
         private readonly array $events = []
@@ -21,10 +21,10 @@ final class InMemoryEventListProvider implements EventListProvider
     {
         $events = array_values(array_filter(
             $this->events,
-            static fn (ProcessEvent $event): bool => self::matches($event, $filter)
+            static fn (ProcessEventRecord $event): bool => self::matches($event, $filter)
         ));
 
-        usort($events, static fn (ProcessEvent $left, ProcessEvent $right): int => [
+        usort($events, static fn (ProcessEventRecord $left, ProcessEventRecord $right): int => [
             $right->receivedAt,
             $right->id ?? 0,
         ] <=> [
@@ -33,7 +33,7 @@ final class InMemoryEventListProvider implements EventListProvider
         ]);
 
         return array_map(
-            static fn (ProcessEvent $event): EventListRow => new EventListRow(
+            static fn (ProcessEventRecord $event): EventListRow => new EventListRow(
                 $event->id,
                 $event->externalEventKey,
                 $event->processKey,
@@ -50,7 +50,7 @@ final class InMemoryEventListProvider implements EventListProvider
         );
     }
 
-    private static function matches(ProcessEvent $event, EventListFilter $filter): bool
+    private static function matches(ProcessEventRecord $event, EventListFilter $filter): bool
     {
         if ($filter->processKey !== null && $event->processKey !== $filter->processKey) {
             return false;

@@ -4,7 +4,7 @@ namespace App\Tests\Command;
 
 use App\Command\IntelligenceTemplateSuggestFromDocumentsCommand;
 use App\Intelligence\Application\ProcessTemplateMultiDocumentSuggestionService;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessDocumentUuidProvider;
 use DateTimeImmutable;
@@ -410,7 +410,7 @@ class IntelligenceTemplateSuggestFromDocumentsCommandTest extends TestCase
     }
 
     /**
-     * @param array<int, ProcessEvent> $events
+     * @param array<int, ProcessEventRecord> $events
      */
     private function commandWithEvents(array $events): IntelligenceTemplateSuggestFromDocumentsCommand
     {
@@ -432,11 +432,11 @@ class IntelligenceTemplateSuggestFromDocumentsCommandTest extends TestCase
         string $processKey = 'eingangsrechnung',
         string $eventPhase = 'after',
         ?string $receivedAt = null
-    ): ProcessEvent {
+    ): ProcessEventRecord {
         $time = new DateTimeImmutable($occurredAt);
         $receivedTime = $receivedAt === null ? $time : new DateTimeImmutable($receivedAt);
 
-        return new ProcessEvent(
+        return new ProcessEventRecord(
             $id,
             $externalEventKey,
             'amagno',

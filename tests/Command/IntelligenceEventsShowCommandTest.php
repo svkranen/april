@@ -5,7 +5,7 @@ namespace App\Tests\Command;
 use App\Command\IntelligenceEventsShowCommand;
 use App\Intelligence\Domain\ContextSnapshot;
 use App\Intelligence\Domain\DocumentRef;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Process\InMemoryEventDetailsProvider;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -69,7 +69,7 @@ class IntelligenceEventsShowCommandTest extends TestCase
 
         return new InMemoryEventDetailsProvider(
             [
-                new ProcessEvent(
+                new ProcessEventRecord(
                     1,
                     'evt-1',
                     'amagno',

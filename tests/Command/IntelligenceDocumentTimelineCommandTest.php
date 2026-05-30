@@ -5,7 +5,7 @@ namespace App\Tests\Command;
 use App\Command\IntelligenceDocumentTimelineCommand;
 use App\Intelligence\Domain\ContextSnapshot;
 use App\Intelligence\Domain\DocumentRef;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Domain\ProcessInstance;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use DateTimeImmutable;
@@ -60,7 +60,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
         $provider = new InMemoryDocumentTimelineProvider(
             [],
             [
-                new ProcessEvent(
+                new ProcessEventRecord(
                     1,
                     'evt-received-1',
                     'amagno',
@@ -76,7 +76,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                     '{}',
                     '{}'
                 ),
-                new ProcessEvent(
+                new ProcessEventRecord(
                     2,
                     'evt-approved-1',
                     'amagno',
@@ -92,7 +92,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                     '{}',
                     '{}'
                 ),
-                new ProcessEvent(
+                new ProcessEventRecord(
                     3,
                     'evt-received-2',
                     'amagno',
@@ -130,7 +130,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
         $provider = new InMemoryDocumentTimelineProvider(
             [],
             [
-                new ProcessEvent(
+                new ProcessEventRecord(
                     1,
                     'evt-before',
                     'amagno',
@@ -148,7 +148,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                     null,
                     'before'
                 ),
-                new ProcessEvent(
+                new ProcessEventRecord(
                     2,
                     'evt-after',
                     'amagno',
@@ -191,7 +191,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
         $provider = new InMemoryDocumentTimelineProvider(
             [],
             [
-                new ProcessEvent(
+                new ProcessEventRecord(
                     2,
                     'evt-after-later',
                     'amagno',
@@ -209,7 +209,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                     null,
                     'after'
                 ),
-                new ProcessEvent(
+                new ProcessEventRecord(
                     3,
                     'evt-before',
                     'amagno',
@@ -227,7 +227,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                     null,
                     'before'
                 ),
-                new ProcessEvent(
+                new ProcessEventRecord(
                     1,
                     'evt-after-early',
                     'amagno',
@@ -264,7 +264,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
         $provider = new InMemoryDocumentTimelineProvider(
             [],
             [
-                new ProcessEvent(
+                new ProcessEventRecord(
                     1,
                     'evt-occurred-first',
                     'amagno',
@@ -280,7 +280,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                     '{}',
                     '{}'
                 ),
-                new ProcessEvent(
+                new ProcessEventRecord(
                     2,
                     'evt-received-first',
                     'amagno',
@@ -317,9 +317,9 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
         $provider = new InMemoryDocumentTimelineProvider(
             [],
             [
-                new ProcessEvent(3, 'evt-3', 'amagno', 'invoice-process', 'third', 'third', 'doc-1', 'uuid-stable-order', 1, 'user-1', $sameAt, $sameAt, '{}', '{}'),
-                new ProcessEvent(1, 'evt-1', 'amagno', 'invoice-process', 'first', 'first', 'doc-1', 'uuid-stable-order', 1, 'user-1', $sameAt, $sameAt, '{}', '{}'),
-                new ProcessEvent(2, 'evt-2', 'amagno', 'invoice-process', 'second', 'second', 'doc-1', 'uuid-stable-order', 1, 'user-1', $sameAt, $sameAt, '{}', '{}'),
+                new ProcessEventRecord(3, 'evt-3', 'amagno', 'invoice-process', 'third', 'third', 'doc-1', 'uuid-stable-order', 1, 'user-1', $sameAt, $sameAt, '{}', '{}'),
+                new ProcessEventRecord(1, 'evt-1', 'amagno', 'invoice-process', 'first', 'first', 'doc-1', 'uuid-stable-order', 1, 'user-1', $sameAt, $sameAt, '{}', '{}'),
+                new ProcessEventRecord(2, 'evt-2', 'amagno', 'invoice-process', 'second', 'second', 'doc-1', 'uuid-stable-order', 1, 'user-1', $sameAt, $sameAt, '{}', '{}'),
             ]
         );
         $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($provider));
@@ -402,7 +402,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                 ),
             ],
             [
-                new ProcessEvent(
+                new ProcessEventRecord(
                     3,
                     'evt-3',
                     'amagno',
@@ -419,7 +419,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                     '{}',
                     12
                 ),
-                new ProcessEvent(
+                new ProcessEventRecord(
                     1,
                     'evt-1',
                     'amagno',
@@ -436,7 +436,7 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                     '{}',
                     11
                 ),
-                new ProcessEvent(
+                new ProcessEventRecord(
                     2,
                     'evt-2',
                     'amagno',

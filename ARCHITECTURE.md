@@ -116,6 +116,63 @@ Output Layer
 
 ---
 
+# Architekturregeln
+
+## Core
+
+Der Core enthält die fachliche Prozesslogik.
+
+Der Core:
+
+* kennt kein Amagno
+* kennt keine Symfony Controller
+* kennt keine Doctrine Repositories
+* kennt keine Zugangsdaten
+* arbeitet nur mit ProcessEvent, ProcessTimeline, ProcessTemplate, Rules und KPIs
+
+## Connector/Amagno
+
+Der Amagno-Connector kapselt alle Amagno-spezifischen Details.
+
+Der Connector:
+
+* darf Amagno kennen
+* übersetzt Amagno-Payloads in ProcessEvents
+* darf Core-Modelle verwenden
+
+## App
+
+Die App-Schicht enthält die technische Symfony-Anwendung.
+
+Zur App gehören:
+
+* Symfony Commands
+* Symfony Controller
+* Persistenz
+* Konfiguration
+
+Die App darf Core und Connector nutzen.
+
+## Abhängigkeitsrichtung
+
+Erlaubte Abhängigkeiten:
+
+```text
+App → Connector → Core
+App → Core
+```
+
+Verbotene Abhängigkeiten:
+
+```text
+Core → App
+Core → Amagno
+```
+
+Der Core bleibt dadurch fachlich eigenständig und langfristig DMS-unabhängig.
+
+---
+
 # Ports
 
 ## EventNormalizer
@@ -500,4 +557,3 @@ Folgende Komponenten aus dem Amagno Exporter sollen übernommen werden:
 Neue Funktionalität wird bevorzugt als neue Services implementiert.
 
 Vorhandene Komponenten sollen refactored und wiederverwendet werden, nicht neu entwickelt.
-

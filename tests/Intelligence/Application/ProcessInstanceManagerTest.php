@@ -3,7 +3,7 @@
 namespace App\Tests\Intelligence\Application;
 
 use App\Intelligence\Application\ProcessInstanceManager;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessInstanceRepository;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -88,8 +88,8 @@ class ProcessInstanceManagerTest extends TestCase
         int $documentVersion,
         string $stepKey,
         string $occurredAt = '2026-05-29T10:00:00+00:00'
-    ): ProcessEvent {
-        return new ProcessEvent(
+    ): ProcessEventRecord {
+        return new ProcessEventRecord(
             null,
             $externalEventKey,
             'amagno',

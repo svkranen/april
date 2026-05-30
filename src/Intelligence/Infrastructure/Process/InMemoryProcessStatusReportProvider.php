@@ -6,14 +6,14 @@ use App\Intelligence\Application\ProcessStatusEventRow;
 use App\Intelligence\Application\ProcessStatusInstanceRow;
 use App\Intelligence\Application\ProcessStatusReport;
 use App\Intelligence\Application\ProcessStatusReportProvider;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Domain\ProcessInstance;
 
 final class InMemoryProcessStatusReportProvider implements ProcessStatusReportProvider
 {
     /**
      * @param array<int, ProcessInstance> $instances
-     * @param array<int, ProcessEvent> $events
+     * @param array<int, ProcessEventRecord> $events
      */
     public function __construct(
         private readonly array $instances = [],
@@ -52,12 +52,12 @@ final class InMemoryProcessStatusReportProvider implements ProcessStatusReportPr
 
         $events = array_values(array_filter(
             $this->events,
-            static fn (ProcessEvent $event): bool => $event->processKey === $processKey
+            static fn (ProcessEventRecord $event): bool => $event->processKey === $processKey
         ));
-        usort($events, static fn (ProcessEvent $left, ProcessEvent $right): int => $right->occurredAt <=> $left->occurredAt);
+        usort($events, static fn (ProcessEventRecord $left, ProcessEventRecord $right): int => $right->occurredAt <=> $left->occurredAt);
 
         $latestEvents = array_map(
-            static fn (ProcessEvent $event): ProcessStatusEventRow => new ProcessStatusEventRow(
+            static fn (ProcessEventRecord $event): ProcessStatusEventRow => new ProcessStatusEventRow(
                 $event->externalEventKey,
                 $event->documentUuid,
                 $event->documentVersion,

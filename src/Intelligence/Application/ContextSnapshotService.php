@@ -4,7 +4,7 @@ namespace App\Intelligence\Application;
 
 use App\Intelligence\Domain\ContextSnapshot;
 use App\Intelligence\Domain\DocumentRef;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Port\ContextProvider;
 use DateTimeImmutable;
 
@@ -17,7 +17,7 @@ final class ContextSnapshotService
     ) {
     }
 
-    public function captureForEvent(ProcessEvent $event): ContextSnapshotResult
+    public function captureForEvent(ProcessEventRecord $event): ContextSnapshotResult
     {
         $profile = $this->profileProvider->profileForProcess($event->processKey);
         $document = new DocumentRef(

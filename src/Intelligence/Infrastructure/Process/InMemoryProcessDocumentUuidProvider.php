@@ -3,13 +3,13 @@
 namespace App\Intelligence\Infrastructure\Process;
 
 use App\Intelligence\Application\ProcessDocumentUuidProvider;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use DateTimeImmutable;
 
 final class InMemoryProcessDocumentUuidProvider implements ProcessDocumentUuidProvider
 {
     /**
-     * @param array<int, ProcessEvent> $events
+     * @param array<int, ProcessEventRecord> $events
      */
     public function __construct(
         private readonly array $events = []

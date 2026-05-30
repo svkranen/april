@@ -2,7 +2,7 @@
 
 namespace App\Intelligence\Infrastructure\Doctrine\Repository;
 
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Doctrine\Entity\ProcessEventEntity;
 use App\Intelligence\Infrastructure\Doctrine\Entity\ProcessInstanceEntity;
 use App\Intelligence\Port\EventStore;
@@ -17,7 +17,7 @@ final class DoctrineEventStore implements EventStore
     ) {
     }
 
-    public function append(ProcessEvent $event): EventStoreResult
+    public function append(ProcessEventRecord $event): EventStoreResult
     {
         $existing = $this->entityManager->getRepository(ProcessEventEntity::class)->findOneBy(['externalEventKey' => $event->externalEventKey]);
         if ($existing instanceof ProcessEventEntity) {
@@ -42,7 +42,7 @@ final class DoctrineEventStore implements EventStore
         return new EventStoreResult($this->toDomain($entity), false);
     }
 
-    public function attachProcessInstance(ProcessEvent $event, int $processInstanceId): ProcessEvent
+    public function attachProcessInstance(ProcessEventRecord $event, int $processInstanceId): ProcessEventRecord
     {
         $entity = $this->entityManager->getRepository(ProcessEventEntity::class)->findOneBy(['externalEventKey' => $event->externalEventKey]);
         if (!$entity instanceof ProcessEventEntity) {
@@ -60,7 +60,7 @@ final class DoctrineEventStore implements EventStore
         return $this->entityManager->getRepository(ProcessEventEntity::class)->count([]);
     }
 
-    private function toEntity(ProcessEvent $event): ProcessEventEntity
+    private function toEntity(ProcessEventRecord $event): ProcessEventEntity
     {
         $entity = new ProcessEventEntity();
         $entity->setExternalEventKey($event->externalEventKey);
@@ -84,9 +84,9 @@ final class DoctrineEventStore implements EventStore
         return $entity;
     }
 
-    private function toDomain(ProcessEventEntity $entity): ProcessEvent
+    private function toDomain(ProcessEventEntity $entity): ProcessEventRecord
     {
-        return new ProcessEvent(
+        return new ProcessEventRecord(
             $entity->getId(),
             $entity->getExternalEventKey(),
             $entity->getSourceSystem(),

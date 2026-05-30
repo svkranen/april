@@ -3,7 +3,7 @@
 namespace App\Tests\Intelligence\Application;
 
 use App\Intelligence\Application\ContextSnapshotService;
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider;
 use App\Intelligence\Infrastructure\Context\InMemoryContextSnapshotStore;
 use App\Tests\Fake\RecordingContextProvider;
@@ -64,9 +64,9 @@ class ContextSnapshotServiceTest extends TestCase
         self::assertSame(['amount' => 12000], $result->snapshot->attributes);
     }
 
-    private function event(): ProcessEvent
+    private function event(): ProcessEventRecord
     {
-        return new ProcessEvent(
+        return new ProcessEventRecord(
             1,
             'evt-1',
             'amagno',

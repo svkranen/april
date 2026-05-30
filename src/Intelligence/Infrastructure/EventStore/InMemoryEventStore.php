@@ -2,16 +2,16 @@
 
 namespace App\Intelligence\Infrastructure\EventStore;
 
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Port\EventStore;
 use App\Intelligence\Port\EventStoreResult;
 
 final class InMemoryEventStore implements EventStore
 {
-    /** @var array<string, ProcessEvent> */
+    /** @var array<string, ProcessEventRecord> */
     private array $eventsByExternalKey = [];
 
-    public function append(ProcessEvent $event): EventStoreResult
+    public function append(ProcessEventRecord $event): EventStoreResult
     {
         if (isset($this->eventsByExternalKey[$event->externalEventKey])) {
             return new EventStoreResult($this->eventsByExternalKey[$event->externalEventKey], true);
@@ -28,7 +28,7 @@ final class InMemoryEventStore implements EventStore
         return count($this->eventsByExternalKey);
     }
 
-    public function attachProcessInstance(ProcessEvent $event, int $processInstanceId): ProcessEvent
+    public function attachProcessInstance(ProcessEventRecord $event, int $processInstanceId): ProcessEventRecord
     {
         $stored = ($this->eventsByExternalKey[$event->externalEventKey] ?? $event)->withProcessInstanceId($processInstanceId);
         $this->eventsByExternalKey[$stored->externalEventKey] = $stored;
@@ -37,7 +37,7 @@ final class InMemoryEventStore implements EventStore
     }
 
     /**
-     * @return array<int, ProcessEvent>
+     * @return array<int, ProcessEventRecord>
      */
     public function all(): array
     {

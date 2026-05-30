@@ -49,7 +49,7 @@ final readonly class ProcessInstance
         );
     }
 
-    public function withEvent(ProcessEvent $event, DateTimeImmutable $updatedAt): self
+    public function withEvent(ProcessEventRecord $event, DateTimeImmutable $updatedAt): self
     {
         $eventExternalKeys = $this->eventExternalKeys;
         if (!in_array($event->externalEventKey, $eventExternalKeys, true)) {

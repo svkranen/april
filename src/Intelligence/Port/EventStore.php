@@ -2,13 +2,13 @@
 
 namespace App\Intelligence\Port;
 
-use App\Intelligence\Domain\ProcessEvent;
+use App\Intelligence\Domain\ProcessEventRecord;
 
 interface EventStore
 {
-    public function append(ProcessEvent $event): EventStoreResult;
+    public function append(ProcessEventRecord $event): EventStoreResult;
 
-    public function attachProcessInstance(ProcessEvent $event, int $processInstanceId): ProcessEvent;
+    public function attachProcessInstance(ProcessEventRecord $event, int $processInstanceId): ProcessEventRecord;
 
     public function count(): int;
 }
