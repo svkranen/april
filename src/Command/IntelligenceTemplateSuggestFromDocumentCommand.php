@@ -4,6 +4,7 @@ namespace App\Command;
 
 use App\Intelligence\Application\ProcessTemplateSuggestionService;
 use App\Intelligence\Application\EventTimelineOrder;
+use App\Intelligence\Domain\ProcessTemplateSuggestionArraySerializer;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -19,7 +20,8 @@ use Symfony\Component\Yaml\Yaml;
 final class IntelligenceTemplateSuggestFromDocumentCommand extends Command
 {
     public function __construct(
-        private readonly ProcessTemplateSuggestionService $suggestionService
+        private readonly ProcessTemplateSuggestionService $suggestionService,
+        private readonly ProcessTemplateSuggestionArraySerializer $serializer = new ProcessTemplateSuggestionArraySerializer()
     ) {
         parent::__construct();
     }
@@ -49,14 +51,14 @@ final class IntelligenceTemplateSuggestFromDocumentCommand extends Command
             return Command::INVALID;
         }
 
-        $template = $this->suggestionService->suggest(
+        $suggestion = $this->suggestionService->suggest(
             $documentUuid,
             $processKey,
             $documentVersion,
             $input->getOption('include-before') === true,
             $order
         );
-        if ($template === null) {
+        if ($suggestion === null) {
             $output->writeln(sprintf(
                 '<comment>No events found for document "%s" and process "%s".</comment>',
                 $documentUuid,
@@ -66,6 +68,7 @@ final class IntelligenceTemplateSuggestFromDocumentCommand extends Command
             return Command::SUCCESS;
         }
 
+        $template = $this->serializer->toArray($suggestion);
         $yaml = Yaml::dump($template, 4, 2, Yaml::DUMP_EMPTY_ARRAY_AS_SEQUENCE);
         $outputPath = $input->getOption('output');
         if ($outputPath === null) {

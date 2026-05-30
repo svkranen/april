@@ -2,6 +2,11 @@
 
 namespace App\Intelligence\Application;
 
+use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateStep;
+use App\Intelligence\Domain\ProcessTemplateSuggestionResult;
+use App\Intelligence\Domain\ProcessTemplateTransition;
+
 final class ProcessTemplateSuggestionService
 {
     public function __construct(
@@ -9,16 +14,13 @@ final class ProcessTemplateSuggestionService
     ) {
     }
 
-    /**
-     * @return array<string, mixed>|null
-     */
     public function suggest(
         string $documentUuid,
         string $processKey,
         ?int $documentVersion = null,
         bool $includeBefore = false,
         EventTimelineOrder $order = EventTimelineOrder::DEFAULT
-    ): ?array
+    ): ?ProcessTemplateSuggestionResult
     {
         $events = array_values(array_filter(
             $this->timelineProvider->build($documentUuid, $order)->events,
@@ -48,22 +50,22 @@ final class ProcessTemplateSuggestionService
 
         $stepKeys = $this->deduplicateDirectSteps($events);
 
-        return [
-            'key' => $processKey,
-            'name' => $this->humanize($processKey),
-            'version' => 'draft',
-            'steps' => array_map(
-                fn (string $stepKey): array => [
-                    'key' => $stepKey,
-                    'name' => $this->humanize($stepKey),
-                ],
-                $stepKeys
+        return new ProcessTemplateSuggestionResult(
+            new ProcessTemplate(
+                $processKey,
+                'draft',
+                $this->humanize($processKey),
+                steps: array_map(
+                    fn (string $stepKey): ProcessTemplateStep => new ProcessTemplateStep(
+                        $stepKey,
+                        $this->humanize($stepKey)
+                    ),
+                    $stepKeys
+                ),
+                transitions: $this->transitions($stepKeys),
+                contextProfileRequiredFields: []
             ),
-            'transitions' => $this->transitions($stepKeys),
-            'context_profile' => [
-                'required' => [],
-            ],
-        ];
+        );
     }
 
     /**
@@ -90,16 +92,13 @@ final class ProcessTemplateSuggestionService
 
     /**
      * @param array<int, string> $stepKeys
-     * @return array<int, array{from: string, to: string}>
+     * @return array<int, ProcessTemplateTransition>
      */
     private function transitions(array $stepKeys): array
     {
         $transitions = [];
         for ($i = 0, $max = count($stepKeys) - 1; $i < $max; ++$i) {
-            $transitions[] = [
-                'from' => $stepKeys[$i],
-                'to' => $stepKeys[$i + 1],
-            ];
+            $transitions[] = new ProcessTemplateTransition($stepKeys[$i], $stepKeys[$i + 1]);
         }
 
         return $transitions;
