@@ -19,6 +19,7 @@ class CanonicalEventTest extends TestCase
             'invoice.approved',
             'user-42',
             $occurredAt,
+            'after',
             ['amount' => 12000]
         );
 
@@ -26,6 +27,7 @@ class CanonicalEventTest extends TestCase
         self::assertSame('invoice.approved', $event->stepKey);
         self::assertSame('user-42', $event->actorRef);
         self::assertSame($occurredAt, $event->occurredAt);
+        self::assertSame('after', $event->eventPhase);
         self::assertSame(['amount' => 12000], $event->attributes);
     }
 }

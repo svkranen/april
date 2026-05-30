@@ -35,7 +35,7 @@ final class ProcessInstanceManager
                 $event->documentUuid,
                 $event->documentVersion,
                 'running',
-                $event->stepKey,
+                $event->eventPhase === 'after' ? $event->stepKey : 'unknown',
                 $event->occurredAt,
                 $event->occurredAt,
                 null,

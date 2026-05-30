@@ -65,7 +65,7 @@ final readonly class ProcessInstance
             $this->documentUuid,
             $this->documentVersion,
             $this->status,
-            $event->stepKey,
+            $event->eventPhase === 'after' ? $event->stepKey : $this->currentStepKey,
             $this->startedAt,
             $event->occurredAt,
             $this->endedAt,

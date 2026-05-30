@@ -21,7 +21,8 @@ final readonly class ProcessEvent
         public DateTimeImmutable $receivedAt,
         public string $rawPayloadJson,
         public string $normalizedEventJson,
-        public ?int $processInstanceId = null
+        public ?int $processInstanceId = null,
+        public string $eventPhase = 'after'
     ) {
     }
 
@@ -42,7 +43,8 @@ final readonly class ProcessEvent
             $this->receivedAt,
             $this->rawPayloadJson,
             $this->normalizedEventJson,
-            $this->processInstanceId
+            $this->processInstanceId,
+            $this->eventPhase
         );
     }
 
@@ -63,7 +65,8 @@ final readonly class ProcessEvent
             $this->receivedAt,
             $this->rawPayloadJson,
             $this->normalizedEventJson,
-            $processInstanceId
+            $processInstanceId,
+            $this->eventPhase
         );
     }
 
@@ -79,6 +82,7 @@ final readonly class ProcessEvent
             'processKey' => $this->processKey,
             'eventKey' => $this->eventKey,
             'stepKey' => $this->stepKey,
+            'eventPhase' => $this->eventPhase,
             'documentExternalId' => $this->documentExternalId,
             'documentUuid' => $this->documentUuid,
             'documentVersion' => $this->documentVersion,
@@ -111,7 +115,8 @@ final readonly class ProcessEvent
             new DateTimeImmutable((string) $data['receivedAt']),
             (string) $data['rawPayloadJson'],
             (string) $data['normalizedEventJson'],
-            isset($data['processInstanceId']) ? (int) $data['processInstanceId'] : null
+            isset($data['processInstanceId']) ? (int) $data['processInstanceId'] : null,
+            (string) ($data['eventPhase'] ?? 'after')
         );
     }
 }

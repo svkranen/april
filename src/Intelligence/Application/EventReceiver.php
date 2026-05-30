@@ -44,7 +44,9 @@ final class EventReceiver
             $canonicalEvent->occurredAt,
             new DateTimeImmutable(),
             $rawPayload,
-            $normalizedJson
+            $normalizedJson,
+            null,
+            $canonicalEvent->eventPhase
         );
 
         $result = $this->eventStore->append($event);
@@ -74,6 +76,7 @@ final class EventReceiver
             'stepKey' => $event->stepKey,
             'actorRef' => $event->actorRef,
             'occurredAt' => $event->occurredAt->format(DateTimeImmutable::ATOM),
+            'eventPhase' => $event->eventPhase,
             'attributes' => $event->attributes,
         ];
     }
@@ -84,18 +87,19 @@ final class EventReceiver
     private function externalEventKey(array $payload, CanonicalEvent $event): string
     {
         foreach (['external_event_key', 'externalEventKey', 'event_id', 'eventId', 'id'] as $key) {
-            if (isset($payload[$key]) && is_scalar($payload[$key]) && (string) $payload[$key] !== '') {
-                return (string) $payload[$key];
+            if (isset($payload[$key]) && is_scalar($payload[$key]) && trim((string) $payload[$key]) !== '') {
+                return trim((string) $payload[$key]);
             }
         }
 
-        return hash('sha256', implode('|', [
-            $event->document->sourceSystem,
-            $event->document->externalUuid ?? $event->document->externalId,
-            (string) $event->document->version,
-            $event->stepKey,
-            $event->occurredAt->format(DateTimeImmutable::ATOM),
-        ]));
+        return hash('sha256', json_encode([
+            'documentUuid' => $event->document->externalUuid ?? '',
+            'documentVersion' => $event->document->version,
+            'processKey' => $this->processKey($payload, $event),
+            'eventKey' => $this->eventKey($payload, $event),
+            'stepKey' => $event->stepKey,
+            'occurredAt' => $event->occurredAt->format(DateTimeImmutable::ATOM),
+        ], JSON_THROW_ON_ERROR));
     }
 
     /**
@@ -129,4 +133,5 @@ final class EventReceiver
 
         return $event->stepKey;
     }
+
 }

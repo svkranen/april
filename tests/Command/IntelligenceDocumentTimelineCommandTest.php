@@ -52,6 +52,288 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
         self::assertStringContainsString('1 Warnung(en)', $display);
     }
 
+    public function testTimelineShowsJumpBackToPreviousStep(): void
+    {
+        $firstAt = new DateTimeImmutable('2026-05-29T09:00:00+00:00');
+        $secondAt = new DateTimeImmutable('2026-05-29T10:00:00+00:00');
+        $thirdAt = new DateTimeImmutable('2026-05-29T11:00:00+00:00');
+        $provider = new InMemoryDocumentTimelineProvider(
+            [],
+            [
+                new ProcessEvent(
+                    1,
+                    'evt-received-1',
+                    'amagno',
+                    'invoice-process',
+                    'received',
+                    'received',
+                    'doc-1',
+                    'uuid-jump',
+                    1,
+                    'user-1',
+                    $firstAt,
+                    $firstAt,
+                    '{}',
+                    '{}'
+                ),
+                new ProcessEvent(
+                    2,
+                    'evt-approved-1',
+                    'amagno',
+                    'invoice-process',
+                    'approved',
+                    'approved',
+                    'doc-1',
+                    'uuid-jump',
+                    1,
+                    'user-2',
+                    $secondAt,
+                    $secondAt,
+                    '{}',
+                    '{}'
+                ),
+                new ProcessEvent(
+                    3,
+                    'evt-received-2',
+                    'amagno',
+                    'invoice-process',
+                    'received',
+                    'received',
+                    'doc-1',
+                    'uuid-jump',
+                    1,
+                    'user-1',
+                    $thirdAt,
+                    $thirdAt,
+                    '{}',
+                    '{}'
+                ),
+            ]
+        );
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($provider));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-jump',
+            '--format' => 'json',
+        ]);
+        $data = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(['received', 'approved', 'received'], array_column($data['events'], 'stepKey'));
+        self::assertSame(['evt-received-1', 'evt-approved-1', 'evt-received-2'], array_column($data['events'], 'externalEventKey'));
+    }
+
+    public function testTimelineShowsEventPhase(): void
+    {
+        $beforeAt = new DateTimeImmutable('2026-05-29T09:00:00+00:00');
+        $afterAt = new DateTimeImmutable('2026-05-29T09:01:00+00:00');
+        $provider = new InMemoryDocumentTimelineProvider(
+            [],
+            [
+                new ProcessEvent(
+                    1,
+                    'evt-before',
+                    'amagno',
+                    'invoice-process',
+                    'approved',
+                    'approved',
+                    'doc-1',
+                    'uuid-phase',
+                    1,
+                    'user-1',
+                    $beforeAt,
+                    $beforeAt,
+                    '{}',
+                    '{}',
+                    null,
+                    'before'
+                ),
+                new ProcessEvent(
+                    2,
+                    'evt-after',
+                    'amagno',
+                    'invoice-process',
+                    'approved',
+                    'approved',
+                    'doc-1',
+                    'uuid-phase',
+                    1,
+                    'user-1',
+                    $afterAt,
+                    $afterAt,
+                    '{}',
+                    '{}',
+                    null,
+                    'after'
+                ),
+            ]
+        );
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($provider));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-phase',
+            '--format' => 'json',
+        ]);
+        $data = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(['before', 'after'], array_column($data['events'], 'eventPhase'));
+
+        $tester->execute(['documentUuid' => 'uuid-phase']);
+        self::assertStringContainsString('eventPhase', $tester->getDisplay());
+        self::assertStringContainsString('before', $tester->getDisplay());
+        self::assertStringContainsString('after', $tester->getDisplay());
+    }
+
+    public function testTimelineSortsSameOccurredAtByReceivedAtByDefault(): void
+    {
+        $occurredAt = new DateTimeImmutable('2026-05-29T09:00:00+00:00');
+        $provider = new InMemoryDocumentTimelineProvider(
+            [],
+            [
+                new ProcessEvent(
+                    2,
+                    'evt-after-later',
+                    'amagno',
+                    'invoice-process',
+                    'approved',
+                    'approved',
+                    'doc-1',
+                    'uuid-same-time',
+                    1,
+                    'user-1',
+                    $occurredAt,
+                    new DateTimeImmutable('2026-05-29T09:00:03+00:00'),
+                    '{}',
+                    '{}',
+                    null,
+                    'after'
+                ),
+                new ProcessEvent(
+                    3,
+                    'evt-before',
+                    'amagno',
+                    'invoice-process',
+                    'approved',
+                    'approved',
+                    'doc-1',
+                    'uuid-same-time',
+                    1,
+                    'user-1',
+                    $occurredAt,
+                    new DateTimeImmutable('2026-05-29T09:00:02+00:00'),
+                    '{}',
+                    '{}',
+                    null,
+                    'before'
+                ),
+                new ProcessEvent(
+                    1,
+                    'evt-after-early',
+                    'amagno',
+                    'invoice-process',
+                    'approved',
+                    'approved',
+                    'doc-1',
+                    'uuid-same-time',
+                    1,
+                    'user-1',
+                    $occurredAt,
+                    new DateTimeImmutable('2026-05-29T09:00:01+00:00'),
+                    '{}',
+                    '{}',
+                    null,
+                    'after'
+                ),
+            ]
+        );
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($provider));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-same-time',
+            '--format' => 'json',
+        ]);
+        $data = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(['evt-after-early', 'evt-before', 'evt-after-later'], array_column($data['events'], 'externalEventKey'));
+    }
+
+    public function testTimelineReceivedAtOptionSortsByReceivedAt(): void
+    {
+        $provider = new InMemoryDocumentTimelineProvider(
+            [],
+            [
+                new ProcessEvent(
+                    1,
+                    'evt-occurred-first',
+                    'amagno',
+                    'invoice-process',
+                    'first',
+                    'first',
+                    'doc-1',
+                    'uuid-received-order',
+                    1,
+                    'user-1',
+                    new DateTimeImmutable('2026-05-29T09:00:00+00:00'),
+                    new DateTimeImmutable('2026-05-29T09:00:03+00:00'),
+                    '{}',
+                    '{}'
+                ),
+                new ProcessEvent(
+                    2,
+                    'evt-received-first',
+                    'amagno',
+                    'invoice-process',
+                    'second',
+                    'second',
+                    'doc-1',
+                    'uuid-received-order',
+                    1,
+                    'user-1',
+                    new DateTimeImmutable('2026-05-29T10:00:00+00:00'),
+                    new DateTimeImmutable('2026-05-29T09:00:01+00:00'),
+                    '{}',
+                    '{}'
+                ),
+            ]
+        );
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($provider));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-received-order',
+            '--format' => 'json',
+            '--order-by' => 'received-at',
+        ]);
+        $data = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(['evt-received-first', 'evt-occurred-first'], array_column($data['events'], 'externalEventKey'));
+    }
+
+    public function testDefaultTimelineOrderIsStableAndDeterministic(): void
+    {
+        $sameAt = new DateTimeImmutable('2026-05-29T09:00:00+00:00');
+        $provider = new InMemoryDocumentTimelineProvider(
+            [],
+            [
+                new ProcessEvent(3, 'evt-3', 'amagno', 'invoice-process', 'third', 'third', 'doc-1', 'uuid-stable-order', 1, 'user-1', $sameAt, $sameAt, '{}', '{}'),
+                new ProcessEvent(1, 'evt-1', 'amagno', 'invoice-process', 'first', 'first', 'doc-1', 'uuid-stable-order', 1, 'user-1', $sameAt, $sameAt, '{}', '{}'),
+                new ProcessEvent(2, 'evt-2', 'amagno', 'invoice-process', 'second', 'second', 'doc-1', 'uuid-stable-order', 1, 'user-1', $sameAt, $sameAt, '{}', '{}'),
+            ]
+        );
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($provider));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-stable-order',
+            '--format' => 'json',
+        ]);
+        $data = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(['evt-1', 'evt-2', 'evt-3'], array_column($data['events'], 'externalEventKey'));
+    }
+
     public function testEmptyDocumentRendersHelpfulMessage(): void
     {
         $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($this->provider()));

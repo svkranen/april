@@ -6,6 +6,7 @@ use App\Intelligence\Application\DocumentTimelineEventRow;
 use App\Intelligence\Application\DocumentTimelineInstanceRow;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\DocumentTimelineReport;
+use App\Intelligence\Application\EventTimelineOrder;
 use App\Intelligence\Infrastructure\Doctrine\Entity\ContextSnapshotEntity;
 use App\Intelligence\Infrastructure\Doctrine\Entity\ProcessEventEntity;
 use App\Intelligence\Infrastructure\Doctrine\Entity\ProcessInstanceEntity;
@@ -18,7 +19,7 @@ final class DoctrineDocumentTimelineProvider implements DocumentTimelineProvider
     ) {
     }
 
-    public function build(string $documentUuid): DocumentTimelineReport
+    public function build(string $documentUuid, EventTimelineOrder $order = EventTimelineOrder::DEFAULT): DocumentTimelineReport
     {
         /** @var array<int, ProcessInstanceEntity> $instances */
         $instances = $this->entityManager->getRepository(ProcessInstanceEntity::class)->findBy(
@@ -29,7 +30,7 @@ final class DoctrineDocumentTimelineProvider implements DocumentTimelineProvider
         /** @var array<int, ProcessEventEntity> $events */
         $events = $this->entityManager->getRepository(ProcessEventEntity::class)->findBy(
             ['documentUuid' => $documentUuid],
-            ['occurredAt' => 'ASC', 'documentVersion' => 'ASC', 'id' => 'ASC']
+            $this->orderBy($order)
         );
 
         /** @var array<int, ContextSnapshotEntity> $snapshots */
@@ -59,8 +60,11 @@ final class DoctrineDocumentTimelineProvider implements DocumentTimelineProvider
                     $entity->getProcessKey(),
                     $entity->getDocumentVersion(),
                     $entity->getOccurredAt(),
+                    $entity->getReceivedAt(),
+                    $entity->getId(),
                     $entity->getProcessInstance()?->getId(),
-                    $snapshotsByEventKey[$entity->getExternalEventKey()] ?? null
+                    $snapshotsByEventKey[$entity->getExternalEventKey()] ?? null,
+                    $entity->getEventPhase()
                 ),
                 $events
             )
@@ -87,5 +91,17 @@ final class DoctrineDocumentTimelineProvider implements DocumentTimelineProvider
         }
 
         return $summaries;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function orderBy(EventTimelineOrder $order): array
+    {
+        return match ($order) {
+            EventTimelineOrder::OccurredAt => ['occurredAt' => 'ASC', 'id' => 'ASC'],
+            EventTimelineOrder::ReceivedAt => ['receivedAt' => 'ASC', 'id' => 'ASC'],
+            EventTimelineOrder::OccurredThenReceived => ['occurredAt' => 'ASC', 'receivedAt' => 'ASC', 'id' => 'ASC'],
+        };
     }
 }

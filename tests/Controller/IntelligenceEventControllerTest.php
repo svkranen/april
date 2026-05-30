@@ -11,8 +11,10 @@ use App\Intelligence\Infrastructure\Context\InMemoryContextSnapshotStore;
 use App\Intelligence\Infrastructure\EventStore\InMemoryEventStore;
 use App\Intelligence\Infrastructure\Normalizer\GenericPayloadEventNormalizer;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessInstanceRepository;
+use App\Intelligence\Port\SignatureVerifier;
 use App\Tests\Fake\FakeSignatureVerifier;
 use App\Tests\Fake\RecordingContextProvider;
+use Psr\Log\AbstractLogger;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -34,6 +36,266 @@ class IntelligenceEventControllerTest extends TestCase
         self::assertFalse($data['duplicate']);
         self::assertSame('evt-controller-1', $data['external_event_key']);
         self::assertSame(1, $store->count());
+    }
+
+    public function testPostStoresFormUrlEncodedEvent(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+
+        $response = $controller($this->formRequest($this->payload([
+            'external_event_key' => 'evt-form-1',
+        ])));
+        $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(202, $response->getStatusCode());
+        self::assertTrue($data['accepted']);
+        self::assertSame('evt-form-1', $data['external_event_key']);
+        self::assertSame(1, $store->count());
+    }
+
+    public function testFormEventWithoutDocumentVersionDefaultsToVersionOne(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+        $payload = [
+            'externalEventKey' => 'event',
+            'sourceSystem' => 'amagno',
+            'documentId' => 'doc-form-version-default',
+            'processKey' => 'invoice',
+            'stepKey' => 'received',
+            'occurredAt' => '2026-05-29T08:00:00+00:00',
+        ];
+
+        $response = $controller($this->formRequest($payload));
+        $events = $store->all();
+
+        self::assertSame(202, $response->getStatusCode());
+        self::assertSame(1, $events[0]->documentVersion);
+    }
+
+    public function testGeneratedFormEventKeyTreatsSameOccurredAtAsDuplicate(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+        $payload = [
+            'sourceSystem' => 'amagno',
+            'documentId' => 'doc-form-duplicate',
+            'processKey' => 'invoice',
+            'stepKey' => 'received',
+            'occurredAt' => '2026-05-29T08:00:00+00:00',
+        ];
+
+        $first = $controller($this->formRequest($payload));
+        $second = $controller($this->formRequest($payload));
+        $secondData = json_decode((string) $second->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(202, $first->getStatusCode());
+        self::assertSame(200, $second->getStatusCode());
+        self::assertTrue($secondData['duplicate']);
+        self::assertSame(1, $store->count());
+    }
+
+    public function testGeneratedFormEventKeyAllowsSameDocumentAndStepWithDifferentOccurredAt(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+        $payload = [
+            'sourceSystem' => 'amagno',
+            'documentId' => 'doc-form-repeat-step',
+            'processKey' => 'invoice',
+            'stepKey' => 'approved',
+            'occurredAt' => '2026-05-29T08:00:00+00:00',
+        ];
+
+        $first = $controller($this->formRequest($payload));
+        $second = $controller($this->formRequest(array_replace($payload, [
+            'occurredAt' => '2026-05-29T09:00:00+00:00',
+        ])));
+        $firstData = json_decode((string) $first->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $secondData = json_decode((string) $second->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(202, $first->getStatusCode());
+        self::assertSame(202, $second->getStatusCode());
+        self::assertFalse($secondData['duplicate']);
+        self::assertNotSame($firstData['external_event_key'], $secondData['external_event_key']);
+        self::assertSame(2, $store->count());
+    }
+
+    public function testBeforeEventIsStoredButDoesNotUpdateCurrentStepKey(): void
+    {
+        $store = new InMemoryEventStore();
+        $repository = new InMemoryProcessInstanceRepository();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store, $repository)
+        );
+        $basePayload = [
+            'sourceSystem' => 'amagno',
+            'documentId' => 'doc-phase-before',
+            'documentUuid' => 'uuid-phase-before',
+            'processKey' => 'invoice',
+        ];
+
+        $controller($this->formRequest(array_replace($basePayload, [
+            'stepKey' => 'received',
+            'eventPhase' => 'after',
+            'occurredAt' => '2026-05-29T08:00:00+00:00',
+        ])));
+        $controller($this->formRequest(array_replace($basePayload, [
+            'stepKey' => 'approved',
+            'eventPhase' => 'before',
+            'occurredAt' => '2026-05-29T09:00:00+00:00',
+        ])));
+
+        $instance = $repository->findByIdentity('amagno', 'uuid-phase-before', 'doc-phase-before', 1, 'invoice', 'draft');
+        $events = $store->all();
+
+        self::assertSame(2, $store->count());
+        self::assertSame('before', $events[1]->eventPhase);
+        self::assertSame('received', $instance?->currentStepKey);
+    }
+
+    public function testAfterEventUpdatesCurrentStepKey(): void
+    {
+        $store = new InMemoryEventStore();
+        $repository = new InMemoryProcessInstanceRepository();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store, $repository)
+        );
+        $basePayload = [
+            'sourceSystem' => 'amagno',
+            'documentId' => 'doc-phase-after',
+            'documentUuid' => 'uuid-phase-after',
+            'processKey' => 'invoice',
+        ];
+
+        $controller($this->formRequest(array_replace($basePayload, [
+            'stepKey' => 'received',
+            'eventPhase' => 'after',
+            'occurredAt' => '2026-05-29T08:00:00+00:00',
+        ])));
+        $controller($this->formRequest(array_replace($basePayload, [
+            'stepKey' => 'approved',
+            'eventPhase' => 'after',
+            'occurredAt' => '2026-05-29T09:00:00+00:00',
+        ])));
+
+        $instance = $repository->findByIdentity('amagno', 'uuid-phase-after', 'doc-phase-after', 1, 'invoice', 'draft');
+        $events = $store->all();
+
+        self::assertSame('after', $events[1]->eventPhase);
+        self::assertSame('approved', $instance?->currentStepKey);
+    }
+
+    public function testOccuredAtTypoIsAcceptedAsOccurredAtFallback(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+        $payload = $this->payload([
+            'external_event_key' => 'evt-typo-1',
+            'occurred_at' => null,
+            'occurredAt' => null,
+            'occuredAt' => '2026-05-29T11:15:00+00:00',
+        ]);
+        unset($payload['occurred_at'], $payload['occurredAt']);
+
+        $response = $controller($this->request($payload));
+        $events = $store->all();
+
+        self::assertSame(202, $response->getStatusCode());
+        self::assertSame('2026-05-29T11:15:00+00:00', $events[0]->occurredAt->format(\DateTimeImmutable::ATOM));
+    }
+
+    public function testMissingDocumentUuidWithDocumentIdIsAcceptedAndExternalKeyIsGenerated(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+        $payload = [
+            'sourceSystem' => 'amagno',
+            'documentId' => 'doc-only-123',
+            'documentVersion' => 3,
+            'processKey' => 'invoice',
+            'stepKey' => 'approved',
+            'occurredAt' => '2026-05-29T12:00:00+00:00',
+        ];
+
+        $first = $controller($this->request($payload));
+        $second = $controller($this->request($payload));
+        $firstData = json_decode((string) $first->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $secondData = json_decode((string) $second->getContent(), true, 512, JSON_THROW_ON_ERROR);
+        $events = $store->all();
+
+        self::assertSame(202, $first->getStatusCode());
+        self::assertSame(200, $second->getStatusCode());
+        self::assertSame($firstData['external_event_key'], $secondData['external_event_key']);
+        self::assertSame('doc-only-123', $events[0]->documentExternalId);
+        self::assertNull($events[0]->documentUuid);
+        self::assertSame(1, $store->count());
+    }
+
+    public function testApiKeyCanBeProvidedAsFormOrQueryParameter(): void
+    {
+        $formVerifier = new class implements SignatureVerifier {
+            public ?string $signature = null;
+
+            public function verify(string $payload, string $signature): bool
+            {
+                $this->signature = $signature;
+
+                return $signature !== '';
+            }
+        };
+        $formStore = new InMemoryEventStore();
+        $formController = new IntelligenceEventController($formVerifier, $this->receiver($formStore));
+
+        $formResponse = $formController($this->formRequest($this->payload([
+            'external_event_key' => 'evt-form-api-key',
+            'apiKey' => 'form-secret',
+        ]), null));
+
+        $queryVerifier = new class implements SignatureVerifier {
+            public ?string $signature = null;
+
+            public function verify(string $payload, string $signature): bool
+            {
+                $this->signature = $signature;
+
+                return $signature !== '';
+            }
+        };
+        $queryStore = new InMemoryEventStore();
+        $queryController = new IntelligenceEventController($queryVerifier, $this->receiver($queryStore));
+        $queryRequest = $this->request($this->payload([
+            'external_event_key' => 'evt-query-api-key',
+        ]), null);
+        $queryRequest->query->set('apiKey', 'query-secret');
+
+        $queryResponse = $queryController($queryRequest);
+
+        self::assertSame(202, $formResponse->getStatusCode());
+        self::assertSame('form-secret', $formVerifier->signature);
+        self::assertSame(202, $queryResponse->getStatusCode());
+        self::assertSame('query-secret', $queryVerifier->signature);
     }
 
     public function testInvalidSignatureIsRejected(): void
@@ -71,31 +333,112 @@ class IntelligenceEventControllerTest extends TestCase
         self::assertSame(1, $store->count());
     }
 
+    public function testPostDebugLogsRequestWithoutHeaderSecrets(): void
+    {
+        $store = new InMemoryEventStore();
+        $logger = new class extends AbstractLogger {
+            /** @var array<int, array{level: mixed, message: string, context: array<string, mixed>}> */
+            public array $records = [];
+
+            /**
+             * @param array<string, mixed> $context
+             */
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->records[] = [
+                    'level' => $level,
+                    'message' => (string) $message,
+                    'context' => $context,
+                ];
+            }
+        };
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store),
+            $logger
+        );
+        $request = $this->request($this->payload([
+            'apiKey' => 'json-secret-api-key',
+        ]));
+        $request->query->set('debug', '1');
+        $request->query->set('apiKey', 'query-secret-api-key');
+        $request->request->set('form_field', 'form-value');
+        $request->request->set('apiKey', 'form-secret-api-key');
+        $request->headers->set('X-Api-Key', 'secret-api-key');
+        $request->headers->set('Authorization', 'Bearer secret-token');
+
+        $controller($request);
+
+        self::assertCount(1, $logger->records);
+        $context = $logger->records[0]['context'];
+        self::assertSame('application/json', $context['content_type']);
+        self::assertStringContainsString('evt-controller-1', $context['raw_body']);
+        self::assertSame(['debug' => '1', 'apiKey' => 'present'], $context['query_parameters']);
+        self::assertSame(['form_field' => 'form-value', 'apiKey' => 'present'], $context['request_parameters']);
+        self::assertSame('present', $context['headers']['x-api-key']);
+        self::assertSame('present', $context['headers']['authorization']);
+        self::assertSame('present', $context['headers']['x-intelligence-signature']);
+        self::assertStringNotContainsString('secret-api-key', json_encode($context['headers'], JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('secret-token', json_encode($context['headers'], JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('valid-signature', json_encode($context['headers'], JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('query-secret-api-key', json_encode($context, JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('form-secret-api-key', json_encode($context, JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('json-secret-api-key', json_encode($context, JSON_THROW_ON_ERROR));
+    }
+
     /**
      * @param array<string, mixed> $payload
      */
-    private function request(array $payload, string $signature = 'valid-signature'): Request
+    private function request(array $payload, ?string $signature = 'valid-signature'): Request
     {
+        $server = [
+            'CONTENT_TYPE' => 'application/json',
+        ];
+        if ($signature !== null) {
+            $server['HTTP_X_INTELLIGENCE_SIGNATURE'] = $signature;
+        }
+
         return Request::create(
             '/api/intelligence/events',
             'POST',
             [],
             [],
             [],
-            [
-                'CONTENT_TYPE' => 'application/json',
-                'HTTP_X_INTELLIGENCE_SIGNATURE' => $signature,
-            ],
+            $server,
             json_encode($payload, JSON_THROW_ON_ERROR)
         );
     }
 
     /**
+     * @param array<string, mixed> $payload
+     */
+    private function formRequest(array $payload, ?string $signature = 'valid-signature'): Request
+    {
+        $server = [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+        ];
+        if ($signature !== null) {
+            $server['HTTP_X_INTELLIGENCE_SIGNATURE'] = $signature;
+        }
+
+        return Request::create(
+            '/api/intelligence/events',
+            'POST',
+            $payload,
+            [],
+            [],
+            $server
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     *
      * @return array<string, mixed>
      */
-    private function payload(): array
+    private function payload(array $overrides = []): array
     {
-        return [
+        return array_replace([
             'external_event_key' => 'evt-controller-1',
             'source_system' => 'amagno',
             'document_external_id' => 'doc-123',
@@ -103,15 +446,15 @@ class IntelligenceEventControllerTest extends TestCase
             'document_version' => 1,
             'step_key' => 'invoice.received',
             'occurred_at' => '2026-05-29T10:00:00+00:00',
-        ];
+        ], $overrides);
     }
 
-    private function receiver(InMemoryEventStore $store): EventReceiver
+    private function receiver(InMemoryEventStore $store, ?InMemoryProcessInstanceRepository $repository = null): EventReceiver
     {
         return new EventReceiver(
             new GenericPayloadEventNormalizer(),
             $store,
-            new ProcessInstanceManager(new InMemoryProcessInstanceRepository()),
+            new ProcessInstanceManager($repository ?? new InMemoryProcessInstanceRepository()),
             new ContextSnapshotService(
                 new InMemoryContextProfileProvider(),
                 new RecordingContextProvider([]),

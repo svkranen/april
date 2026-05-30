@@ -22,7 +22,8 @@ final class GenericPayloadEventNormalizer implements EventNormalizer
             ),
             $this->stringValue($payload, ['step_key', 'stepKey', 'event_key', 'eventKey', 'event_type', 'eventType', 'type'], 'unknown'),
             $this->nullableStringValue($payload, ['actor_ref', 'actorRef', 'actor', 'user']),
-            new DateTimeImmutable($this->stringValue($payload, ['occurred_at', 'occurredAt', 'timestamp', 'changeDate'], 'now')),
+            new DateTimeImmutable($this->stringValue($payload, ['occurred_at', 'occurredAt', 'occured_at', 'occuredAt', 'timestamp', 'changeDate'], 'now')),
+            $this->eventPhase($payload),
             is_array($payload['attributes'] ?? null) ? $payload['attributes'] : []
         );
     }
@@ -66,5 +67,15 @@ final class GenericPayloadEventNormalizer implements EventNormalizer
         }
 
         return $default;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function eventPhase(array $payload): string
+    {
+        $phase = strtolower($this->stringValue($payload, ['event_phase', 'eventPhase', 'phase'], 'after'));
+
+        return in_array($phase, ['before', 'after', 'unknown'], true) ? $phase : 'unknown';
     }
 }

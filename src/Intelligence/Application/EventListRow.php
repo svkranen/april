@@ -4,23 +4,20 @@ namespace App\Intelligence\Application;
 
 use DateTimeImmutable;
 
-final readonly class DocumentTimelineEventRow
+final readonly class EventListRow
 {
-    /**
-     * @param array<string, mixed>|null $contextSummary
-     */
     public function __construct(
+        public ?int $id,
         public string $externalEventKey,
+        public string $processKey,
         public string $eventKey,
         public string $stepKey,
-        public string $processKey,
+        public string $documentExternalId,
+        public ?string $documentUuid,
         public int $documentVersion,
+        public ?int $processInstanceId,
         public DateTimeImmutable $occurredAt,
         public DateTimeImmutable $receivedAt,
-        public ?int $id,
-        public ?int $processInstanceId,
-        public ?array $contextSummary = null,
-        public string $eventPhase = 'after',
         public bool $duplicate = false
     ) {
     }
@@ -31,18 +28,18 @@ final readonly class DocumentTimelineEventRow
     public function toArray(): array
     {
         return [
+            'id' => $this->id,
             'externalEventKey' => $this->externalEventKey,
-            'duplicate' => $this->duplicate,
+            'processKey' => $this->processKey,
             'eventKey' => $this->eventKey,
             'stepKey' => $this->stepKey,
-            'eventPhase' => $this->eventPhase,
-            'processKey' => $this->processKey,
+            'documentExternalId' => $this->documentExternalId,
+            'documentUuid' => $this->documentUuid,
             'documentVersion' => $this->documentVersion,
+            'processInstanceId' => $this->processInstanceId,
             'occurredAt' => $this->occurredAt->format(DATE_ATOM),
             'receivedAt' => $this->receivedAt->format(DATE_ATOM),
-            'id' => $this->id,
-            'processInstanceId' => $this->processInstanceId,
-            'contextSummary' => $this->contextSummary,
+            'duplicate' => $this->duplicate,
         ];
     }
 }

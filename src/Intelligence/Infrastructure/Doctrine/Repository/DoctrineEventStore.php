@@ -68,6 +68,7 @@ final class DoctrineEventStore implements EventStore
         $entity->setProcessKey($event->processKey);
         $entity->setEventKey($event->eventKey);
         $entity->setStepKey($event->stepKey);
+        $entity->setEventPhase($event->eventPhase);
         $entity->setDocumentExternalId($event->documentExternalId);
         $entity->setDocumentUuid($event->documentUuid);
         $entity->setDocumentVersion($event->documentVersion);
@@ -100,7 +101,8 @@ final class DoctrineEventStore implements EventStore
             $entity->getReceivedAt(),
             json_encode($entity->getRawEventJson(), JSON_THROW_ON_ERROR),
             json_encode($entity->getNormalizedEventJson(), JSON_THROW_ON_ERROR),
-            $entity->getProcessInstance()?->getId()
+            $entity->getProcessInstance()?->getId(),
+            $entity->getEventPhase()
         );
     }
 

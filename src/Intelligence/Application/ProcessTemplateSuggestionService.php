@@ -12,11 +12,18 @@ final class ProcessTemplateSuggestionService
     /**
      * @return array<string, mixed>|null
      */
-    public function suggest(string $documentUuid, string $processKey, ?int $documentVersion = null): ?array
+    public function suggest(
+        string $documentUuid,
+        string $processKey,
+        ?int $documentVersion = null,
+        bool $includeBefore = false,
+        EventTimelineOrder $order = EventTimelineOrder::DEFAULT
+    ): ?array
     {
         $events = array_values(array_filter(
-            $this->timelineProvider->build($documentUuid)->events,
+            $this->timelineProvider->build($documentUuid, $order)->events,
             static fn (DocumentTimelineEventRow $event): bool => $event->processKey === $processKey
+                && ($includeBefore || $event->eventPhase === 'after')
         ));
 
         if ($events === []) {
@@ -37,16 +44,7 @@ final class ProcessTemplateSuggestionService
             return null;
         }
 
-        usort(
-            $events,
-            static fn (DocumentTimelineEventRow $left, DocumentTimelineEventRow $right): int => [
-                $left->occurredAt,
-                $left->externalEventKey,
-            ] <=> [
-                $right->occurredAt,
-                $right->externalEventKey,
-            ]
-        );
+        usort($events, static fn (DocumentTimelineEventRow $left, DocumentTimelineEventRow $right): int => $order->compareTimelineRows($left, $right));
 
         $stepKeys = $this->deduplicateDirectSteps($events);
 
@@ -75,15 +73,16 @@ final class ProcessTemplateSuggestionService
     private function deduplicateDirectSteps(array $events): array
     {
         $stepKeys = [];
-        $previousStepKey = null;
+        $previousNormalizedStepKey = null;
 
         foreach ($events as $event) {
-            if ($event->stepKey === $previousStepKey) {
+            $normalizedStepKey = StepKeyNormalizer::normalize($event->stepKey);
+            if ($normalizedStepKey === $previousNormalizedStepKey) {
                 continue;
             }
 
             $stepKeys[] = $event->stepKey;
-            $previousStepKey = $event->stepKey;
+            $previousNormalizedStepKey = $normalizedStepKey;
         }
 
         return $stepKeys;
@@ -110,4 +109,5 @@ final class ProcessTemplateSuggestionService
     {
         return ucwords(str_replace(['_', '-'], ' ', $key));
     }
+
 }

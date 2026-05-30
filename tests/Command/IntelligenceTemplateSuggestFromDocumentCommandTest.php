@@ -78,6 +78,113 @@ class IntelligenceTemplateSuggestFromDocumentCommandTest extends TestCase
         self::assertSame([['from' => 'eingang', 'to' => 'freigabe']], $template['transitions']);
     }
 
+    public function testIgnoresBeforeEvents(): void
+    {
+        $tester = new CommandTester($this->command());
+
+        $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--document-version' => '1',
+        ]);
+
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertSame(['eingang', 'pruefung'], array_column($template['steps'], 'key'));
+        self::assertNotContains('vorstempel', array_column($template['steps'], 'key'));
+    }
+
+    public function testIncludeBeforeOptionUsesBeforeEvents(): void
+    {
+        $tester = new CommandTester($this->command());
+
+        $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--document-version' => '1',
+            '--include-before' => true,
+        ]);
+
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertSame(['eingang', 'vorstempel', 'pruefung'], array_column($template['steps'], 'key'));
+        self::assertSame(
+            [
+                ['from' => 'eingang', 'to' => 'vorstempel'],
+                ['from' => 'vorstempel', 'to' => 'pruefung'],
+            ],
+            $template['transitions']
+        );
+    }
+
+    public function testNormalizesStepKeysForDirectDeduplication(): void
+    {
+        $tester = new CommandTester($this->commandWithEvents([
+            $this->event(1, 'evt-normalize-1', 'Eingang', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(2, 'evt-normalize-2', ' prüfen ', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(3, 'evt-normalize-3', 'pruefen', 1, '2026-05-29T10:05:00+00:00'),
+            $this->event(4, 'evt-normalize-4', 'Freigabe', 1, '2026-05-29T11:00:00+00:00'),
+        ]));
+
+        $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--document-version' => '1',
+        ]);
+
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertSame(['Eingang', ' prüfen ', 'Freigabe'], array_column($template['steps'], 'key'));
+        self::assertSame(
+            [
+                ['from' => 'Eingang', 'to' => ' prüfen '],
+                ['from' => ' prüfen ', 'to' => 'Freigabe'],
+            ],
+            $template['transitions']
+        );
+    }
+
+    public function testDefaultOrderUsesReceivedAtForEqualOccurredAtValues(): void
+    {
+        $tester = new CommandTester($this->commandWithEvents([
+            $this->event(1, 'evt-b', 'B', 1, '2026-05-29T09:00:00+00:00', receivedAt: '2026-05-29T09:00:02+00:00'),
+            $this->event(2, 'evt-a', 'A', 1, '2026-05-29T09:00:00+00:00', receivedAt: '2026-05-29T09:00:01+00:00'),
+            $this->event(3, 'evt-c', 'C', 1, '2026-05-29T09:00:00+00:00', receivedAt: '2026-05-29T09:00:03+00:00'),
+        ]));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--document-version' => '1',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertSame(['A', 'B', 'C'], array_column($template['steps'], 'key'));
+    }
+
+    public function testReceivedAtOrderOptionSortsOnlyByReceivedAt(): void
+    {
+        $tester = new CommandTester($this->commandWithEvents([
+            $this->event(1, 'evt-a', 'A', 1, '2026-05-29T09:00:00+00:00', receivedAt: '2026-05-29T09:00:03+00:00'),
+            $this->event(2, 'evt-b', 'B', 1, '2026-05-29T10:00:00+00:00', receivedAt: '2026-05-29T09:00:01+00:00'),
+            $this->event(3, 'evt-c', 'C', 1, '2026-05-29T11:00:00+00:00', receivedAt: '2026-05-29T09:00:02+00:00'),
+        ]));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--document-version' => '1',
+            '--order-by' => 'received-at',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertSame(['B', 'C', 'A'], array_column($template['steps'], 'key'));
+    }
+
     public function testWritesYamlToOutputFile(): void
     {
         $path = sys_get_temp_dir() . '/amagno-template-suggest-' . bin2hex(random_bytes(6)) . '/eingangsrechnung.yaml';
@@ -147,19 +254,25 @@ class IntelligenceTemplateSuggestFromDocumentCommandTest extends TestCase
 
     private function command(): IntelligenceTemplateSuggestFromDocumentCommand
     {
+        return $this->commandWithEvents([
+            $this->event(1, 'evt-2', 'pruefung', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(2, 'evt-1', 'eingang', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(3, 'evt-1-duplicate-step', 'eingang', 1, '2026-05-29T09:05:00+00:00'),
+            $this->event(7, 'evt-before-only', 'vorstempel', 1, '2026-05-29T09:30:00+00:00', 'eingangsrechnung', 'before'),
+            $this->event(4, 'evt-3', 'eingang', 2, '2026-05-29T11:00:00+00:00'),
+            $this->event(5, 'evt-4', 'freigabe', 2, '2026-05-29T12:00:00+00:00'),
+            $this->event(6, 'evt-other-process', 'archiv', 2, '2026-05-29T13:00:00+00:00', 'anderer-prozess'),
+        ]);
+    }
+
+    /**
+     * @param array<int, ProcessEvent> $events
+     */
+    private function commandWithEvents(array $events): IntelligenceTemplateSuggestFromDocumentCommand
+    {
         return new IntelligenceTemplateSuggestFromDocumentCommand(
             new ProcessTemplateSuggestionService(
-                new InMemoryDocumentTimelineProvider(
-                    [],
-                    [
-                        $this->event(1, 'evt-2', 'pruefung', 1, '2026-05-29T10:00:00+00:00'),
-                        $this->event(2, 'evt-1', 'eingang', 1, '2026-05-29T09:00:00+00:00'),
-                        $this->event(3, 'evt-1-duplicate-step', 'eingang', 1, '2026-05-29T09:05:00+00:00'),
-                        $this->event(4, 'evt-3', 'eingang', 2, '2026-05-29T11:00:00+00:00'),
-                        $this->event(5, 'evt-4', 'freigabe', 2, '2026-05-29T12:00:00+00:00'),
-                        $this->event(6, 'evt-other-process', 'archiv', 2, '2026-05-29T13:00:00+00:00', 'anderer-prozess'),
-                    ]
-                )
+                new InMemoryDocumentTimelineProvider([], $events)
             )
         );
     }
@@ -170,9 +283,12 @@ class IntelligenceTemplateSuggestFromDocumentCommandTest extends TestCase
         string $stepKey,
         int $documentVersion,
         string $occurredAt,
-        string $processKey = 'eingangsrechnung'
+        string $processKey = 'eingangsrechnung',
+        string $eventPhase = 'after',
+        ?string $receivedAt = null
     ): ProcessEvent {
         $time = new DateTimeImmutable($occurredAt);
+        $receivedTime = $receivedAt === null ? $time : new DateTimeImmutable($receivedAt);
 
         return new ProcessEvent(
             $id,
@@ -186,10 +302,11 @@ class IntelligenceTemplateSuggestFromDocumentCommandTest extends TestCase
             $documentVersion,
             'user-1',
             $time,
-            $time,
+            $receivedTime,
             '{}',
             '{}',
-            $documentVersion
+            $documentVersion,
+            $eventPhase
         );
     }
 }

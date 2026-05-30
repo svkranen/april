@@ -40,6 +40,57 @@ class EventReceiverTest extends TestCase
         self::assertSame('invoice.received', $normalized['stepKey']);
     }
 
+    public function testExistingExternalEventKeyIsUsed(): void
+    {
+        $store = new InMemoryEventStore();
+        $receiver = $this->receiver($store, new InMemoryProcessInstanceRepository());
+        $payload = $this->payload('explicit-key-1');
+
+        $result = $receiver->receive($payload, json_encode($payload, JSON_THROW_ON_ERROR));
+
+        self::assertSame('explicit-key-1', $result->event->externalEventKey);
+    }
+
+    public function testMissingExternalEventKeyIsGenerated(): void
+    {
+        $store = new InMemoryEventStore();
+        $receiver = $this->receiver($store, new InMemoryProcessInstanceRepository());
+        $payload = $this->payload(null);
+
+        $result = $receiver->receive($payload, json_encode($payload, JSON_THROW_ON_ERROR));
+
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $result->event->externalEventKey);
+    }
+
+    public function testIdenticalEventsGenerateIdenticalExternalEventKey(): void
+    {
+        $store = new InMemoryEventStore();
+        $receiver = $this->receiver($store, new InMemoryProcessInstanceRepository());
+        $payload = $this->payload(null);
+
+        $first = $receiver->receive($payload, json_encode($payload, JSON_THROW_ON_ERROR));
+        $second = $receiver->receive($payload, json_encode($payload, JSON_THROW_ON_ERROR));
+
+        self::assertSame($first->event->externalEventKey, $second->event->externalEventKey);
+        self::assertTrue($second->duplicate);
+    }
+
+    public function testDifferentEventsGenerateDifferentExternalEventKeys(): void
+    {
+        $store = new InMemoryEventStore();
+        $receiver = $this->receiver($store, new InMemoryProcessInstanceRepository());
+        $firstPayload = $this->payload(null);
+        $secondPayload = array_replace($this->payload(null), [
+            'step_key' => 'invoice.approved',
+            'event_key' => 'invoice.approved',
+        ]);
+
+        $first = $receiver->receive($firstPayload, json_encode($firstPayload, JSON_THROW_ON_ERROR));
+        $second = $receiver->receive($secondPayload, json_encode($secondPayload, JSON_THROW_ON_ERROR));
+
+        self::assertNotSame($first->event->externalEventKey, $second->event->externalEventKey);
+    }
+
     public function testDuplicateEventIsNotStoredTwice(): void
     {
         $store = new InMemoryEventStore();
@@ -152,14 +203,14 @@ class EventReceiverTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function payload(string $externalEventKey = 'evt-1', int $documentVersion = 2, string $stepKey = 'invoice.received'): array
+    private function payload(?string $externalEventKey = 'evt-1', int $documentVersion = 2, string $stepKey = 'invoice.received'): array
     {
-        return [
-            'external_event_key' => $externalEventKey,
+        $payload = [
             'source_system' => 'amagno',
             'document_external_id' => 'doc-123',
             'document_uuid' => 'uuid-123',
             'document_version' => $documentVersion,
+            'event_key' => $stepKey,
             'step_key' => $stepKey,
             'actor_ref' => 'user-1',
             'occurred_at' => '2026-05-29T10:00:00+00:00',
@@ -167,6 +218,12 @@ class EventReceiverTest extends TestCase
                 'amount' => 12000,
             ],
         ];
+
+        if ($externalEventKey !== null) {
+            $payload['external_event_key'] = $externalEventKey;
+        }
+
+        return $payload;
     }
 
     /**

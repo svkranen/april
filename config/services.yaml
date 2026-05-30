@@ -129,6 +129,18 @@ services:
     App\Intelligence\Application\DocumentTimelineProvider:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineDocumentTimelineProvider
 
+    App\Intelligence\Application\ProcessDocumentUuidProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessDocumentUuidProvider
+
+    App\Intelligence\Application\EventListProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineEventListProvider
+
+    App\Intelligence\Application\EventDetailsProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineEventDetailsProvider
+
+    App\Intelligence\Application\ProcessResetter:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessResetter
+
     App\Intelligence\Port\ContextProvider:
         alias: App\Intelligence\Infrastructure\Context\NullContextProvider
 

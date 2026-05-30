@@ -21,6 +21,7 @@ final class FakeEventNormalizer implements EventNormalizer
             (string) ($payload['step_key'] ?? ''),
             isset($payload['actor_ref']) ? (string) $payload['actor_ref'] : null,
             new DateTimeImmutable((string) ($payload['occurred_at'] ?? 'now')),
+            (string) ($payload['event_phase'] ?? 'after'),
             is_array($payload['attributes'] ?? null) ? $payload['attributes'] : []
         );
     }

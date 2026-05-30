@@ -6,6 +6,7 @@ use App\Intelligence\Application\DocumentTimelineEventRow;
 use App\Intelligence\Application\DocumentTimelineInstanceRow;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\DocumentTimelineReport;
+use App\Intelligence\Application\EventTimelineOrder;
 use App\Intelligence\Domain\ContextSnapshot;
 use App\Intelligence\Domain\ProcessEvent;
 use App\Intelligence\Domain\ProcessInstance;
@@ -24,7 +25,7 @@ final class InMemoryDocumentTimelineProvider implements DocumentTimelineProvider
     ) {
     }
 
-    public function build(string $documentUuid): DocumentTimelineReport
+    public function build(string $documentUuid, EventTimelineOrder $order = EventTimelineOrder::DEFAULT): DocumentTimelineReport
     {
         $instances = array_values(array_filter(
             $this->instances,
@@ -36,7 +37,7 @@ final class InMemoryDocumentTimelineProvider implements DocumentTimelineProvider
             $this->events,
             static fn (ProcessEvent $event): bool => $event->documentUuid === $documentUuid
         ));
-        usort($events, static fn (ProcessEvent $left, ProcessEvent $right): int => [$left->occurredAt, $left->documentVersion, $left->externalEventKey] <=> [$right->occurredAt, $right->documentVersion, $right->externalEventKey]);
+        usort($events, static fn (ProcessEvent $left, ProcessEvent $right): int => $order->compareProcessEvents($left, $right));
 
         $snapshotsByEventKey = $this->snapshotsByEventKey($documentUuid);
 
@@ -60,8 +61,11 @@ final class InMemoryDocumentTimelineProvider implements DocumentTimelineProvider
                     $event->processKey,
                     $event->documentVersion,
                     $event->occurredAt,
+                    $event->receivedAt,
+                    $event->id,
                     $event->processInstanceId,
-                    $snapshotsByEventKey[$event->externalEventKey] ?? null
+                    $snapshotsByEventKey[$event->externalEventKey] ?? null,
+                    $event->eventPhase
                 ),
                 $events
             )
@@ -87,4 +91,5 @@ final class InMemoryDocumentTimelineProvider implements DocumentTimelineProvider
 
         return $summaries;
     }
+
 }

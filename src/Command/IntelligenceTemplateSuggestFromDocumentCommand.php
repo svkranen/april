@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Intelligence\Application\ProcessTemplateSuggestionService;
+use App\Intelligence\Application\EventTimelineOrder;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -29,6 +30,8 @@ final class IntelligenceTemplateSuggestFromDocumentCommand extends Command
             ->addArgument('documentUuid', InputArgument::REQUIRED, 'Document UUID to analyze')
             ->addArgument('processKey', InputArgument::REQUIRED, 'Process key to suggest')
             ->addOption('document-version', null, InputOption::VALUE_REQUIRED, 'Document version to analyze')
+            ->addOption('include-before', null, InputOption::VALUE_NONE, 'Include before-phase events in the suggested steps')
+            ->addOption('order-by', null, InputOption::VALUE_REQUIRED, 'Event order: occurred-at, received-at, or occurred-then-received', EventTimelineOrder::DEFAULT->value)
             ->addOption('output', null, InputOption::VALUE_REQUIRED, 'Path to write the YAML template suggestion')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Overwrite the output file if it already exists');
     }
@@ -39,8 +42,20 @@ final class IntelligenceTemplateSuggestFromDocumentCommand extends Command
         $processKey = (string) $input->getArgument('processKey');
         $versionOption = $input->getOption('document-version');
         $documentVersion = $versionOption === null ? null : (int) $versionOption;
+        $order = EventTimelineOrder::fromOption((string) $input->getOption('order-by'));
+        if ($order === null) {
+            $output->writeln(sprintf('<error>Invalid --order-by. Use one of: %s.</error>', implode(', ', EventTimelineOrder::values())));
 
-        $template = $this->suggestionService->suggest($documentUuid, $processKey, $documentVersion);
+            return Command::INVALID;
+        }
+
+        $template = $this->suggestionService->suggest(
+            $documentUuid,
+            $processKey,
+            $documentVersion,
+            $input->getOption('include-before') === true,
+            $order
+        );
         if ($template === null) {
             $output->writeln(sprintf(
                 '<comment>No events found for document "%s" and process "%s".</comment>',

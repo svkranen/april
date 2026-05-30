@@ -14,6 +14,7 @@ final readonly class CanonicalEvent
         public string $stepKey,
         public ?string $actorRef,
         public DateTimeImmutable $occurredAt,
+        public string $eventPhase = 'after',
         public array $attributes = []
     ) {
     }

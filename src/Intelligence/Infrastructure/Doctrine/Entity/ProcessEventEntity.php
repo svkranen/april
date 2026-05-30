@@ -35,6 +35,9 @@ class ProcessEventEntity
     #[ORM\Column(name: 'step_key', type: 'string', length: 255)]
     private string $stepKey;
 
+    #[ORM\Column(name: 'event_phase', type: 'string', length: 16, options: ['default' => 'after'])]
+    private string $eventPhase = 'after';
+
     #[ORM\Column(name: 'document_external_id', type: 'string', length: 255)]
     private string $documentExternalId;
 
@@ -76,6 +79,8 @@ class ProcessEventEntity
     public function getEventKey(): string { return $this->eventKey; }
     public function setStepKey(string $stepKey): void { $this->stepKey = $stepKey; }
     public function getStepKey(): string { return $this->stepKey; }
+    public function setEventPhase(string $eventPhase): void { $this->eventPhase = $eventPhase; }
+    public function getEventPhase(): string { return $this->eventPhase; }
     public function setDocumentExternalId(string $documentExternalId): void { $this->documentExternalId = $documentExternalId; }
     public function getDocumentExternalId(): string { return $this->documentExternalId; }
     public function setDocumentUuid(?string $documentUuid): void { $this->documentUuid = $documentUuid; }
