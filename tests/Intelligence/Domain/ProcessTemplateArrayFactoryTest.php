@@ -3,6 +3,7 @@
 namespace App\Tests\Intelligence\Domain;
 
 use App\Intelligence\Domain\ProcessTemplateArrayFactory;
+use InvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
 class ProcessTemplateArrayFactoryTest extends TestCase
@@ -85,5 +86,117 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame([], $template->transitions);
         self::assertSame([], $template->parallelGroups);
         self::assertSame([], $template->contextProfileRequiredFields);
+        self::assertSame([], $template->decisionPoints);
+    }
+
+    public function testBuildsTemplateWithDecisionPoints(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'decision_points' => [
+                [
+                    'key' => 'approval_route',
+                    'after' => 'invoice_checked',
+                    'required_fields' => ['amount'],
+                    'rules' => [
+                        [
+                            'when' => [
+                                'amount' => [
+                                    'gt' => 10000,
+                                ],
+                            ],
+                            'expect_next' => 'gf_approval',
+                        ],
+                        [
+                            'else' => [
+                                'expect_next' => 'department_approval',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        self::assertCount(1, $template->decisionPoints);
+        $decisionPoint = $template->decisionPoints[0];
+        self::assertSame('approval_route', $decisionPoint->key);
+        self::assertSame('invoice_checked', $decisionPoint->after);
+        self::assertSame(['amount'], $decisionPoint->requiredFields);
+        self::assertCount(2, $decisionPoint->rules);
+
+        $rule = $decisionPoint->rules[0];
+        self::assertFalse($rule->isElse);
+        self::assertSame('gf_approval', $rule->expectedNextStepKey);
+        self::assertNotNull($rule->condition);
+        self::assertSame('amount', $rule->condition->field);
+        self::assertSame('gt', $rule->condition->operator);
+        self::assertSame(10000, $rule->condition->value);
+
+        $elseRule = $decisionPoint->rules[1];
+        self::assertTrue($elseRule->isElse);
+        self::assertNull($elseRule->condition);
+        self::assertSame('department_approval', $elseRule->expectedNextStepKey);
+    }
+
+    public function testBuildsDecisionRuleWithInAndExistsOperators(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'decision_points' => [
+                [
+                    'key' => 'route_by_type',
+                    'required_fields' => ['documentType', 'signaturePresent'],
+                    'rules' => [
+                        [
+                            'when' => [
+                                'documentType' => [
+                                    'in' => ['invoice', 'credit_note'],
+                                ],
+                            ],
+                            'expect_next' => 'commercial_check',
+                        ],
+                        [
+                            'when' => [
+                                'signaturePresent' => [
+                                    'exists' => true,
+                                ],
+                            ],
+                            'expect_next' => 'signature_check',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $rules = $template->decisionPoints[0]->rules;
+        self::assertSame('in', $rules[0]->condition?->operator);
+        self::assertSame(['invoice', 'credit_note'], $rules[0]->condition?->value);
+        self::assertSame('exists', $rules[1]->condition?->operator);
+        self::assertTrue($rules[1]->condition?->value);
+    }
+
+    public function testInvalidDecisionRuleOperatorThrowsClearException(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unsupported decision rule operator "starts_with".');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'decision_points' => [
+                [
+                    'key' => 'approval_route',
+                    'rules' => [
+                        [
+                            'when' => [
+                                'amount' => [
+                                    'starts_with' => '10',
+                                ],
+                            ],
+                            'expect_next' => 'manual_check',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
     }
 }

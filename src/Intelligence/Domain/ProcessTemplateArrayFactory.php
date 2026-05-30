@@ -2,8 +2,21 @@
 
 namespace App\Intelligence\Domain;
 
+use InvalidArgumentException;
+
 final class ProcessTemplateArrayFactory
 {
+    private const SUPPORTED_DECISION_OPERATORS = [
+        'eq',
+        'neq',
+        'gt',
+        'gte',
+        'lt',
+        'lte',
+        'in',
+        'exists',
+    ];
+
     /**
      * @param array<string, mixed> $data
      */
@@ -17,7 +30,8 @@ final class ProcessTemplateArrayFactory
             self::steps($data['steps'] ?? []),
             self::transitions($data['transitions'] ?? $data['allowed_transitions'] ?? []),
             self::parallelGroups($data['parallel_groups'] ?? []),
-            self::contextProfileRequiredFields($data['context_profile'] ?? [])
+            self::contextProfileRequiredFields($data['context_profile'] ?? []),
+            self::decisionPoints($data['decision_points'] ?? [])
         );
     }
 
@@ -119,6 +133,120 @@ final class ProcessTemplateArrayFactory
         }
 
         return self::stringList($contextProfile['required'] ?? []);
+    }
+
+    /**
+     * @return array<int, ProcessTemplateDecisionPoint>
+     */
+    private static function decisionPoints(mixed $decisionPoints): array
+    {
+        if (!is_array($decisionPoints)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($decisionPoints as $decisionPoint) {
+            if (!is_array($decisionPoint) || !isset($decisionPoint['key']) || !is_scalar($decisionPoint['key'])) {
+                continue;
+            }
+
+            $key = trim((string) $decisionPoint['key']);
+            if ($key === '') {
+                continue;
+            }
+
+            $rules = self::decisionRules($decisionPoint['rules'] ?? []);
+            if ($rules === []) {
+                continue;
+            }
+
+            $result[] = new ProcessTemplateDecisionPoint(
+                $key,
+                self::nullableString($decisionPoint['after'] ?? null),
+                self::stringList($decisionPoint['required_fields'] ?? []),
+                $rules
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<int, ProcessTemplateDecisionRule>
+     */
+    private static function decisionRules(mixed $rules): array
+    {
+        if (!is_array($rules)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($rules as $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+
+            if (array_key_exists('else', $rule)) {
+                $expectedNextStepKey = self::nullableString(
+                    is_array($rule['else'] ?? null)
+                        ? ($rule['else']['expect_next'] ?? null)
+                        : ($rule['expect_next'] ?? null)
+                );
+                if ($expectedNextStepKey === null) {
+                    continue;
+                }
+
+                $result[] = new ProcessTemplateDecisionRule(null, $expectedNextStepKey, true);
+                continue;
+            }
+
+            $expectedNextStepKey = self::nullableString($rule['expect_next'] ?? null);
+            if ($expectedNextStepKey === null) {
+                continue;
+            }
+
+            $condition = self::decisionCondition($rule['when'] ?? null);
+            if ($condition === null) {
+                continue;
+            }
+
+            $result[] = new ProcessTemplateDecisionRule($condition, $expectedNextStepKey);
+        }
+
+        return $result;
+    }
+
+    private static function decisionCondition(mixed $when): ?ProcessTemplateRuleCondition
+    {
+        if (!is_array($when)) {
+            return null;
+        }
+
+        foreach ($when as $field => $operators) {
+            if (!is_scalar($field) || !is_array($operators)) {
+                continue;
+            }
+
+            $field = trim((string) $field);
+            if ($field === '') {
+                continue;
+            }
+
+            foreach ($operators as $operator => $value) {
+                if (!is_scalar($operator)) {
+                    continue;
+                }
+
+                $operator = trim((string) $operator);
+                if (!in_array($operator, self::SUPPORTED_DECISION_OPERATORS, true)) {
+                    throw new InvalidArgumentException(sprintf('Unsupported decision rule operator "%s".', $operator));
+                }
+
+                return new ProcessTemplateRuleCondition($field, $operator, $value);
+            }
+        }
+
+        return null;
     }
 
     private static function nullableString(mixed $value): ?string
