@@ -13,7 +13,8 @@ final class ContextSnapshotService
     public function __construct(
         private readonly ContextProfileProvider $profileProvider,
         private readonly ContextProvider $contextProvider,
-        private readonly ContextSnapshotStore $snapshotStore
+        private readonly ContextSnapshotStore $snapshotStore,
+        private readonly ?TemplateContextProviderResolver $templateContextProviderResolver = null
     ) {
     }
 
@@ -27,8 +28,16 @@ final class ContextSnapshotService
             $event->documentVersion
         );
 
-        $attributes = $this->contextProvider->loadAttributes($document, $profile->requiredFields);
-        $warnings = $this->missingFieldWarnings($profile->requiredFields, $attributes);
+        $contextProvider = $this->contextProvider;
+        $requiredFields = $profile->requiredFields;
+        $templateContext = $this->templateContextProviderResolver?->resolve($event->processKey);
+        if ($templateContext !== null) {
+            $contextProvider = $templateContext->contextProvider;
+            $requiredFields = $templateContext->requiredFields;
+        }
+
+        $attributes = $contextProvider->loadAttributes($document, $requiredFields);
+        $warnings = $this->missingFieldWarnings($requiredFields, $attributes);
         $snapshot = new ContextSnapshot(
             $document,
             new DateTimeImmutable(),

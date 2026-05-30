@@ -45,12 +45,13 @@ final class ProcessTemplateCheckService
     ): ProcessTemplateCheckResult {
         $parallelGroups = $this->parallelGroups($template);
         $expectedSteps = $this->expectedSteps($template, $parallelGroups);
+        $knownSteps = $this->knownSteps($template, $parallelGroups, $expectedSteps);
         $actualStepEntries = $this->actualStepEntries($documentUuid, $processKey, $documentVersion, $order);
         $actualSteps = array_map(
             static fn (array $entry): string => $entry['step'],
             $actualStepEntries
         );
-        $deviations = $this->deviations($expectedSteps, $actualSteps, $parallelGroups);
+        $deviations = $this->deviations($expectedSteps, $actualSteps, $parallelGroups, $knownSteps);
         $deviations = array_merge($deviations, $this->decisionDeviations($template->decisionPoints, $actualStepEntries));
         $parallelGroupMessages = $this->parallelGroupMessages($parallelGroups, $actualSteps);
 
@@ -63,10 +64,9 @@ final class ProcessTemplateCheckService
      */
     private function expectedSteps(ProcessTemplate $template, array $parallelGroups): array
     {
-        $stepKeys = array_map(
-            static fn (ProcessTemplateStep $step): string => $step->key,
-            $template->steps
-        );
+        $stepKeys = $template->requiredStepKeys !== []
+            ? $template->requiredStepKeys
+            : $this->templateStepKeys($template);
 
         foreach ($parallelGroups as $group) {
             $missingRequiredSteps = array_values(array_filter(
@@ -89,6 +89,43 @@ final class ProcessTemplateCheckService
         }
 
         return $stepKeys;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function templateStepKeys(ProcessTemplate $template): array
+    {
+        return array_map(
+            static fn (ProcessTemplateStep $step): string => $step->key,
+            $template->steps
+        );
+    }
+
+    /**
+     * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
+     * @param array<int, string> $expectedSteps
+     * @return array<int, string>
+     */
+    private function knownSteps(ProcessTemplate $template, array $parallelGroups, array $expectedSteps): array
+    {
+        $knownSteps = $this->templateStepKeys($template);
+
+        foreach ($template->requiredStepKeys as $stepKey) {
+            $knownSteps[] = $stepKey;
+        }
+
+        foreach ($parallelGroups as $group) {
+            foreach ($group->requiredStepKeys as $stepKey) {
+                $knownSteps[] = $stepKey;
+            }
+        }
+
+        if ($knownSteps === []) {
+            $knownSteps = $expectedSteps;
+        }
+
+        return array_values(array_unique($knownSteps));
     }
 
     /**
@@ -194,12 +231,17 @@ final class ProcessTemplateCheckService
             }
 
             $context = $actualStepEntries[$position]['context'];
-            if ($context === null) {
+            $missingContextFields = $this->missingContextFields($decisionPoint, $context);
+            if ($missingContextFields !== []) {
                 $deviations[] = sprintf(
-                    'Decision rule violation: %s missing context after %s',
+                    'Missing context for decision point %s: %s',
                     $decisionPoint->key,
-                    $decisionPoint->after
+                    implode(', ', $missingContextFields)
                 );
+                continue;
+            }
+
+            if ($context === null) {
                 continue;
             }
 
@@ -223,6 +265,26 @@ final class ProcessTemplateCheckService
     }
 
     /**
+     * @param array<string, mixed>|null $context
+     * @return array<int, string>
+     */
+    private function missingContextFields(ProcessTemplateDecisionPoint $decisionPoint, ?array $context): array
+    {
+        if ($decisionPoint->requiredFields === []) {
+            return [];
+        }
+
+        if ($context === null) {
+            return $decisionPoint->requiredFields;
+        }
+
+        return array_values(array_filter(
+            $decisionPoint->requiredFields,
+            static fn (string $field): bool => !array_key_exists($field, $context) || $context[$field] === null
+        ));
+    }
+
+    /**
      * @param array<int, array{step: string, context: array<string, mixed>|null}> $actualStepEntries
      */
     private function stepPosition(array $actualStepEntries, string $stepKey): ?int
@@ -240,9 +302,10 @@ final class ProcessTemplateCheckService
      * @param array<int, string> $expectedSteps
      * @param array<int, string> $actualSteps
      * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
+     * @param array<int, string> $knownSteps
      * @return array<int, string>
      */
-    private function deviations(array $expectedSteps, array $actualSteps, array $parallelGroups): array
+    private function deviations(array $expectedSteps, array $actualSteps, array $parallelGroups, array $knownSteps): array
     {
         $deviations = [];
 
@@ -250,7 +313,7 @@ final class ProcessTemplateCheckService
             $deviations[] = sprintf('Missing step: %s', $stepKey);
         }
 
-        foreach (array_values(array_diff($actualSteps, $expectedSteps)) as $stepKey) {
+        foreach (array_values(array_diff($actualSteps, $knownSteps)) as $stepKey) {
             $deviations[] = sprintf('Unexpected step: %s', $stepKey);
         }
 

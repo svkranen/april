@@ -120,6 +120,12 @@ services:
     App\Intelligence\Application\ContextProfileProvider:
         alias: App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider
 
+    App\Intelligence\Application\ProcessTemplateProvider:
+        alias: App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider
+
+    App\Intelligence\Application\TemplateContextProviderResolver:
+        alias: App\Intelligence\Infrastructure\Context\TemplateMappedContextProviderResolver
+
     App\Intelligence\Application\ContextSnapshotStore:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineContextSnapshotRepository
 
@@ -157,6 +163,15 @@ services:
     App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider:
         arguments:
             $profiles: '%intelligence.context_profiles%'
+
+    App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider:
+        arguments:
+            $templateDirectory: '%kernel.project_dir%/templates'
+
+    App\Intelligence\Connector\Amagno\AmagnoContextProviderFactory:
+        arguments:
+            $token: '%amagno.api_token%'
+            $baseUri: '%amagno.base_uri%'
 
     App\Intelligence\Infrastructure\Security\HmacSignatureVerifier:
         arguments:

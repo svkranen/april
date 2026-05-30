@@ -89,6 +89,158 @@ class ProcessTemplateCheckServiceTest extends TestCase
         self::assertSame(['Parallel Group satisfied: booking_and_payment'], $result->parallelGroupMessages);
     }
 
+    public function testConditionalDecisionStepIsNotReportedAsGlobalMissingStep(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                    $this->event(2, 'invoice_finished', 1),
+                ],
+                [
+                    $this->snapshot('evt-1', ['amount' => 100]),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('invoice_checked'),
+                    new ProcessTemplateStep('small_approval'),
+                    new ProcessTemplateStep('invoice_finished'),
+                ],
+                decisionPoints: [
+                    new ProcessTemplateDecisionPoint(
+                        'approval_route',
+                        'invoice_checked',
+                        ['amount'],
+                        [
+                            new ProcessTemplateDecisionRule(
+                                new ProcessTemplateRuleCondition('amount', 'gt', 1000),
+                                'small_approval'
+                            ),
+                            new ProcessTemplateDecisionRule(
+                                null,
+                                'invoice_finished',
+                                true
+                            ),
+                        ]
+                    ),
+                ],
+                requiredStepKeys: ['invoice_checked', 'invoice_finished']
+            ),
+            1
+        );
+
+        self::assertTrue($result->isOk());
+        self::assertNotContains('Missing step: small_approval', $result->deviations);
+    }
+
+    public function testRequiredStepsAreReportedMissingWhenAbsent(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('invoice_checked'),
+                    new ProcessTemplateStep('conditional_approval'),
+                    new ProcessTemplateStep('invoice_finished'),
+                ],
+                requiredStepKeys: ['invoice_checked', 'invoice_finished']
+            ),
+            1
+        );
+
+        self::assertContains('Missing step: invoice_finished', $result->deviations);
+        self::assertNotContains('Missing step: conditional_approval', $result->deviations);
+    }
+
+    public function testTemplateWithoutRequiredStepsKeepsAllStepsAsRequiredForCompatibility(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'received', 0),
+                    $this->event(2, 'archived', 1),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('received'),
+                    new ProcessTemplateStep('manual_check'),
+                    new ProcessTemplateStep('archived'),
+                ]
+            ),
+            1
+        );
+
+        self::assertContains('Missing step: manual_check', $result->deviations);
+    }
+
+    public function testRequiredStepsKeepParallelGroupsSeparate(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'sent', 0),
+                    $this->event(2, 'payment_expected', 1),
+                    $this->event(3, 'booked', 2),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('sent'),
+                    new ProcessTemplateStep('booked'),
+                    new ProcessTemplateStep('payment_expected'),
+                ],
+                parallelGroups: [
+                    new ProcessTemplateParallelGroup(
+                        'booking_and_payment',
+                        'sent',
+                        ['booked', 'payment_expected'],
+                        'any'
+                    ),
+                ],
+                requiredStepKeys: ['sent']
+            ),
+            1
+        );
+
+        self::assertTrue($result->isOk());
+        self::assertSame(['sent', 'booked', 'payment_expected'], $result->expectedSteps);
+        self::assertSame(['Parallel Group satisfied: booking_and_payment'], $result->parallelGroupMessages);
+    }
+
     public function testCheckDocumentAcceptsCorrectDecisionPath(): void
     {
         $service = new ProcessTemplateCheckService(
@@ -189,7 +341,61 @@ class ProcessTemplateCheckServiceTest extends TestCase
         );
 
         self::assertContains(
-            'Decision rule violation: approval_route missing context after invoice_checked',
+            'Missing context for decision point approval_route: amount',
+            $result->deviations
+        );
+    }
+
+    public function testCheckDocumentReportsMissingDecisionContextFields(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                    $this->event(2, 'department_approval', 1),
+                ],
+                [
+                    $this->snapshot('evt-1', ['amount_net' => null]),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('invoice_checked'),
+                    new ProcessTemplateStep('department_approval'),
+                    new ProcessTemplateStep('gf_approval'),
+                ],
+                decisionPoints: [
+                    new ProcessTemplateDecisionPoint(
+                        'route_after_pruefung',
+                        'invoice_checked',
+                        ['invoice_direction', 'amount_net'],
+                        [
+                            new ProcessTemplateDecisionRule(
+                                new ProcessTemplateRuleCondition('amount_net', 'gt', 1000),
+                                'gf_approval'
+                            ),
+                            new ProcessTemplateDecisionRule(
+                                null,
+                                'department_approval',
+                                true
+                            ),
+                        ]
+                    ),
+                ],
+                requiredStepKeys: ['invoice_checked']
+            ),
+            1
+        );
+
+        self::assertContains(
+            'Missing context for decision point route_after_pruefung: invoice_direction, amount_net',
             $result->deviations
         );
     }

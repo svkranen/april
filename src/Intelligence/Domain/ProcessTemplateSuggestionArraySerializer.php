@@ -27,6 +27,10 @@ final class ProcessTemplateSuggestionArraySerializer
             $data = ['key' => $data['key'], 'name' => $template->name] + array_slice($data, 1, null, true);
         }
 
+        if ($template->requiredStepKeys !== []) {
+            $data['required_steps'] = $template->requiredStepKeys;
+        }
+
         if ($result->usedDocumentUuids !== []) {
             $data['documents_used'] = count($result->usedDocumentUuids);
             $data['document_uuids'] = $result->usedDocumentUuids;

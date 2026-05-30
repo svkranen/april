@@ -11,6 +11,7 @@ final readonly class ProcessTemplate
      * @param array<int, string> $contextProfileRequiredFields
      * @param array<string, ProcessTemplateFieldMapping> $fieldMappings
      * @param array<int, ProcessTemplateDecisionPoint> $decisionPoints
+     * @param array<int, string> $requiredStepKeys
      */
     public function __construct(
         public string $key,
@@ -22,7 +23,8 @@ final readonly class ProcessTemplate
         public array $parallelGroups = [],
         public array $contextProfileRequiredFields = [],
         public array $fieldMappings = [],
-        public array $decisionPoints = []
+        public array $decisionPoints = [],
+        public array $requiredStepKeys = []
     ) {
     }
 }

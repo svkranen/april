@@ -30,6 +30,7 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
                 transitions: [
                     new ProcessTemplateTransition('eingang', 'pruefung'),
                 ],
+                requiredStepKeys: ['eingang', 'pruefung']
             )
         );
 
@@ -48,6 +49,7 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
                 'context_profile' => [
                     'required' => [],
                 ],
+                'required_steps' => ['eingang', 'pruefung'],
             ],
             (new ProcessTemplateSuggestionArraySerializer())->toArray($result)
         );

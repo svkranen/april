@@ -88,6 +88,25 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame([], $template->contextProfileRequiredFields);
         self::assertSame([], $template->fieldMappings);
         self::assertSame([], $template->decisionPoints);
+        self::assertSame([], $template->requiredStepKeys);
+    }
+
+    public function testBuildsTemplateWithRequiredSteps(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'received'],
+                ['key' => 'conditional_approval'],
+                ['key' => 'archived'],
+            ],
+            'required_steps' => [
+                'received',
+                'archived',
+            ],
+        ]);
+
+        self::assertSame(['received', 'archived'], $template->requiredStepKeys);
     }
 
     public function testBuildsTemplateWithFieldMappings(): void

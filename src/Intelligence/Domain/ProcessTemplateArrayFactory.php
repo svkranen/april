@@ -27,12 +27,13 @@ final class ProcessTemplateArrayFactory
             self::stringValue($data['version'] ?? 'draft', 'draft'),
             self::nullableString($data['name'] ?? null),
             self::nullableString($data['initial_step'] ?? $data['initialStepKey'] ?? null),
-            self::steps($data['steps'] ?? []),
-            self::transitions($data['transitions'] ?? $data['allowed_transitions'] ?? []),
-            self::parallelGroups($data['parallel_groups'] ?? []),
-            self::contextProfileRequiredFields($data['context_profile'] ?? []),
-            self::fieldMappings($data['field_mapping'] ?? []),
-            self::decisionPoints($data['decision_points'] ?? [])
+            steps: self::steps($data['steps'] ?? []),
+            transitions: self::transitions($data['transitions'] ?? $data['allowed_transitions'] ?? []),
+            parallelGroups: self::parallelGroups($data['parallel_groups'] ?? []),
+            contextProfileRequiredFields: self::contextProfileRequiredFields($data['context_profile'] ?? []),
+            fieldMappings: self::fieldMappings($data['field_mapping'] ?? []),
+            decisionPoints: self::decisionPoints($data['decision_points'] ?? []),
+            requiredStepKeys: self::stringList($data['required_steps'] ?? [])
         );
     }
 
