@@ -6,6 +6,8 @@ use PHPUnit\Framework\TestCase;
 
 class DomainDependencyTest extends TestCase
 {
+    private const DOCUMENT_FETCHER_IMPORT = 'App\\Service\\Amagno\\DocumentFetcher';
+
     /**
      * @var array<int, string>
      */
@@ -37,6 +39,37 @@ class DomainDependencyTest extends TestCase
         self::assertSame([], $violations, implode("\n", $violations));
     }
 
+    public function testAmagnoContextProviderDoesNotImportDocumentFetcher(): void
+    {
+        $contextProvider = dirname(__DIR__, 3).'/src/Intelligence/Connector/Amagno/AmagnoContextProvider.php';
+        $imports = $this->importsFromFile($contextProvider);
+        $violations = [];
+
+        foreach ($imports as $line => $import) {
+            if ($import === self::DOCUMENT_FETCHER_IMPORT) {
+                $violations[] = sprintf('%s:%d imports forbidden dependency %s', $contextProvider, $line, $import);
+            }
+        }
+
+        self::assertSame([], $violations, implode("\n", $violations));
+    }
+
+    public function testOnlyDocumentFetcherGatewayImportsDocumentFetcherInAmagnoConnector(): void
+    {
+        $allowedFile = dirname(__DIR__, 3).'/src/Intelligence/Connector/Amagno/DocumentFetcherGateway.php';
+        $violations = [];
+
+        foreach ($this->amagnoConnectorFiles() as $file) {
+            foreach ($this->importsFromFile($file) as $line => $import) {
+                if ($import === self::DOCUMENT_FETCHER_IMPORT && $file !== $allowedFile) {
+                    $violations[] = sprintf('%s:%d imports forbidden dependency %s', $file, $line, $import);
+                }
+            }
+        }
+
+        self::assertSame([], $violations, implode("\n", $violations));
+    }
+
     /**
      * @return array<int, string>
      */
@@ -44,6 +77,18 @@ class DomainDependencyTest extends TestCase
     {
         $domainDirectory = dirname(__DIR__, 3).'/src/Intelligence/Domain';
         $files = glob($domainDirectory.'/*.php') ?: [];
+        sort($files);
+
+        return $files;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function amagnoConnectorFiles(): array
+    {
+        $connectorDirectory = dirname(__DIR__, 3).'/src/Intelligence/Connector/Amagno';
+        $files = glob($connectorDirectory.'/*.php') ?: [];
         sort($files);
 
         return $files;
