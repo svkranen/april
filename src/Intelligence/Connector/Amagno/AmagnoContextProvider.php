@@ -4,7 +4,6 @@ namespace App\Intelligence\Connector\Amagno;
 
 use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Port\ContextProvider;
-use App\Service\Amagno\DocumentFetcher;
 
 final class AmagnoContextProvider implements ContextProvider
 {
@@ -12,7 +11,7 @@ final class AmagnoContextProvider implements ContextProvider
      * @param array<string, string> $fieldMap
      */
     public function __construct(
-        private readonly DocumentFetcher $documentFetcher,
+        private readonly AmagnoDocumentGateway $documentGateway,
         private readonly AmagnoTagValueResolver $tagValueResolver,
         private readonly array $fieldMap = [],
         private readonly ?string $token = null,
@@ -37,11 +36,11 @@ final class AmagnoContextProvider implements ContextProvider
             return $this->orderByRequestedFields($attributes, $fields);
         }
 
-        $tags = $this->documentFetcher->fetchDocumentTags($document->externalId, $this->token, $this->baseUri);
+        $tags = $this->documentGateway->fetchDocumentTags($document->externalId, $this->token, $this->baseUri);
         $selectionCache = [];
         $selectionResolver = function (string $nodeId) use (&$selectionCache): array {
             if (!array_key_exists($nodeId, $selectionCache)) {
-                $selectionCache[$nodeId] = $this->documentFetcher->fetchSelectionNode($nodeId, $this->token, $this->baseUri);
+                $selectionCache[$nodeId] = $this->documentGateway->fetchSelectionNode($nodeId, $this->token, $this->baseUri);
             }
 
             return $selectionCache[$nodeId];

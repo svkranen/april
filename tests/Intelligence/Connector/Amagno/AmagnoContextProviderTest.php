@@ -3,18 +3,18 @@
 namespace App\Tests\Intelligence\Connector\Amagno;
 
 use App\Intelligence\Domain\DocumentRef;
+use App\Intelligence\Connector\Amagno\AmagnoDocumentGateway;
 use App\Intelligence\Connector\Amagno\AmagnoContextProvider;
 use App\Intelligence\Connector\Amagno\AmagnoTagValueResolver;
 use App\Intelligence\Port\ContextProvider;
-use App\Service\Amagno\DocumentFetcher;
 use PHPUnit\Framework\TestCase;
 
 class AmagnoContextProviderTest extends TestCase
 {
     public function testLoadsOnlyRequestedFields(): void
     {
-        $fetcher = $this->createMock(DocumentFetcher::class);
-        $fetcher
+        $gateway = $this->createMock(AmagnoDocumentGateway::class);
+        $gateway
             ->expects(self::once())
             ->method('fetchDocumentTags')
             ->with('doc-123', null, null)
@@ -24,12 +24,12 @@ class AmagnoContextProviderTest extends TestCase
                     ['tagDefinitionId' => 'project-tag', 'value' => 'PRJ-1'],
                 ],
             ]);
-        $fetcher
+        $gateway
             ->expects(self::never())
             ->method('fetchSelectionNode');
 
         $provider = new AmagnoContextProvider(
-            $fetcher,
+            $gateway,
             new AmagnoTagValueResolver(),
             [
                 'documentType' => 'doctype-tag',
@@ -52,8 +52,8 @@ class AmagnoContextProviderTest extends TestCase
 
     public function testReturnsMultiAttributesAsArraysAndResolvesSelectionsOnce(): void
     {
-        $fetcher = $this->createMock(DocumentFetcher::class);
-        $fetcher
+        $gateway = $this->createMock(AmagnoDocumentGateway::class);
+        $gateway
             ->expects(self::once())
             ->method('fetchDocumentTags')
             ->with('doc-123', 'token', 'https://amagno.example')
@@ -67,14 +67,14 @@ class AmagnoContextProviderTest extends TestCase
                     ['tagDefinitionId' => 'cost-center-tag', 'selectedNodeIds' => ['node-1']],
                 ],
             ]);
-        $fetcher
+        $gateway
             ->expects(self::once())
             ->method('fetchSelectionNode')
             ->with('node-1', 'token', 'https://amagno.example')
             ->willReturn(['value' => 'KST-100']);
 
         $provider = new AmagnoContextProvider(
-            $fetcher,
+            $gateway,
             new AmagnoTagValueResolver(),
             [
                 'amounts' => 'amount-tag',
@@ -100,12 +100,12 @@ class AmagnoContextProviderTest extends TestCase
 
     public function testDoesNotFetchTagsForDocumentOnlyFields(): void
     {
-        $fetcher = $this->createMock(DocumentFetcher::class);
-        $fetcher
+        $gateway = $this->createMock(AmagnoDocumentGateway::class);
+        $gateway
             ->expects(self::never())
             ->method('fetchDocumentTags');
 
-        $provider = new AmagnoContextProvider($fetcher, new AmagnoTagValueResolver());
+        $provider = new AmagnoContextProvider($gateway, new AmagnoTagValueResolver());
 
         self::assertSame(
             [

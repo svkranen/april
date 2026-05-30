@@ -144,6 +144,9 @@ services:
     App\Intelligence\Port\ContextProvider:
         alias: App\Intelligence\Infrastructure\Context\NullContextProvider
 
+    App\Intelligence\Connector\Amagno\AmagnoDocumentGateway:
+        alias: App\Intelligence\Connector\Amagno\DocumentFetcherGateway
+
     App\Intelligence\Infrastructure\EventStore\JsonFileEventStore:
         arguments:
             $path: '%intelligence.event_store_file%'
