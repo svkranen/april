@@ -48,9 +48,7 @@ final class AmagnoTagValueResolver
 
                 $node = $selectionResolver($nodeId);
                 $value = $this->normalizeScalar($node['value'] ?? null);
-                if ($value !== null) {
-                    $values[] = $value;
-                }
+                $values[] = $value ?? $nodeId;
             }
 
             return $values;

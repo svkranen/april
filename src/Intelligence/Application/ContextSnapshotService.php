@@ -7,6 +7,7 @@ use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Port\ContextProvider;
 use DateTimeImmutable;
+use Psr\Log\LoggerInterface;
 
 final class ContextSnapshotService
 {
@@ -14,7 +15,8 @@ final class ContextSnapshotService
         private readonly ContextProfileProvider $profileProvider,
         private readonly ContextProvider $contextProvider,
         private readonly ContextSnapshotStore $snapshotStore,
-        private readonly ?TemplateContextProviderResolver $templateContextProviderResolver = null
+        private readonly ?TemplateContextProviderResolver $templateContextProviderResolver = null,
+        private readonly ?LoggerInterface $logger = null
     ) {
     }
 
@@ -37,7 +39,10 @@ final class ContextSnapshotService
         }
 
         $attributes = $contextProvider->loadAttributes($document, $requiredFields);
-        $warnings = $this->missingFieldWarnings($requiredFields, $attributes);
+        $warnings = array_merge(
+            $contextProvider instanceof ContextProviderWarningProvider ? $contextProvider->warnings() : [],
+            $this->missingFieldWarnings($requiredFields, $attributes)
+        );
         $snapshot = new ContextSnapshot(
             $document,
             new DateTimeImmutable(),
@@ -47,6 +52,14 @@ final class ContextSnapshotService
             $event->externalEventKey,
             $event->processInstanceId
         );
+        $this->logger?->debug('Saved snapshot attributes', [
+            'process_key' => $event->processKey,
+            'external_event_key' => $event->externalEventKey,
+            'document_id' => $event->documentExternalId,
+            'document_uuid' => $event->documentUuid,
+            'attributes' => $attributes,
+            'warnings' => $warnings,
+        ]);
 
         return new ContextSnapshotResult($this->snapshotStore->save($snapshot), $warnings);
     }

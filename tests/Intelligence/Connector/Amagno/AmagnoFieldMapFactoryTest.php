@@ -3,6 +3,7 @@
 namespace App\Tests\Intelligence\Connector\Amagno;
 
 use App\Intelligence\Connector\Amagno\AmagnoFieldMapFactory;
+use App\Intelligence\Connector\Amagno\AmagnoFieldMapping;
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateFieldMapping;
 use PHPUnit\Framework\TestCase;
@@ -28,13 +29,13 @@ class AmagnoFieldMapFactoryTest extends TestCase
             ]
         );
 
-        self::assertSame(
-            [
-                'invoice_direction' => 'Eingang/Ausgang',
-                'amount_net' => 'Nettobetrag',
-            ],
-            (new AmagnoFieldMapFactory())->fromTemplate($template)
-        );
+        $fieldMap = (new AmagnoFieldMapFactory())->fromTemplate($template);
+
+        self::assertContainsOnlyInstancesOf(AmagnoFieldMapping::class, $fieldMap);
+        self::assertSame('Eingang/Ausgang', $fieldMap['invoice_direction']->tagName);
+        self::assertNull($fieldMap['invoice_direction']->tagId);
+        self::assertSame('Nettobetrag', $fieldMap['amount_net']->tagName);
+        self::assertSame('number', $fieldMap['amount_net']->valueType);
     }
 
     public function testTagIdTakesPrecedenceOverTagName(): void
@@ -51,10 +52,10 @@ class AmagnoFieldMapFactoryTest extends TestCase
             ]
         );
 
-        self::assertSame(
-            ['amount_net' => 'tag-amount-net'],
-            (new AmagnoFieldMapFactory())->fromTemplate($template)
-        );
+        $fieldMap = (new AmagnoFieldMapFactory())->fromTemplate($template);
+
+        self::assertSame('tag-amount-net', $fieldMap['amount_net']->tagId);
+        self::assertSame('Nettobetrag', $fieldMap['amount_net']->tagName);
     }
 
     public function testIgnoresNonAmagnoMappings(): void
@@ -75,10 +76,10 @@ class AmagnoFieldMapFactoryTest extends TestCase
             ]
         );
 
-        self::assertSame(
-            ['invoice_direction' => 'Eingang/Ausgang'],
-            (new AmagnoFieldMapFactory())->fromTemplate($template)
-        );
+        $fieldMap = (new AmagnoFieldMapFactory())->fromTemplate($template);
+
+        self::assertSame(['invoice_direction'], array_keys($fieldMap));
+        self::assertSame('Eingang/Ausgang', $fieldMap['invoice_direction']->tagName);
     }
 
     public function testEmptyFieldMappingReturnsEmptyMap(): void

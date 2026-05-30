@@ -36,4 +36,19 @@ class AmagnoTagValueResolverTest extends TestCase
             $resolver->resolveValues($tags, 'period-tag', $selectionResolver)
         );
     }
+
+    public function testReturnsSelectedNodeIdsWhenSelectionValueCannotBeResolved(): void
+    {
+        $resolver = new AmagnoTagValueResolver();
+        $tags = [
+            'selections' => [
+                ['tagDefinitionId' => 'route-tag', 'selectedNodeIds' => ['node-1']],
+            ],
+        ];
+
+        self::assertSame(
+            ['node-1'],
+            $resolver->resolveValues($tags, 'route-tag', static fn (string $nodeId): array => [])
+        );
+    }
 }

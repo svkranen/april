@@ -9,6 +9,14 @@ final class ProcessTemplateDecisionRuleEvaluator
      */
     public function expectedNextStepKey(ProcessTemplateDecisionPoint $decisionPoint, array $context): ?string
     {
+        return $this->matchingRule($decisionPoint, $context)?->expectedNextStepKey;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    public function matchingRule(ProcessTemplateDecisionPoint $decisionPoint, array $context): ?ProcessTemplateDecisionRule
+    {
         $elseRule = null;
         foreach ($decisionPoint->rules as $rule) {
             if ($rule->isElse) {
@@ -17,11 +25,11 @@ final class ProcessTemplateDecisionRuleEvaluator
             }
 
             if ($rule->condition !== null && $this->matches($rule->condition, $context)) {
-                return $rule->expectedNextStepKey;
+                return $rule;
             }
         }
 
-        return $elseRule?->expectedNextStepKey;
+        return $elseRule;
     }
 
     /**

@@ -89,6 +89,22 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame([], $template->fieldMappings);
         self::assertSame([], $template->decisionPoints);
         self::assertSame([], $template->requiredStepKeys);
+        self::assertNull($template->connector);
+    }
+
+    public function testBuildsTemplateWithConnector(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'connector' => [
+                'type' => 'amagno',
+                'connection' => 'default',
+            ],
+        ]);
+
+        self::assertNotNull($template->connector);
+        self::assertSame('amagno', $template->connector->type);
+        self::assertSame('default', $template->connector->connection);
     }
 
     public function testBuildsTemplateWithRequiredSteps(): void

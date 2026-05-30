@@ -31,7 +31,7 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringContainsString('Status: OK', $tester->getDisplay());
-        self::assertStringContainsString('Soll-Schrittfolge: eingang -> pruefung -> freigabe', $tester->getDisplay());
+        self::assertStringContainsString('Globale Pflichtschritte: eingang -> pruefung -> freigabe', $tester->getDisplay());
         self::assertStringContainsString('Ist-Schrittfolge: eingang -> pruefung -> freigabe', $tester->getDisplay());
         self::assertStringContainsString('- none', $tester->getDisplay());
 
@@ -135,7 +135,7 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringContainsString('Status: OK', $tester->getDisplay());
-        self::assertStringContainsString('Soll-Schrittfolge: 01 Pruefen -> 02 Versenden -> 03 Buchen -> 04 Zahlungseingang erwartet', $tester->getDisplay());
+        self::assertStringContainsString('Globale Pflichtschritte: 01 Pruefen -> 02 Versenden', $tester->getDisplay());
         self::assertStringContainsString('Parallel Group satisfied: buchung_und_zahlung', $tester->getDisplay());
         self::assertStringContainsString('- none', $tester->getDisplay());
 
@@ -206,7 +206,6 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringContainsString('Status: DEVIATION', $tester->getDisplay());
-        self::assertStringContainsString('Missing step: 04 Zahlungseingang erwartet', $tester->getDisplay());
         self::assertStringContainsString('Parallel Group incomplete: buchung_und_zahlung (missing: 04 Zahlungseingang erwartet)', $tester->getDisplay());
 
         $this->removeTemplate($path);
@@ -240,7 +239,6 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringContainsString('Status: DEVIATION', $tester->getDisplay());
-        self::assertStringContainsString('Missing step: 03 Buchen', $tester->getDisplay());
         self::assertStringContainsString('Parallel Group incomplete: buchung_und_zahlung (missing: 03 Buchen)', $tester->getDisplay());
 
         $this->removeTemplate($path);

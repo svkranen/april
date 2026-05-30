@@ -33,7 +33,25 @@ final class ProcessTemplateArrayFactory
             contextProfileRequiredFields: self::contextProfileRequiredFields($data['context_profile'] ?? []),
             fieldMappings: self::fieldMappings($data['field_mapping'] ?? []),
             decisionPoints: self::decisionPoints($data['decision_points'] ?? []),
-            requiredStepKeys: self::stringList($data['required_steps'] ?? [])
+            requiredStepKeys: self::stringList($data['required_steps'] ?? []),
+            connector: self::connector($data['connector'] ?? null)
+        );
+    }
+
+    private static function connector(mixed $connector): ?ProcessTemplateConnector
+    {
+        if (!is_array($connector)) {
+            return null;
+        }
+
+        $type = self::nullableString($connector['type'] ?? null);
+        if ($type === null) {
+            return null;
+        }
+
+        return new ProcessTemplateConnector(
+            $type,
+            self::nullableString($connector['connection'] ?? null)
         );
     }
 

@@ -11,13 +11,18 @@ final class DocumentFetcherGateway implements AmagnoDocumentGateway
     ) {
     }
 
-    public function fetchDocumentTags(string $documentId, ?string $tokenOverride = null, ?string $baseUriOverride = null): array
+    public function fetchDocumentTags(string $documentId, ?string $tokenOverride = null, ?string $baseUriOverride = null, ?int $credentialIdOverride = null): array
     {
-        return $this->documentFetcher->fetchDocumentTags($documentId, $tokenOverride, $baseUriOverride);
+        return $this->documentFetcher->fetchDocumentTags($documentId, $tokenOverride, $baseUriOverride, $credentialIdOverride);
     }
 
-    public function fetchSelectionNode(string $nodeId, ?string $tokenOverride = null, ?string $baseUriOverride = null): array
+    public function fetchSelectionNode(string $nodeId, ?string $tokenOverride = null, ?string $baseUriOverride = null, ?int $credentialIdOverride = null): array
     {
-        return $this->documentFetcher->fetchSelectionNode($nodeId, $tokenOverride, $baseUriOverride);
+        return $this->documentFetcher->fetchSelectionNode($nodeId, $tokenOverride, $baseUriOverride, $credentialIdOverride);
+    }
+
+    public function fetchTagDefinitions(?string $tokenOverride = null, ?string $baseUriOverride = null, ?int $credentialIdOverride = null): array
+    {
+        return $this->documentFetcher->fetchTagDefinitions($tokenOverride, $baseUriOverride, $credentialIdOverride);
     }
 }

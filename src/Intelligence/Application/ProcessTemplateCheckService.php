@@ -5,6 +5,7 @@ namespace App\Intelligence\Application;
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateArrayFactory;
 use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
+use App\Intelligence\Domain\ProcessTemplateDecisionRule;
 use App\Intelligence\Domain\ProcessTemplateDecisionRuleEvaluator;
 use App\Intelligence\Domain\ProcessTemplateParallelGroup;
 use App\Intelligence\Domain\ProcessTemplateStep;
@@ -44,7 +45,7 @@ final class ProcessTemplateCheckService
         EventTimelineOrder $order = EventTimelineOrder::DEFAULT
     ): ProcessTemplateCheckResult {
         $parallelGroups = $this->parallelGroups($template);
-        $expectedSteps = $this->expectedSteps($template, $parallelGroups);
+        $expectedSteps = $this->expectedSteps($template);
         $knownSteps = $this->knownSteps($template, $parallelGroups, $expectedSteps);
         $actualStepEntries = $this->actualStepEntries($documentUuid, $processKey, $documentVersion, $order);
         $actualSteps = array_map(
@@ -52,43 +53,20 @@ final class ProcessTemplateCheckService
             $actualStepEntries
         );
         $deviations = $this->deviations($expectedSteps, $actualSteps, $parallelGroups, $knownSteps);
-        $deviations = array_merge($deviations, $this->decisionDeviations($template->decisionPoints, $actualStepEntries));
+        $deviations = array_merge($deviations, $this->decisionDeviations($template->decisionPoints, $actualStepEntries, $parallelGroups, $actualSteps));
         $parallelGroupMessages = $this->parallelGroupMessages($parallelGroups, $actualSteps);
 
         return new ProcessTemplateCheckResult($expectedSteps, $actualSteps, $deviations, $parallelGroupMessages);
     }
 
     /**
-     * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
      * @return array<int, string>
      */
-    private function expectedSteps(ProcessTemplate $template, array $parallelGroups): array
+    private function expectedSteps(ProcessTemplate $template): array
     {
-        $stepKeys = $template->requiredStepKeys !== []
+        return $template->requiredStepKeys !== []
             ? $template->requiredStepKeys
             : $this->templateStepKeys($template);
-
-        foreach ($parallelGroups as $group) {
-            $missingRequiredSteps = array_values(array_filter(
-                $group->requiredStepKeys,
-                static fn (string $stepKey): bool => !in_array($stepKey, $stepKeys, true)
-            ));
-            if ($missingRequiredSteps === []) {
-                continue;
-            }
-
-            $insertPosition = count($stepKeys);
-            if ($group->after !== null) {
-                $afterPosition = array_search($group->after, $stepKeys, true);
-                if ($afterPosition !== false) {
-                    $insertPosition = $afterPosition + 1;
-                }
-            }
-
-            array_splice($stepKeys, $insertPosition, 0, $missingRequiredSteps);
-        }
-
-        return $stepKeys;
     }
 
     /**
@@ -174,13 +152,19 @@ final class ProcessTemplateCheckService
         $entries = [];
         $previousStepKey = null;
         foreach ($events as $event) {
+            $context = $this->contextFromSummary($event->contextSummary);
             if ($event->stepKey === $previousStepKey) {
+                if ($context !== null && $entries !== []) {
+                    $lastIndex = count($entries) - 1;
+                    $entries[$lastIndex]['context'] = $this->mergeContexts($entries[$lastIndex]['context'], $context);
+                }
+
                 continue;
             }
 
             $entries[] = [
                 'step' => $event->stepKey,
-                'context' => $this->contextFromSummary($event->contextSummary),
+                'context' => $context,
             ];
             $previousStepKey = $event->stepKey;
         }
@@ -204,17 +188,34 @@ final class ProcessTemplateCheckService
     }
 
     /**
+     * @param array<string, mixed>|null $left
+     * @param array<string, mixed> $right
+     * @return array<string, mixed>
+     */
+    private function mergeContexts(?array $left, array $right): array
+    {
+        if ($left === null) {
+            return $right;
+        }
+
+        return array_replace($left, $right);
+    }
+
+    /**
      * @param array<int, ProcessTemplateDecisionPoint> $decisionPoints
      * @param array<int, array{step: string, context: array<string, mixed>|null}> $actualStepEntries
+     * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
+     * @param array<int, string> $actualSteps
      * @return array<int, string>
      */
-    private function decisionDeviations(array $decisionPoints, array $actualStepEntries): array
+    private function decisionDeviations(array $decisionPoints, array $actualStepEntries, array $parallelGroups, array $actualSteps): array
     {
         $deviations = [];
         if ($decisionPoints === []) {
             return $deviations;
         }
 
+        $expectedDecisionStepKeys = [];
         foreach ($decisionPoints as $decisionPoint) {
             if ($decisionPoint->after === null) {
                 continue;
@@ -222,6 +223,10 @@ final class ProcessTemplateCheckService
 
             $position = $this->stepPosition($actualStepEntries, $decisionPoint->after);
             if ($position === null) {
+                if (!in_array($decisionPoint->after, $expectedDecisionStepKeys, true)) {
+                    continue;
+                }
+
                 $deviations[] = sprintf(
                     'Decision rule violation: %s after step %s not found',
                     $decisionPoint->key,
@@ -230,7 +235,7 @@ final class ProcessTemplateCheckService
                 continue;
             }
 
-            $context = $actualStepEntries[$position]['context'];
+            $context = $this->contextForDecisionPoint($actualStepEntries, $position, $decisionPoint->requiredFields);
             $missingContextFields = $this->missingContextFields($decisionPoint, $context);
             if ($missingContextFields !== []) {
                 $deviations[] = sprintf(
@@ -245,23 +250,169 @@ final class ProcessTemplateCheckService
                 continue;
             }
 
-            $expectedNextStepKey = $this->decisionRuleEvaluator->expectedNextStepKey($decisionPoint, $context);
-            if ($expectedNextStepKey === null) {
+            $matchedRule = $this->decisionRuleEvaluator->matchingRule($decisionPoint, $context);
+            if ($matchedRule === null) {
                 continue;
             }
 
+            $expectedNextStepKey = $matchedRule->expectedNextStepKey;
+            $expectedDecisionStepKeys[] = $expectedNextStepKey;
             $actualNextStepKey = $actualStepEntries[$position + 1]['step'] ?? null;
+            if ($actualNextStepKey !== null && $this->sameSatisfiedAnyOrderParallelGroup($expectedNextStepKey, $actualNextStepKey, $parallelGroups, $actualSteps)) {
+                continue;
+            }
+
             if ($actualNextStepKey !== $expectedNextStepKey) {
                 $deviations[] = sprintf(
-                    'Decision rule violation: %s expected %s but got %s',
+                    'Decision rule violation: %s after %s expected %s but got %s. Context: %s. Rule: %s',
                     $decisionPoint->key,
+                    $decisionPoint->after,
                     $expectedNextStepKey,
-                    $actualNextStepKey ?? 'none'
+                    $actualNextStepKey ?? 'none',
+                    $this->formatDecisionContext($decisionPoint, $context),
+                    $this->formatDecisionRule($matchedRule)
                 );
             }
         }
 
         return $deviations;
+    }
+
+    /**
+     * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
+     * @param array<int, string> $actualSteps
+     */
+    private function sameSatisfiedAnyOrderParallelGroup(string $expectedStepKey, string $actualStepKey, array $parallelGroups, array $actualSteps): bool
+    {
+        foreach ($parallelGroups as $group) {
+            if (!in_array($expectedStepKey, $group->requiredStepKeys, true) || !in_array($actualStepKey, $group->requiredStepKeys, true)) {
+                continue;
+            }
+
+            if (array_diff($group->requiredStepKeys, $actualSteps) !== []) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function formatDecisionContext(ProcessTemplateDecisionPoint $decisionPoint, array $context): string
+    {
+        if ($decisionPoint->requiredFields === []) {
+            return '(none)';
+        }
+
+        $values = [];
+        foreach ($decisionPoint->requiredFields as $field) {
+            $values[] = sprintf(
+                '%s=%s',
+                $field,
+                array_key_exists($field, $context) ? $this->formatContextValue($context[$field]) : '<missing>'
+            );
+        }
+
+        return implode(', ', $values);
+    }
+
+    private function formatDecisionRule(ProcessTemplateDecisionRule $rule): string
+    {
+        if ($rule->isElse || $rule->condition === null) {
+            return 'else';
+        }
+
+        return sprintf(
+            'when %s %s %s',
+            $rule->condition->field,
+            $rule->condition->operator,
+            $this->formatContextValue($rule->condition->value)
+        );
+    }
+
+    private function formatContextValue(mixed $value): string
+    {
+        if ($value === null) {
+            return '<missing>';
+        }
+
+        if (is_string($value)) {
+            return sprintf('"%s"', $value);
+        }
+
+        if (is_int($value)) {
+            return (string) $value;
+        }
+
+        if (is_float($value)) {
+            return floor($value) === $value
+                ? sprintf('%.1F', $value)
+                : rtrim(rtrim(sprintf('%.6F', $value), '0'), '.');
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_array($value)) {
+            return sprintf('[%s]', implode(', ', array_map(
+                fn (mixed $item): string => $this->formatContextValue($item),
+                $value
+            )));
+        }
+
+        return (string) $value;
+    }
+
+    /**
+     * @param array<int, array{step: string, context: array<string, mixed>|null}> $actualStepEntries
+     * @param array<int, string> $requiredFields
+     * @return array<string, mixed>|null
+     */
+    private function contextForDecisionPoint(array $actualStepEntries, int $position, array $requiredFields): ?array
+    {
+        $context = $actualStepEntries[$position]['context'] ?? null;
+        if ($this->contextContainsFields($context, $requiredFields)) {
+            return $context;
+        }
+
+        $maxDistance = max($position, count($actualStepEntries) - $position - 1);
+        for ($distance = 1; $distance <= $maxDistance; ++$distance) {
+            $previous = $actualStepEntries[$position - $distance]['context'] ?? null;
+            if ($this->contextContainsFields($previous, $requiredFields)) {
+                return $previous;
+            }
+
+            $next = $actualStepEntries[$position + $distance]['context'] ?? null;
+            if ($this->contextContainsFields($next, $requiredFields)) {
+                return $next;
+            }
+        }
+
+        return $context;
+    }
+
+    /**
+     * @param array<string, mixed>|null $context
+     * @param array<int, string> $fields
+     */
+    private function contextContainsFields(?array $context, array $fields): bool
+    {
+        if ($context === null) {
+            return false;
+        }
+
+        foreach ($fields as $field) {
+            if (!array_key_exists($field, $context) || !$this->hasContextValue($context[$field])) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -280,8 +431,17 @@ final class ProcessTemplateCheckService
 
         return array_values(array_filter(
             $decisionPoint->requiredFields,
-            static fn (string $field): bool => !array_key_exists($field, $context) || $context[$field] === null
+            fn (string $field): bool => !array_key_exists($field, $context) || !$this->hasContextValue($context[$field])
         ));
+    }
+
+    private function hasContextValue(mixed $value): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        return !is_array($value) || $value !== [];
     }
 
     /**

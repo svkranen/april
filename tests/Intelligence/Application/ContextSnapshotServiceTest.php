@@ -7,6 +7,7 @@ use App\Intelligence\Application\ContextSnapshotService;
 use App\Intelligence\Connector\Amagno\AmagnoContextProviderFactory;
 use App\Intelligence\Connector\Amagno\AmagnoDocumentGateway;
 use App\Intelligence\Connector\Amagno\AmagnoFieldMapFactory;
+use App\Intelligence\Connector\Amagno\AmagnoTagDefinitionResolver;
 use App\Intelligence\Connector\Amagno\AmagnoTagValueResolver;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider;
@@ -14,6 +15,8 @@ use App\Intelligence\Infrastructure\Context\InMemoryContextSnapshotStore;
 use App\Intelligence\Infrastructure\Context\NullContextProvider;
 use App\Intelligence\Infrastructure\Context\TemplateMappedContextProviderResolver;
 use App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider;
+use App\Service\Amagno\ConnectionConfigLoader;
+use App\Service\Amagno\ConnectionRegistry;
 use App\Tests\Fake\RecordingContextProvider;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -95,14 +98,26 @@ YAML,
         $gateway = $this->createMock(AmagnoDocumentGateway::class);
         $gateway
             ->expects(self::once())
+            ->method('fetchTagDefinitions')
+            ->with(null, null, null)
+            ->willReturn([
+                'selectionDefinitions' => [
+                    ['id' => 'direction-tag-id', 'caption' => 'Eingang/Ausgang'],
+                ],
+                'numberDefinitions' => [
+                    ['id' => 'amount-tag-id', 'caption' => 'Nettobetrag'],
+                ],
+            ]);
+        $gateway
+            ->expects(self::once())
             ->method('fetchDocumentTags')
-            ->with('doc-123', null, null)
+            ->with('uuid-123', null, null)
             ->willReturn([
                 'singleLineStrings' => [
-                    ['tagDefinitionId' => 'Eingang/Ausgang', 'value' => 'RE - Ausgang'],
+                    ['tagDefinitionId' => 'direction-tag-id', 'value' => 'RE - Ausgang'],
                 ],
                 'numbers' => [
-                    ['tagDefinitionId' => 'Nettobetrag', 'value' => 500000],
+                    ['tagDefinitionId' => 'amount-tag-id', 'value' => 500000],
                 ],
             ]);
         $gateway
@@ -130,6 +145,227 @@ YAML,
             $result->snapshot->attributes
         );
         self::assertSame([], $result->warnings);
+    }
+
+    public function testTemplateConnectorConnectionProvidesBaseUriAndCredentialId(): void
+    {
+        $templateDirectory = $this->templateDirectory([
+            'invoice-process.yaml' => <<<'YAML'
+key: invoice-process
+connector:
+  type: amagno
+  connection: default
+context_profile:
+  required:
+    - invoice_direction
+field_mapping:
+  invoice_direction:
+    source: amagno
+    tag_name: "Eingang/Ausgang"
+YAML,
+        ]);
+
+        $gateway = $this->createMock(AmagnoDocumentGateway::class);
+        $gateway
+            ->expects(self::once())
+            ->method('fetchTagDefinitions')
+            ->with(null, 'https://amagno.example/api/v2', 7)
+            ->willReturn([
+                'selectionDefinitions' => [
+                    ['id' => 'direction-tag-id', 'caption' => 'Eingang/Ausgang'],
+                ],
+            ]);
+        $gateway
+            ->expects(self::once())
+            ->method('fetchDocumentTags')
+            ->with('uuid-123', null, 'https://amagno.example/api/v2', 7)
+            ->willReturn([
+                'singleLineStrings' => [
+                    ['tagDefinitionId' => 'direction-tag-id', 'value' => 'RE - Ausgang'],
+                ],
+            ]);
+
+        $service = new ContextSnapshotService(
+            new InMemoryContextProfileProvider([
+                'invoice-process' => ['fallback'],
+            ]),
+            new NullContextProvider(),
+            new InMemoryContextSnapshotStore(),
+            $this->templateResolver($templateDirectory, $gateway, $this->connectionRegistry())
+        );
+
+        $result = $service->captureForEvent($this->event());
+
+        self::assertSame(['invoice_direction' => 'RE - Ausgang'], $result->snapshot->attributes);
+        self::assertSame([], $result->warnings);
+    }
+
+    public function testTemplateWithoutConnectorUsesDefaultConnectionWhenAvailable(): void
+    {
+        $templateDirectory = $this->templateDirectory([
+            'invoice-process.yaml' => <<<'YAML'
+key: invoice-process
+context_profile:
+  required:
+    - invoice_direction
+field_mapping:
+  invoice_direction:
+    source: amagno
+    tag_name: "Eingang/Ausgang"
+YAML,
+        ]);
+
+        $gateway = $this->createMock(AmagnoDocumentGateway::class);
+        $gateway
+            ->expects(self::once())
+            ->method('fetchTagDefinitions')
+            ->with(null, 'https://amagno.example/api/v2', 7)
+            ->willReturn([
+                'selectionDefinitions' => [
+                    ['id' => 'direction-tag-id', 'caption' => 'Eingang/Ausgang'],
+                ],
+            ]);
+        $gateway
+            ->expects(self::once())
+            ->method('fetchDocumentTags')
+            ->with('uuid-123', null, 'https://amagno.example/api/v2', 7)
+            ->willReturn([
+                'singleLineStrings' => [
+                    ['tagDefinitionId' => 'direction-tag-id', 'value' => 'RE - Ausgang'],
+                ],
+            ]);
+
+        $service = new ContextSnapshotService(
+            new InMemoryContextProfileProvider([
+                'invoice-process' => ['fallback'],
+            ]),
+            new NullContextProvider(),
+            new InMemoryContextSnapshotStore(),
+            $this->templateResolver($templateDirectory, $gateway, $this->connectionRegistry())
+        );
+
+        $result = $service->captureForEvent($this->event());
+
+        self::assertSame(['invoice_direction' => 'RE - Ausgang'], $result->snapshot->attributes);
+        self::assertSame([], $result->warnings);
+    }
+
+    public function testMissingTemplateConnectorConnectionFallsBackWithoutFatalError(): void
+    {
+        $templateDirectory = $this->templateDirectory([
+            'invoice-process.yaml' => <<<'YAML'
+key: invoice-process
+connector:
+  type: amagno
+  connection: missing
+context_profile:
+  required:
+    - invoice_direction
+field_mapping:
+  invoice_direction:
+    source: amagno
+    tag_name: "Eingang/Ausgang"
+YAML,
+        ]);
+
+        $gateway = $this->createMock(AmagnoDocumentGateway::class);
+        $gateway
+            ->expects(self::never())
+            ->method('fetchDocumentTags');
+
+        $service = new ContextSnapshotService(
+            new InMemoryContextProfileProvider([
+                'invoice-process' => ['invoice_direction'],
+            ]),
+            new NullContextProvider(),
+            new InMemoryContextSnapshotStore(),
+            $this->templateResolver($templateDirectory, $gateway, $this->connectionRegistry())
+        );
+
+        $result = $service->captureForEvent($this->event());
+
+        self::assertSame([], $result->snapshot->attributes);
+        self::assertSame(['Missing required context field "invoice_direction".'], $result->warnings);
+    }
+
+    public function testMissingDocumentUuidProducesMissingContextWarningWithoutFetchingTags(): void
+    {
+        $templateDirectory = $this->templateDirectory([
+            'invoice-process.yaml' => <<<'YAML'
+key: invoice-process
+context_profile:
+  required:
+    - amount_net
+field_mapping:
+  amount_net:
+    source: amagno
+    tag_id: "amount-tag-id"
+YAML,
+        ]);
+
+        $gateway = $this->createMock(AmagnoDocumentGateway::class);
+        $gateway
+            ->expects(self::never())
+            ->method('fetchDocumentTags');
+
+        $service = new ContextSnapshotService(
+            new InMemoryContextProfileProvider([
+                'invoice-process' => ['fallback'],
+            ]),
+            new NullContextProvider(),
+            new InMemoryContextSnapshotStore(),
+            $this->templateResolver($templateDirectory, $gateway)
+        );
+
+        $result = $service->captureForEvent($this->event(null));
+
+        self::assertSame([], $result->snapshot->attributes);
+        self::assertSame(['Missing required context field "amount_net".'], $result->warnings);
+    }
+
+    public function testUnknownAmagnoTagNameIsStoredAsSnapshotWarning(): void
+    {
+        $templateDirectory = $this->templateDirectory([
+            'invoice-process.yaml' => <<<'YAML'
+key: invoice-process
+context_profile:
+  required:
+    - amount_net
+field_mapping:
+  amount_net:
+    source: amagno
+    tag_name: "Nettobetrag"
+YAML,
+        ]);
+
+        $gateway = $this->createMock(AmagnoDocumentGateway::class);
+        $gateway
+            ->expects(self::once())
+            ->method('fetchTagDefinitions')
+            ->willReturn(['numberDefinitions' => []]);
+        $gateway
+            ->expects(self::never())
+            ->method('fetchDocumentTags');
+
+        $service = new ContextSnapshotService(
+            new InMemoryContextProfileProvider([
+                'invoice-process' => ['fallback'],
+            ]),
+            new NullContextProvider(),
+            new InMemoryContextSnapshotStore(),
+            $this->templateResolver($templateDirectory, $gateway)
+        );
+
+        $result = $service->captureForEvent($this->event());
+
+        self::assertSame([], $result->snapshot->attributes);
+        self::assertSame(
+            [
+                'Unknown Amagno tag_name "Nettobetrag".',
+                'Missing required context field "amount_net".',
+            ],
+            $result->warnings
+        );
     }
 
     public function testTemplateWithoutFieldMappingFallsBackToNullContextProvider(): void
@@ -175,7 +411,7 @@ YAML,
         self::assertSame(['Missing required context field "amount_net".'], $result->warnings);
     }
 
-    private function event(): ProcessEventRecord
+    private function event(?string $documentUuid = 'uuid-123'): ProcessEventRecord
     {
         return new ProcessEventRecord(
             1,
@@ -185,7 +421,7 @@ YAML,
             'received',
             'received',
             'doc-123',
-            'uuid-123',
+            $documentUuid,
             2,
             'user-1',
             new DateTimeImmutable('2026-05-29T10:00:00+00:00'),
@@ -209,7 +445,7 @@ YAML,
         return $directory;
     }
 
-    private function templateResolver(string $templateDirectory, ?AmagnoDocumentGateway $gateway = null): TemplateContextProviderResolver
+    private function templateResolver(string $templateDirectory, ?AmagnoDocumentGateway $gateway = null, ?ConnectionRegistry $connectionRegistry = null): TemplateContextProviderResolver
     {
         if ($gateway === null) {
             $gateway = $this->createMock(AmagnoDocumentGateway::class);
@@ -221,7 +457,33 @@ YAML,
         return new TemplateMappedContextProviderResolver(
             new YamlProcessTemplateProvider($templateDirectory),
             new AmagnoFieldMapFactory(),
-            new AmagnoContextProviderFactory($gateway, new AmagnoTagValueResolver())
+            new AmagnoContextProviderFactory($gateway, new AmagnoTagValueResolver(), new AmagnoTagDefinitionResolver($gateway)),
+            $connectionRegistry
         );
+    }
+
+    private function connectionRegistry(): ConnectionRegistry
+    {
+        $path = sys_get_temp_dir().'/amagno-connections-'.bin2hex(random_bytes(6)).'.json';
+        file_put_contents($path, json_encode([
+            'credentials' => [
+                [
+                    'cid' => 7,
+                    'base_uri' => 'https://amagno.example',
+                    'username' => 'user',
+                    'password' => 'password',
+                ],
+            ],
+            'configurations' => [
+                [
+                    'id' => 'default',
+                    'credential_id' => 7,
+                    'vault_id' => 'vault-1',
+                    'magnet_id' => 'magnet-1',
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR));
+
+        return new ConnectionRegistry(new ConnectionConfigLoader($path));
     }
 }

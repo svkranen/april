@@ -12,7 +12,7 @@ parameters:
     amagno.api_username: '%env(string:AMAGNO_API_USERNAME)%'
     amagno.api_password: '%env(string:AMAGNO_API_PASSWORD)%'
     amagno.api_auth_type: '%env(string:AMAGNO_API_AUTH_TYPE)%'
-    amagno.credential_id: '%env(int:AMAGNO_CREDENTIAL_ID)%'
+    amagno.credential_id: '%env(default::int:AMAGNO_CREDENTIAL_ID)%'
     amagno.connections_file: '%kernel.project_dir%/%env(string:AMAGNO_CONNECTIONS_FILE)%'
     amagno.matching_file: '%kernel.project_dir%/%env(string:AMAGNO_MATCHING_FILE)%'
     amagno.template_dir: '%kernel.project_dir%/%env(string:AMAGNO_TEMPLATE_DIR)%'
@@ -49,6 +49,8 @@ services:
         arguments:
             $baseUri: '%amagno.base_uri%'
             $apiToken: '%amagno.api_token%'
+            $tokenProvider: '@Iileven\AmagnoConnector\Interface\TokenProviderInterface'
+            $credentialId: '%amagno.credential_id%'
 
     App\Service\Amagno\CredentialStore:
         arguments:
@@ -165,6 +167,10 @@ services:
             $profiles: '%intelligence.context_profiles%'
 
     App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider:
+        arguments:
+            $templateDirectory: '%kernel.project_dir%/templates'
+
+    App\Command\IntelligenceTemplateListCommand:
         arguments:
             $templateDirectory: '%kernel.project_dir%/templates'
 

@@ -8,7 +8,7 @@ use App\Intelligence\Domain\ProcessTemplateFieldMapping;
 final class AmagnoFieldMapFactory
 {
     /**
-     * @return array<string, string>
+     * @return array<string, AmagnoFieldMapping>
      */
     public function fromTemplate(ProcessTemplate $template): array
     {
@@ -19,12 +19,16 @@ final class AmagnoFieldMapFactory
                 continue;
             }
 
-            $tagReference = $mapping->tagId ?? $mapping->tagName;
-            if ($tagReference === null || $tagReference === '') {
+            if (($mapping->tagId === null || $mapping->tagId === '') && ($mapping->tagName === null || $mapping->tagName === '')) {
                 continue;
             }
 
-            $fieldMap[$mapping->fieldKey] = $tagReference;
+            $fieldMap[$mapping->fieldKey] = new AmagnoFieldMapping(
+                $mapping->fieldKey,
+                $mapping->tagId,
+                $mapping->tagName,
+                $mapping->valueType
+            );
         }
 
         return $fieldMap;
