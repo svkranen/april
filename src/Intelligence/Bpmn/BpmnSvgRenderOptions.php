@@ -8,7 +8,8 @@ final readonly class BpmnSvgRenderOptions
         public string $view = 'combined',
         public int $minUnexpectedCount = 2,
         public int $width = 1200,
-        public bool $compact = true
+        public bool $compact = true,
+        public string $layout = 'graph'
     ) {
     }
 }

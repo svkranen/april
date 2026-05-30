@@ -3,6 +3,7 @@
 namespace App\Intelligence\Infrastructure\Process;
 
 use App\Intelligence\Application\ProcessDocumentUuidProvider;
+use App\Intelligence\Application\ProcessDocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
 use DateTimeImmutable;
 
@@ -18,7 +19,16 @@ final class InMemoryProcessDocumentUuidProvider implements ProcessDocumentUuidPr
 
     public function documentUuidsForProcess(string $processKey, ?DateTimeImmutable $since = null, ?int $limit = null): array
     {
+        return array_map(
+            static fn (ProcessDocumentRef $ref): string => $ref->documentUuid,
+            $this->documentRefsForProcess($processKey, $since, $limit)
+        );
+    }
+
+    public function documentRefsForProcess(string $processKey, ?DateTimeImmutable $since = null, ?int $limit = null): array
+    {
         $latestSeenAtByDocumentUuid = [];
+        $refsByDocumentUuid = [];
 
         foreach ($this->events as $event) {
             if ($event->processKey !== $processKey || $event->documentUuid === null) {
@@ -33,12 +43,20 @@ final class InMemoryProcessDocumentUuidProvider implements ProcessDocumentUuidPr
             if (!isset($latestSeenAtByDocumentUuid[$event->documentUuid])
                 || $seenAt > $latestSeenAtByDocumentUuid[$event->documentUuid]) {
                 $latestSeenAtByDocumentUuid[$event->documentUuid] = $seenAt;
+                $refsByDocumentUuid[$event->documentUuid] = new ProcessDocumentRef(
+                    $event->documentUuid,
+                    $event->documentExternalId !== '' ? $event->documentExternalId : null,
+                    $event->documentVersion
+                );
             }
         }
 
         arsort($latestSeenAtByDocumentUuid);
-        $documentUuids = array_keys($latestSeenAtByDocumentUuid);
+        $documentRefs = array_map(
+            static fn (string $documentUuid): ProcessDocumentRef => $refsByDocumentUuid[$documentUuid],
+            array_keys($latestSeenAtByDocumentUuid)
+        );
 
-        return $limit === null ? $documentUuids : array_slice($documentUuids, 0, $limit);
+        return $limit === null ? $documentRefs : array_slice($documentRefs, 0, $limit);
     }
 }

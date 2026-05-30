@@ -38,7 +38,8 @@ final class IntelligenceTemplateBpmnViewCommand extends Command
             ->addOption('template', null, InputOption::VALUE_REQUIRED, 'Path to the YAML process template')
             ->addOption('heatmap', null, InputOption::VALUE_REQUIRED, 'Optional path to a JSON or YAML heatmap report')
             ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format: json, mermaid, or svg', 'json')
-            ->addOption('view', null, InputOption::VALUE_REQUIRED, 'Rendered view: summary, expected, observed, deviations, or combined')
+            ->addOption('view', null, InputOption::VALUE_REQUIRED, 'Rendered view: summary, bottleneck, expected, observed, deviations, or combined')
+            ->addOption('layout', null, InputOption::VALUE_REQUIRED, 'SVG layout: graph or process')
             ->addOption('min-unexpected-count', null, InputOption::VALUE_REQUIRED, 'Minimum count for unexpected observed edges in rendered combined/deviations views', '2')
             ->addOption('width', null, InputOption::VALUE_REQUIRED, 'SVG width in pixels', '1200')
             ->addOption('compact', null, InputOption::VALUE_NEGATABLE, 'Render SVG in compact mode', true)
@@ -57,8 +58,17 @@ final class IntelligenceTemplateBpmnViewCommand extends Command
         $viewMode = $viewOption === null || $viewOption === ''
             ? ($format === 'svg' ? 'summary' : 'combined')
             : strtolower((string) $viewOption);
-        if (!in_array($viewMode, ['summary', 'expected', 'observed', 'deviations', 'combined'], true)) {
-            $output->writeln('<error>Invalid --view. Use summary, expected, observed, deviations, or combined.</error>');
+        if (!in_array($viewMode, ['summary', 'bottleneck', 'expected', 'observed', 'deviations', 'combined'], true)) {
+            $output->writeln('<error>Invalid --view. Use summary, bottleneck, expected, observed, deviations, or combined.</error>');
+
+            return Command::INVALID;
+        }
+        $layoutOption = $input->getOption('layout');
+        $layoutMode = $layoutOption === null || $layoutOption === ''
+            ? ($format === 'svg' && $viewMode === 'summary' ? 'process' : 'graph')
+            : strtolower((string) $layoutOption);
+        if (!in_array($layoutMode, ['graph', 'process'], true)) {
+            $output->writeln('<error>Invalid --layout. Use graph or process.</error>');
 
             return Command::INVALID;
         }
@@ -122,7 +132,8 @@ final class IntelligenceTemplateBpmnViewCommand extends Command
                         $viewMode,
                         $minUnexpectedCount,
                         $width,
-                        $input->getOption('compact') === true
+                        $input->getOption('compact') === true,
+                        $layoutMode
                     )
                 ));
 

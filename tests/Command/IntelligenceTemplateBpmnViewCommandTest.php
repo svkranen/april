@@ -91,6 +91,7 @@ final class IntelligenceTemplateBpmnViewCommandTest extends TestCase
             '--heatmap' => $heatmapPath,
             '--format' => 'svg',
             '--view' => 'observed',
+            '--layout' => 'graph',
             '--width' => '900',
         ]);
 
@@ -118,6 +119,53 @@ final class IntelligenceTemplateBpmnViewCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringContainsString('<svg xmlns="http://www.w3.org/2000/svg"', $tester->getDisplay());
+        self::assertStringContainsString('data-layout="process"', $tester->getDisplay());
+        self::assertStringNotContainsString('3x 30%', $tester->getDisplay());
+
+        unlink($templatePath);
+        unlink($heatmapPath);
+    }
+
+    public function testSvgAcceptsProcessLayoutOption(): void
+    {
+        $templatePath = $this->templatePath();
+        $heatmapPath = $this->heatmapPath();
+
+        $tester = new CommandTester(new IntelligenceTemplateBpmnViewCommand(new ProcessTemplateBpmnViewBuilder()));
+        $exitCode = $tester->execute([
+            'processKey' => 'invoice',
+            '--template' => $templatePath,
+            '--heatmap' => $heatmapPath,
+            '--format' => 'svg',
+            '--view' => 'summary',
+            '--layout' => 'process',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('data-layout="process"', $tester->getDisplay());
+        self::assertStringContainsString('marker-end="url(#arrow-expected)"', $tester->getDisplay());
+
+        unlink($templatePath);
+        unlink($heatmapPath);
+    }
+
+    public function testSvgAcceptsBottleneckView(): void
+    {
+        $templatePath = $this->templatePath();
+        $heatmapPath = $this->heatmapPath();
+
+        $tester = new CommandTester(new IntelligenceTemplateBpmnViewCommand(new ProcessTemplateBpmnViewBuilder()));
+        $exitCode = $tester->execute([
+            'processKey' => 'invoice',
+            '--template' => $templatePath,
+            '--heatmap' => $heatmapPath,
+            '--format' => 'svg',
+            '--view' => 'bottleneck',
+            '--layout' => 'process',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('data-view="bottleneck"', $tester->getDisplay());
         self::assertStringNotContainsString('3x 30%', $tester->getDisplay());
 
         unlink($templatePath);

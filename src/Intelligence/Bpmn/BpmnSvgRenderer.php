@@ -9,19 +9,30 @@ final class BpmnSvgRenderer
      */
     private array $positions = [];
 
+    /**
+     * @var array<string, BpmnNodeMetrics>
+     */
+    private array $taskMetricsByStep = [];
+
+    private ?string $endTaskId = null;
+
     public function render(BpmnProcessView $view, ?BpmnSvgRenderOptions $options = null): string
     {
         $options ??= new BpmnSvgRenderOptions();
+        $this->taskMetricsByStep = $this->taskMetricsByStep($view);
         $this->positions = $this->layout($view, $options);
+        $this->endTaskId = $this->findEndTaskId($view);
         $height = $options->compact ? 620 : 760;
         $svg = [];
         $svg[] = sprintf(
-            '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img" aria-label="%s BPMN heatmap">',
+            '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d" role="img" aria-label="%s BPMN heatmap" data-view="%s" data-layout="%s">',
             $options->width,
             $height,
             $options->width,
             $height,
-            $this->escape($view->templateKey)
+            $this->escape($view->templateKey),
+            $this->escape($options->view),
+            $this->escape($options->layout)
         );
         $svg[] = '<defs><marker id="arrow-expected" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8 z" fill="#6b7280"/></marker><marker id="arrow-observed" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8 z" fill="#2563eb"/></marker><marker id="arrow-unexpected" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8 z" fill="#dc2626"/></marker><marker id="arrow-missing" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L10,4 L0,8 z" fill="#f59e0b"/></marker></defs>';
         $svg[] = '<rect x="0" y="0" width="100%" height="100%" fill="#ffffff"/>';
@@ -68,12 +79,25 @@ final class BpmnSvgRenderer
         $fill = $this->taskFill($node->metrics);
         $stroke = $node->metrics->openDocuments > 0 ? '#dc2626' : '#9ca3af';
         $strokeWidth = $node->metrics->openDocuments > 0 || $node->metrics->intensity >= 0.8 ? 3 : 2;
-        $label = $node->required ? $node->label.' (required)' : $node->label;
+        $isEnd = $node->id === $this->endTaskId;
+        $label = $isEnd ? $node->label.' (Ende)' : ($node->required ? $node->label.' (required)' : $node->label);
         $metricLabel = sprintf('%dx · Ø %.1f min · open %d', $node->metrics->historicalCount, $node->metrics->avgDuration, $node->metrics->openDocuments);
+        $endBadge = $isEnd
+            ? sprintf(
+                '<circle cx="%.1f" cy="%.1f" r="10" fill="#111827"/><text x="%.1f" y="%.1f" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" font-weight="700" fill="#ffffff">Ende</text>',
+                $box['x'] + $box['w'] - 18,
+                $box['y'] + 18,
+                $box['x'] + $box['w'] - 18,
+                $box['y'] + 21
+            )
+            : '';
 
         return sprintf(
-            '<g data-node-id="%s"><rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="8" fill="%s" stroke="%s" stroke-width="%d"/>%s<text x="%.1f" y="%.1f" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4b5563">%s</text></g>',
+            '<g data-node-id="%s" data-open-documents="%d" data-heatmap-intensity="%.4f" data-node-role="%s"><rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="8" fill="%s" stroke="%s" stroke-width="%d"/>%s%s<text x="%.1f" y="%.1f" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4b5563">%s</text></g>',
             $this->escape($node->id),
+            $node->metrics->openDocuments,
+            $node->metrics->intensity,
+            $isEnd ? 'end' : 'task',
             $box['x'],
             $box['y'],
             $box['w'],
@@ -82,6 +106,7 @@ final class BpmnSvgRenderer
             $stroke,
             $strokeWidth,
             $this->renderWrappedText($label, $box['x'] + $box['w'] / 2, $box['y'] + 23, 12, 2, true),
+            $endBadge,
             $box['x'] + $box['w'] / 2,
             $box['y'] + $box['h'] - 12,
             $this->escape($metricLabel)
@@ -99,7 +124,7 @@ final class BpmnSvgRenderer
             '<g data-node-id="%s"><polygon points="%s" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>%s</g>',
             $this->escape($node->id),
             $points,
-            $this->renderWrappedText($node->decisionPointKey, $cx, $cy - 2, 11, 2, true)
+            $this->renderWrappedText($this->shortGatewayLabel($node->decisionPointKey), $cx, $cy - 2, 11, 2, true)
         );
     }
 
@@ -107,10 +132,22 @@ final class BpmnSvgRenderer
     {
         $box = $this->positions[$node->id];
         $fill = $this->taskFill($node->metrics);
+        $maxOpenDocuments = 0;
+        foreach ($node->requiredStepKeys as $stepKey) {
+            $maxOpenDocuments = max($maxOpenDocuments, $this->taskMetricsByStep[$stepKey]->openDocuments ?? 0);
+        }
+        $metricsLabel = sprintf(
+            'documents %d · Ø %.1f min · max open %d',
+            $node->metrics->historicalCount,
+            $node->metrics->avgDuration,
+            $maxOpenDocuments
+        );
 
         return sprintf(
-            '<g data-node-id="%s"><rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="12" fill="%s" fill-opacity="0.55" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 4"/><text x="%.1f" y="%.1f" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">%s</text><text x="%.1f" y="%.1f" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4b5563">%s</text></g>',
+            '<g data-node-id="%s" data-open-documents="%d" data-heatmap-intensity="%.4f"><rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="12" fill="%s" fill-opacity="0.55" stroke="#2563eb" stroke-width="2" stroke-dasharray="6 4"/><text x="%.1f" y="%.1f" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="700" fill="#111827">%s</text><text x="%.1f" y="%.1f" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4b5563">%s</text><text x="%.1f" y="%.1f" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" fill="#1d4ed8">%s</text></g>',
             $this->escape($node->id),
+            $node->metrics->openDocuments,
+            $node->metrics->intensity,
             $box['x'],
             $box['y'],
             $box['w'],
@@ -121,7 +158,10 @@ final class BpmnSvgRenderer
             $this->escape('Parallel: '.$node->parallelGroupKey),
             $box['x'] + $box['w'] / 2,
             $box['y'] + 48,
-            $this->escape(implode(', ', $node->requiredStepKeys))
+            $this->escape(implode(', ', $node->requiredStepKeys)),
+            $box['x'] + $box['w'] / 2,
+            $box['y'] + $box['h'] - 18,
+            $this->escape($metricsLabel)
         );
     }
 
@@ -131,8 +171,10 @@ final class BpmnSvgRenderer
             return '';
         }
 
-        $from = $this->center($this->positions[$edge->fromNodeId]);
-        $to = $this->center($this->positions[$edge->toNodeId]);
+        $fromBox = $this->positions[$edge->fromNodeId];
+        $toBox = $this->positions[$edge->toNodeId];
+        $from = $this->center($fromBox);
+        $to = $this->center($toBox);
         $style = $this->edgeStyle($edge, $options->view);
         $label = $this->edgeLabel($edge, $options->view);
         $labelX = ($from['x'] + $to['x']) / 2;
@@ -140,7 +182,9 @@ final class BpmnSvgRenderer
         $marker = $this->markerId($edge, $options->view);
         $path = $edge->status === 'observed_unexpected'
             ? $this->unexpectedPath($edge, $from, $to)
-            : sprintf('M %.1f %.1f L %.1f %.1f', $from['x'], $from['y'], $to['x'], $to['y']);
+            : ($options->layout === 'process'
+                ? $this->processPath($fromBox, $toBox)
+                : sprintf('M %.1f %.1f L %.1f %.1f', $from['x'], $from['y'], $to['x'], $to['y']));
 
         $text = $label === ''
             ? ''
@@ -153,7 +197,8 @@ final class BpmnSvgRenderer
             );
 
         return sprintf(
-            '<g data-edge-status="%s"><path d="%s" fill="none" stroke="%s" stroke-width="%.1f" stroke-dasharray="%s" marker-end="url(#%s)"/>%s</g>',
+            '<g data-edge-source="%s" data-edge-status="%s"><path d="%s" fill="none" stroke="%s" stroke-width="%.1f" stroke-dasharray="%s" marker-end="url(#%s)"/>%s</g>',
+            $this->escape($edge->source),
             $this->escape($edge->status),
             $path,
             $style['stroke'],
@@ -185,8 +230,13 @@ final class BpmnSvgRenderer
             return false;
         }
 
+        if ($options->layout === 'process' && in_array($options->view, ['summary', 'bottleneck'], true) && $edge->source === 'parallel_group') {
+            return false;
+        }
+
         return match ($options->view) {
             'summary' => $edge->source !== 'observed' && $edge->status !== 'observed_unexpected',
+            'bottleneck' => $edge->source === 'decision_point',
             'expected' => $edge->source !== 'observed' && $edge->status !== 'observed_unexpected',
             'observed' => $edge->observedCount > 0 || $edge->percentage > 0.0,
             'deviations' => $edge->status === 'missing_expected'
@@ -200,6 +250,18 @@ final class BpmnSvgRenderer
      * @return array<string, array{x: float, y: float, w: float, h: float}>
      */
     private function layout(BpmnProcessView $view, BpmnSvgRenderOptions $options): array
+    {
+        if ($options->layout === 'process') {
+            return $this->processLayout($view, $options);
+        }
+
+        return $this->graphLayout($view, $options);
+    }
+
+    /**
+     * @return array<string, array{x: float, y: float, w: float, h: float}>
+     */
+    private function graphLayout(BpmnProcessView $view, BpmnSvgRenderOptions $options): array
     {
         $positions = [];
         $tasks = array_values(array_filter($view->nodes, static fn (object $node): bool => $node instanceof BpmnTaskNode));
@@ -280,6 +342,139 @@ final class BpmnSvgRenderer
     }
 
     /**
+     * @return array<string, array{x: float, y: float, w: float, h: float}>
+     */
+    private function processLayout(BpmnProcessView $view, BpmnSvgRenderOptions $options): array
+    {
+        $positions = [];
+        $tasks = [];
+        $gateways = [];
+        $parallelGroups = [];
+        $parallelStepKeys = [];
+        $taskWidth = 178.0;
+        $taskHeight = 82.0;
+        $gatewayWidth = 92.0;
+        $gatewayHeight = 72.0;
+
+        foreach ($view->nodes as $node) {
+            if ($node instanceof BpmnTaskNode) {
+                $tasks[$node->id] = $node;
+                continue;
+            }
+
+            if ($node instanceof BpmnGatewayNode) {
+                $gateways[$node->id] = $node;
+                continue;
+            }
+
+            if ($node instanceof BpmnParallelGroupNode) {
+                $parallelGroups[$node->id] = $node;
+                foreach ($node->requiredStepKeys as $stepKey) {
+                    $parallelStepKeys[$stepKey] = true;
+                }
+            }
+        }
+
+        $requiredTasks = array_values(array_filter($tasks, static fn (BpmnTaskNode $task): bool => $task->required));
+        $allTasks = array_values($tasks);
+        $startTask = $requiredTasks[0] ?? $allTasks[0] ?? null;
+        $endTask = $requiredTasks[count($requiredTasks) - 1] ?? ($allTasks[count($allTasks) - 1] ?? null);
+        $startY = 250.0;
+        $branchY = [86.0, 220.0, 360.0, 490.0];
+        $left = 48.0;
+        $gatewayX = min(300.0, max(250.0, $options->width - 850.0));
+        $branchX = min(510.0, max(430.0, $options->width - 620.0));
+        $parallelWidth = 288.0;
+        $parallelX = min(max($branchX + 150.0, 650.0), max(360.0, $options->width - $parallelWidth - 250.0));
+        $endX = max($left + 600.0, $options->width - $taskWidth - 48.0);
+        $endY = 382.0;
+
+        if ($startTask !== null) {
+            $positions[$startTask->id] = ['x' => $left, 'y' => $startY, 'w' => $taskWidth, 'h' => $taskHeight];
+        }
+
+        if ($endTask !== null && $endTask->id !== $startTask?->id) {
+            $positions[$endTask->id] = ['x' => $endX, 'y' => $endY, 'w' => $taskWidth, 'h' => $taskHeight];
+        }
+
+        $parallelIndex = 0;
+        foreach ($parallelGroups as $group) {
+            $groupHeight = max(166.0, 58.0 + count($group->requiredStepKeys) * 86.0);
+            $groupY = 338.0 + $parallelIndex * 28.0;
+            $positions[$group->id] = ['x' => $parallelX, 'y' => $groupY, 'w' => $parallelWidth, 'h' => $groupHeight];
+
+            foreach (array_values($group->requiredStepKeys) as $memberIndex => $stepKey) {
+                $positions['task:'.$stepKey] = [
+                    'x' => $parallelX + 44.0,
+                    'y' => $groupY + 48.0 + $memberIndex * 84.0,
+                    'w' => $parallelWidth - 88.0,
+                    'h' => 70.0,
+                ];
+            }
+            ++$parallelIndex;
+        }
+
+        $decisionRuleTargets = [];
+        foreach ($view->edges as $edge) {
+            if ($edge->source !== 'decision_rule') {
+                continue;
+            }
+
+            $decisionRuleTargets[$edge->fromNodeId][] = $edge->toNodeId;
+        }
+
+        $placedBranchTargets = [];
+        foreach (array_values($gateways) as $gatewayIndex => $gateway) {
+            $anchorId = $gateway->afterStepKey !== null ? 'task:'.$gateway->afterStepKey : null;
+            $anchor = $anchorId !== null && isset($positions[$anchorId])
+                ? $positions[$anchorId]
+                : ['x' => $left, 'y' => $startY, 'w' => $taskWidth, 'h' => $taskHeight];
+            $x = $anchor['x'] + $anchor['w'] + 58.0;
+            $y = $anchor['y'] + 5.0;
+
+            if ($gatewayIndex === 0 && $startTask !== null && $gateway->afterStepKey === $startTask->stepKey) {
+                $x = $gatewayX;
+                $y = $startY + 5.0;
+            }
+
+            $positions[$gateway->id] = ['x' => $x, 'y' => $y, 'w' => $gatewayWidth, 'h' => $gatewayHeight];
+
+            $targets = array_values(array_unique($decisionRuleTargets[$gateway->id] ?? []));
+            foreach ($targets as $targetIndex => $targetId) {
+                if (!isset($tasks[$targetId]) || isset($positions[$targetId]) || isset($parallelStepKeys[$tasks[$targetId]->stepKey])) {
+                    continue;
+                }
+
+                $targetY = $gatewayIndex === 0
+                    ? ($branchY[$targetIndex] ?? (96.0 + $targetIndex * 124.0))
+                    : max(88.0, $anchor['y'] - 116.0 + $targetIndex * 126.0);
+                $positions[$targetId] = [
+                    'x' => $gatewayIndex === 0 ? $branchX : $anchor['x'] + $anchor['w'] + 210.0,
+                    'y' => $targetY,
+                    'w' => $taskWidth,
+                    'h' => $taskHeight,
+                ];
+                $placedBranchTargets[$targetId] = true;
+            }
+        }
+
+        $remaining = array_values(array_filter(
+            $tasks,
+            static fn (BpmnTaskNode $task): bool => !isset($positions[$task->id]) && !isset($placedBranchTargets[$task->id])
+        ));
+        foreach ($remaining as $index => $task) {
+            $positions[$task->id] = [
+                'x' => min($branchX + $index * 220.0, max($branchX, $options->width - $taskWidth - 260.0)),
+                'y' => 92.0 + ($index % 4) * 118.0,
+                'w' => $taskWidth,
+                'h' => $taskHeight,
+            ];
+        }
+
+        return $positions;
+    }
+
+    /**
      * @param array{x: float, y: float, w: float, h: float} $box
      * @return array{x: float, y: float}
      */
@@ -296,7 +491,7 @@ final class BpmnSvgRenderer
      */
     private function edgeStyle(BpmnTransitionEdge $edge, string $view): array
     {
-        if ($view === 'summary') {
+        if (in_array($view, ['summary', 'bottleneck'], true)) {
             return [
                 'stroke' => '#6b7280',
                 'width' => 1.6,
@@ -330,7 +525,7 @@ final class BpmnSvgRenderer
 
     private function markerId(BpmnTransitionEdge $edge, string $view): string
     {
-        if ($view === 'summary') {
+        if (in_array($view, ['summary', 'bottleneck'], true)) {
             return 'arrow-expected';
         }
 
@@ -382,18 +577,57 @@ final class BpmnSvgRenderer
         );
     }
 
+    /**
+     * @param array{x: float, y: float, w: float, h: float} $from
+     * @param array{x: float, y: float, w: float, h: float} $to
+     */
+    private function processPath(array $from, array $to): string
+    {
+        $startX = $from['x'] + $from['w'];
+        $startY = $from['y'] + $from['h'] / 2;
+        $endX = $to['x'];
+        $endY = $to['y'] + $to['h'] / 2;
+
+        if ($endX >= $startX) {
+            $midX = ($startX + $endX) / 2;
+
+            return sprintf(
+                'M %.1f %.1f H %.1f V %.1f H %.1f',
+                $startX,
+                $startY,
+                $midX,
+                $endY,
+                $endX
+            );
+        }
+
+        $controlX = max($startX + 60.0, $from['x'] + $from['w'] + 80.0);
+
+        return sprintf(
+            'M %.1f %.1f C %.1f %.1f, %.1f %.1f, %.1f %.1f',
+            $startX,
+            $startY,
+            $controlX,
+            $startY,
+            $controlX,
+            $endY,
+            $endX,
+            $endY
+        );
+    }
+
     private function taskFill(BpmnNodeMetrics $metrics): string
     {
         if ($metrics->openDocuments > 0) {
-            return '#fee2e2';
+            return $metrics->openDocuments >= 10 ? '#fecaca' : '#fee2e2';
         }
 
         if ($metrics->intensity >= 0.8) {
-            return '#fed7aa';
+            return '#fdba74';
         }
 
         if ($metrics->intensity >= 0.5) {
-            return '#fef3c7';
+            return '#fed7aa';
         }
 
         return '#f9fafb';
@@ -401,6 +635,10 @@ final class BpmnSvgRenderer
 
     private function edgeLabel(BpmnTransitionEdge $edge, string $view): string
     {
+        if ($view === 'bottleneck') {
+            return '';
+        }
+
         if ($view === 'summary') {
             return $edge->conditionLabel !== null ? $this->shortConditionLabel($edge->conditionLabel, true) : '';
         }
@@ -430,7 +668,7 @@ final class BpmnSvgRenderer
         $value = trim($matches[3], '"');
 
         if (str_starts_with($value, 'RE - ')) {
-            $value = substr($value, 5);
+            $value = 'RE-'.substr($value, 5);
         }
 
         if ($operator === 'eq') {
@@ -450,12 +688,54 @@ final class BpmnSvgRenderer
         return sprintf('%s %s', $operator, $value);
     }
 
+    private function shortGatewayLabel(string $decisionPointKey): string
+    {
+        $label = str_replace(['route_after_', 'freigabe_ab_'], ['', '> '], $decisionPointKey);
+        $label = str_replace('_', ' ', $label);
+
+        return trim($label);
+    }
+
+    private function findEndTaskId(BpmnProcessView $view): ?string
+    {
+        $requiredTaskId = null;
+        $lastTaskId = null;
+
+        foreach ($view->nodes as $node) {
+            if (!$node instanceof BpmnTaskNode) {
+                continue;
+            }
+
+            $lastTaskId = $node->id;
+            if ($node->required) {
+                $requiredTaskId = $node->id;
+            }
+        }
+
+        return $requiredTaskId ?? $lastTaskId;
+    }
+
+    /**
+     * @return array<string, BpmnNodeMetrics>
+     */
+    private function taskMetricsByStep(BpmnProcessView $view): array
+    {
+        $metrics = [];
+        foreach ($view->nodes as $node) {
+            if ($node instanceof BpmnTaskNode) {
+                $metrics[$node->stepKey] = $node->metrics;
+            }
+        }
+
+        return $metrics;
+    }
+
     private function renderLegend(int $width, int $height, string $view): string
     {
         $x = max(20, $width - 470);
         $y = $height - 58;
 
-        if ($view === 'summary') {
+        if (in_array($view, ['summary', 'bottleneck'], true)) {
             return sprintf(
                 '<g data-legend="true"><rect x="%d" y="%d" width="330" height="38" rx="8" fill="#ffffff" stroke="#e5e7eb"/><line x1="%d" y1="%d" x2="%d" y2="%d" stroke="#6b7280" stroke-width="2"/><text x="%d" y="%d" font-family="Arial, sans-serif" font-size="11">expected flow</text><rect x="%d" y="%d" width="34" height="16" rx="4" fill="#fee2e2" stroke="#dc2626"/><text x="%d" y="%d" font-family="Arial, sans-serif" font-size="11">task heatmap / backlog</text></g>',
                 $x,
