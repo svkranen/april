@@ -109,16 +109,54 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
     public function testParallelGroupAllowsAnyOrder(): void
     {
         $path = $this->templatePath(
-            ['02 Versenden', '03 Buchen', '04 Zahlungseingang erwartet'],
+            ['01 Pruefen', '02 Versenden'],
             [
                 [
                     'key' => 'buchung_und_zahlung',
+                    'after' => '02 Versenden',
                     'required_steps' => ['03 Buchen', '04 Zahlungseingang erwartet'],
                     'order' => 'any',
                 ],
             ]
         );
         $tester = new CommandTester($this->command([
+            ['01 Pruefen', 1],
+            ['02 Versenden', 1],
+            ['03 Buchen', 1],
+            ['04 Zahlungseingang erwartet', 1],
+        ]));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--template' => $path,
+            '--document-version' => '1',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Status: OK', $tester->getDisplay());
+        self::assertStringContainsString('Soll-Schrittfolge: 01 Pruefen -> 02 Versenden -> 03 Buchen -> 04 Zahlungseingang erwartet', $tester->getDisplay());
+        self::assertStringContainsString('Parallel Group satisfied: buchung_und_zahlung', $tester->getDisplay());
+        self::assertStringContainsString('- none', $tester->getDisplay());
+
+        $this->removeTemplate($path);
+    }
+
+    public function testParallelGroupAllowsAlternativeOrder(): void
+    {
+        $path = $this->templatePath(
+            ['01 Pruefen', '02 Versenden'],
+            [
+                [
+                    'key' => 'buchung_und_zahlung',
+                    'after' => '02 Versenden',
+                    'required_steps' => ['03 Buchen', '04 Zahlungseingang erwartet'],
+                    'order' => 'any',
+                ],
+            ]
+        );
+        $tester = new CommandTester($this->command([
+            ['01 Pruefen', 1],
             ['02 Versenden', 1],
             ['04 Zahlungseingang erwartet', 1],
             ['03 Buchen', 1],
@@ -133,7 +171,77 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringContainsString('Status: OK', $tester->getDisplay());
+        self::assertStringContainsString('Ist-Schrittfolge: 01 Pruefen -> 02 Versenden -> 04 Zahlungseingang erwartet -> 03 Buchen', $tester->getDisplay());
+        self::assertStringContainsString('Parallel Group satisfied: buchung_und_zahlung', $tester->getDisplay());
         self::assertStringContainsString('- none', $tester->getDisplay());
+
+        $this->removeTemplate($path);
+    }
+
+    public function testParallelGroupMissingSecondStepReturnsDeviation(): void
+    {
+        $path = $this->templatePath(
+            ['01 Pruefen', '02 Versenden'],
+            [
+                [
+                    'key' => 'buchung_und_zahlung',
+                    'after' => '02 Versenden',
+                    'required_steps' => ['03 Buchen', '04 Zahlungseingang erwartet'],
+                    'order' => 'any',
+                ],
+            ]
+        );
+        $tester = new CommandTester($this->command([
+            ['01 Pruefen', 1],
+            ['02 Versenden', 1],
+            ['03 Buchen', 1],
+        ]));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--template' => $path,
+            '--document-version' => '1',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Status: DEVIATION', $tester->getDisplay());
+        self::assertStringContainsString('Missing step: 04 Zahlungseingang erwartet', $tester->getDisplay());
+        self::assertStringContainsString('Parallel Group incomplete: buchung_und_zahlung (missing: 04 Zahlungseingang erwartet)', $tester->getDisplay());
+
+        $this->removeTemplate($path);
+    }
+
+    public function testParallelGroupMissingFirstStepReturnsDeviation(): void
+    {
+        $path = $this->templatePath(
+            ['01 Pruefen', '02 Versenden'],
+            [
+                [
+                    'key' => 'buchung_und_zahlung',
+                    'after' => '02 Versenden',
+                    'required_steps' => ['03 Buchen', '04 Zahlungseingang erwartet'],
+                    'order' => 'any',
+                ],
+            ]
+        );
+        $tester = new CommandTester($this->command([
+            ['01 Pruefen', 1],
+            ['02 Versenden', 1],
+            ['04 Zahlungseingang erwartet', 1],
+        ]));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--template' => $path,
+            '--document-version' => '1',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Status: DEVIATION', $tester->getDisplay());
+        self::assertStringContainsString('Missing step: 03 Buchen', $tester->getDisplay());
+        self::assertStringContainsString('Parallel Group incomplete: buchung_und_zahlung (missing: 03 Buchen)', $tester->getDisplay());
 
         $this->removeTemplate($path);
     }
@@ -145,6 +253,7 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
             [
                 [
                     'key' => 'buchung_und_zahlung',
+                    'after' => '02 Versenden',
                     'required_steps' => ['03 Buchen', '04 Zahlungseingang erwartet'],
                     'order' => 'any',
                 ],
@@ -269,6 +378,9 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
                 $parallelGroupsYaml .= sprintf("  - key: %s\n    required_steps:\n", $group['key']);
                 foreach ($group['required_steps'] as $requiredStep) {
                     $parallelGroupsYaml .= sprintf("      - '%s'\n", $requiredStep);
+                }
+                if (isset($group['after'])) {
+                    $parallelGroupsYaml .= sprintf("    after: '%s'\n", $group['after']);
                 }
                 $parallelGroupsYaml .= sprintf("    order: %s\n", $group['order']);
             }

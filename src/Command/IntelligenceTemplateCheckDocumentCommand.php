@@ -76,6 +76,16 @@ final class IntelligenceTemplateCheckDocumentCommand extends Command
         $output->writeln(sprintf('<info>Status:</info> %s', $result->status()));
         $output->writeln(sprintf('<info>Soll-Schrittfolge:</info> %s', $this->formatSteps($result->expectedSteps)));
         $output->writeln(sprintf('<info>Ist-Schrittfolge:</info> %s', $this->formatSteps($result->actualSteps)));
+        $output->writeln('<info>Parallelgruppen:</info>');
+
+        if ($result->parallelGroupMessages === []) {
+            $output->writeln('  - none');
+        } else {
+            foreach ($result->parallelGroupMessages as $message) {
+                $output->writeln(sprintf('  - %s', $message));
+            }
+        }
+
         $output->writeln('<info>Abweichungen:</info>');
 
         if ($result->deviations === []) {

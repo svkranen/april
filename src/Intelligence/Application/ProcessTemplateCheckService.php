@@ -19,32 +19,54 @@ final class ProcessTemplateCheckService
         ?int $documentVersion = null,
         EventTimelineOrder $order = EventTimelineOrder::DEFAULT
     ): ProcessTemplateCheckResult {
-        $expectedSteps = $this->expectedSteps($template);
         $parallelGroups = $this->parallelGroups($template);
+        $expectedSteps = $this->expectedSteps($template, $parallelGroups);
         $actualSteps = $this->actualSteps($documentUuid, $processKey, $documentVersion, $order);
         $deviations = $this->deviations($expectedSteps, $actualSteps, $parallelGroups);
+        $parallelGroupMessages = $this->parallelGroupMessages($parallelGroups, $actualSteps);
 
-        return new ProcessTemplateCheckResult($expectedSteps, $actualSteps, $deviations);
+        return new ProcessTemplateCheckResult($expectedSteps, $actualSteps, $deviations, $parallelGroupMessages);
     }
 
     /**
      * @param array<string, mixed> $template
+     * @param array<int, array{key: string, after: ?string, required_steps: array<int, string>}> $parallelGroups
      * @return array<int, string>
      */
-    private function expectedSteps(array $template): array
+    private function expectedSteps(array $template, array $parallelGroups): array
     {
         $steps = $template['steps'] ?? [];
         if (!is_array($steps)) {
-            return [];
+            $stepKeys = [];
+        } else {
+            $stepKeys = [];
+            foreach ($steps as $step) {
+                if (!is_array($step) || !isset($step['key'])) {
+                    continue;
+                }
+
+                $stepKeys[] = (string) $step['key'];
+            }
         }
 
-        $stepKeys = [];
-        foreach ($steps as $step) {
-            if (!is_array($step) || !isset($step['key'])) {
+        foreach ($parallelGroups as $group) {
+            $missingRequiredSteps = array_values(array_filter(
+                $group['required_steps'],
+                static fn (string $stepKey): bool => !in_array($stepKey, $stepKeys, true)
+            ));
+            if ($missingRequiredSteps === []) {
                 continue;
             }
 
-            $stepKeys[] = (string) $step['key'];
+            $insertPosition = count($stepKeys);
+            if ($group['after'] !== null) {
+                $afterPosition = array_search($group['after'], $stepKeys, true);
+                if ($afterPosition !== false) {
+                    $insertPosition = $afterPosition + 1;
+                }
+            }
+
+            array_splice($stepKeys, $insertPosition, 0, $missingRequiredSteps);
         }
 
         return $stepKeys;
@@ -52,7 +74,7 @@ final class ProcessTemplateCheckService
 
     /**
      * @param array<string, mixed> $template
-     * @return array<string, string>
+     * @return array<int, array{key: string, after: ?string, required_steps: array<int, string>}>
      */
     private function parallelGroups(array $template): array
     {
@@ -61,19 +83,31 @@ final class ProcessTemplateCheckService
             return [];
         }
 
-        $stepGroups = [];
+        $parallelGroups = [];
         foreach ($groups as $index => $group) {
             if (!is_array($group) || ($group['order'] ?? null) !== 'any' || !isset($group['required_steps']) || !is_array($group['required_steps'])) {
                 continue;
             }
 
             $groupKey = isset($group['key']) ? (string) $group['key'] : sprintf('parallel_group_%d', $index);
+            $requiredSteps = [];
             foreach ($group['required_steps'] as $stepKey) {
-                $stepGroups[(string) $stepKey] = $groupKey;
+                $requiredSteps[] = (string) $stepKey;
             }
+
+            $requiredSteps = array_values(array_unique($requiredSteps));
+            if ($requiredSteps === []) {
+                continue;
+            }
+
+            $parallelGroups[] = [
+                'key' => $groupKey,
+                'after' => isset($group['after']) ? (string) $group['after'] : null,
+                'required_steps' => $requiredSteps,
+            ];
         }
 
-        return $stepGroups;
+        return $parallelGroups;
     }
 
     /**
@@ -119,7 +153,7 @@ final class ProcessTemplateCheckService
     /**
      * @param array<int, string> $expectedSteps
      * @param array<int, string> $actualSteps
-     * @param array<string, string> $parallelGroups
+     * @param array<int, array{key: string, after: ?string, required_steps: array<int, string>}> $parallelGroups
      * @return array<int, string>
      */
     private function deviations(array $expectedSteps, array $actualSteps, array $parallelGroups): array
@@ -138,16 +172,28 @@ final class ProcessTemplateCheckService
             $deviations[] = 'Wrong order';
         }
 
+        foreach ($parallelGroups as $group) {
+            $missingRequiredSteps = array_values(array_diff($group['required_steps'], $actualSteps));
+            if ($missingRequiredSteps !== []) {
+                $deviations[] = sprintf(
+                    'Parallel Group incomplete: %s (missing: %s)',
+                    $group['key'],
+                    implode(', ', $missingRequiredSteps)
+                );
+            }
+        }
+
         return $deviations;
     }
 
     /**
      * @param array<int, string> $expectedSteps
      * @param array<int, string> $actualSteps
-     * @param array<string, string> $parallelGroups
+     * @param array<int, array{key: string, after: ?string, required_steps: array<int, string>}> $parallelGroups
      */
     private function isExpectedOrder(array $expectedSteps, array $actualSteps, array $parallelGroups): bool
     {
+        $stepGroups = $this->parallelStepGroups($parallelGroups);
         $actualPositions = [];
         foreach ($actualSteps as $position => $stepKey) {
             $actualPositions[$stepKey] ??= $position;
@@ -162,7 +208,7 @@ final class ProcessTemplateCheckService
                     continue;
                 }
 
-                if ($this->sameAnyOrderParallelGroup($leftStepKey, $rightStepKey, $parallelGroups)) {
+                if ($this->sameAnyOrderParallelGroup($leftStepKey, $rightStepKey, $stepGroups)) {
                     continue;
                 }
 
@@ -176,11 +222,53 @@ final class ProcessTemplateCheckService
     }
 
     /**
-     * @param array<string, string> $parallelGroups
+     * @param array<string, string> $stepGroups
      */
-    private function sameAnyOrderParallelGroup(string $leftStepKey, string $rightStepKey, array $parallelGroups): bool
+    private function sameAnyOrderParallelGroup(string $leftStepKey, string $rightStepKey, array $stepGroups): bool
     {
-        return isset($parallelGroups[$leftStepKey], $parallelGroups[$rightStepKey])
-            && $parallelGroups[$leftStepKey] === $parallelGroups[$rightStepKey];
+        return isset($stepGroups[$leftStepKey], $stepGroups[$rightStepKey])
+            && $stepGroups[$leftStepKey] === $stepGroups[$rightStepKey];
+    }
+
+    /**
+     * @param array<int, array{key: string, after: ?string, required_steps: array<int, string>}> $parallelGroups
+     * @return array<string, string>
+     */
+    private function parallelStepGroups(array $parallelGroups): array
+    {
+        $stepGroups = [];
+        foreach ($parallelGroups as $group) {
+            foreach ($group['required_steps'] as $stepKey) {
+                $stepGroups[$stepKey] = $group['key'];
+            }
+        }
+
+        return $stepGroups;
+    }
+
+    /**
+     * @param array<int, array{key: string, after: ?string, required_steps: array<int, string>}> $parallelGroups
+     * @param array<int, string> $actualSteps
+     * @return array<int, string>
+     */
+    private function parallelGroupMessages(array $parallelGroups, array $actualSteps): array
+    {
+        $messages = [];
+        foreach ($parallelGroups as $group) {
+            $missingRequiredSteps = array_values(array_diff($group['required_steps'], $actualSteps));
+            if ($missingRequiredSteps === []) {
+                $messages[] = sprintf('Parallel Group satisfied: %s', $group['key']);
+
+                continue;
+            }
+
+            $messages[] = sprintf(
+                'Parallel Group incomplete: %s (missing: %s)',
+                $group['key'],
+                implode(', ', $missingRequiredSteps)
+            );
+        }
+
+        return $messages;
     }
 }

@@ -8,11 +8,13 @@ final readonly class ProcessTemplateCheckResult
      * @param array<int, string> $expectedSteps
      * @param array<int, string> $actualSteps
      * @param array<int, string> $deviations
+     * @param array<int, string> $parallelGroupMessages
      */
     public function __construct(
         public array $expectedSteps,
         public array $actualSteps,
-        public array $deviations
+        public array $deviations,
+        public array $parallelGroupMessages = []
     ) {
     }
 
