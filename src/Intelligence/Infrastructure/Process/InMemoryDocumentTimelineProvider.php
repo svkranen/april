@@ -84,6 +84,7 @@ final class InMemoryDocumentTimelineProvider implements DocumentTimelineProvider
             }
 
             $summaries[$snapshot->externalEventKey] = [
+                'attributes' => $snapshot->attributes,
                 'fields' => array_keys($snapshot->attributes),
                 'warnings' => $snapshot->warnings,
             ];

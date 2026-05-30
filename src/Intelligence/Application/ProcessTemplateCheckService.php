@@ -4,13 +4,16 @@ namespace App\Intelligence\Application;
 
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateArrayFactory;
+use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
+use App\Intelligence\Domain\ProcessTemplateDecisionRuleEvaluator;
 use App\Intelligence\Domain\ProcessTemplateParallelGroup;
 use App\Intelligence\Domain\ProcessTemplateStep;
 
 final class ProcessTemplateCheckService
 {
     public function __construct(
-        private readonly DocumentTimelineProvider $timelineProvider
+        private readonly DocumentTimelineProvider $timelineProvider,
+        private readonly ProcessTemplateDecisionRuleEvaluator $decisionRuleEvaluator = new ProcessTemplateDecisionRuleEvaluator()
     ) {
     }
 
@@ -42,8 +45,13 @@ final class ProcessTemplateCheckService
     ): ProcessTemplateCheckResult {
         $parallelGroups = $this->parallelGroups($template);
         $expectedSteps = $this->expectedSteps($template, $parallelGroups);
-        $actualSteps = $this->actualSteps($documentUuid, $processKey, $documentVersion, $order);
+        $actualStepEntries = $this->actualStepEntries($documentUuid, $processKey, $documentVersion, $order);
+        $actualSteps = array_map(
+            static fn (array $entry): string => $entry['step'],
+            $actualStepEntries
+        );
         $deviations = $this->deviations($expectedSteps, $actualSteps, $parallelGroups);
+        $deviations = array_merge($deviations, $this->decisionDeviations($template->decisionPoints, $actualStepEntries));
         $parallelGroupMessages = $this->parallelGroupMessages($parallelGroups, $actualSteps);
 
         return new ProcessTemplateCheckResult($expectedSteps, $actualSteps, $deviations, $parallelGroupMessages);
@@ -101,9 +109,9 @@ final class ProcessTemplateCheckService
     }
 
     /**
-     * @return array<int, string>
+     * @return array<int, array{step: string, context: array<string, mixed>|null}>
      */
-    private function actualSteps(string $documentUuid, string $processKey, ?int $documentVersion, EventTimelineOrder $order): array
+    private function actualStepEntries(string $documentUuid, string $processKey, ?int $documentVersion, EventTimelineOrder $order): array
     {
         $events = array_values(array_filter(
             $this->timelineProvider->build($documentUuid, $order)->events,
@@ -126,18 +134,106 @@ final class ProcessTemplateCheckService
 
         usort($events, static fn (DocumentTimelineEventRow $left, DocumentTimelineEventRow $right): int => $order->compareTimelineRows($left, $right));
 
-        $stepKeys = [];
+        $entries = [];
         $previousStepKey = null;
         foreach ($events as $event) {
             if ($event->stepKey === $previousStepKey) {
                 continue;
             }
 
-            $stepKeys[] = $event->stepKey;
+            $entries[] = [
+                'step' => $event->stepKey,
+                'context' => $this->contextFromSummary($event->contextSummary),
+            ];
             $previousStepKey = $event->stepKey;
         }
 
-        return $stepKeys;
+        return $entries;
+    }
+
+    /**
+     * @param array<string, mixed>|null $contextSummary
+     * @return array<string, mixed>|null
+     */
+    private function contextFromSummary(?array $contextSummary): ?array
+    {
+        if ($contextSummary === null) {
+            return null;
+        }
+
+        $attributes = $contextSummary['attributes'] ?? null;
+
+        return is_array($attributes) ? $attributes : null;
+    }
+
+    /**
+     * @param array<int, ProcessTemplateDecisionPoint> $decisionPoints
+     * @param array<int, array{step: string, context: array<string, mixed>|null}> $actualStepEntries
+     * @return array<int, string>
+     */
+    private function decisionDeviations(array $decisionPoints, array $actualStepEntries): array
+    {
+        $deviations = [];
+        if ($decisionPoints === []) {
+            return $deviations;
+        }
+
+        foreach ($decisionPoints as $decisionPoint) {
+            if ($decisionPoint->after === null) {
+                continue;
+            }
+
+            $position = $this->stepPosition($actualStepEntries, $decisionPoint->after);
+            if ($position === null) {
+                $deviations[] = sprintf(
+                    'Decision rule violation: %s after step %s not found',
+                    $decisionPoint->key,
+                    $decisionPoint->after
+                );
+                continue;
+            }
+
+            $context = $actualStepEntries[$position]['context'];
+            if ($context === null) {
+                $deviations[] = sprintf(
+                    'Decision rule violation: %s missing context after %s',
+                    $decisionPoint->key,
+                    $decisionPoint->after
+                );
+                continue;
+            }
+
+            $expectedNextStepKey = $this->decisionRuleEvaluator->expectedNextStepKey($decisionPoint, $context);
+            if ($expectedNextStepKey === null) {
+                continue;
+            }
+
+            $actualNextStepKey = $actualStepEntries[$position + 1]['step'] ?? null;
+            if ($actualNextStepKey !== $expectedNextStepKey) {
+                $deviations[] = sprintf(
+                    'Decision rule violation: %s expected %s but got %s',
+                    $decisionPoint->key,
+                    $expectedNextStepKey,
+                    $actualNextStepKey ?? 'none'
+                );
+            }
+        }
+
+        return $deviations;
+    }
+
+    /**
+     * @param array<int, array{step: string, context: array<string, mixed>|null}> $actualStepEntries
+     */
+    private function stepPosition(array $actualStepEntries, string $stepKey): ?int
+    {
+        foreach ($actualStepEntries as $position => $entry) {
+            if ($entry['step'] === $stepKey) {
+                return $position;
+            }
+        }
+
+        return null;
     }
 
     /**

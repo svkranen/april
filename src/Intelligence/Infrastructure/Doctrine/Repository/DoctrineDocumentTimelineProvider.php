@@ -85,6 +85,7 @@ final class DoctrineDocumentTimelineProvider implements DocumentTimelineProvider
             }
 
             $summaries[$eventKey] = [
+                'attributes' => $snapshot->getContextJson(),
                 'fields' => array_keys($snapshot->getContextJson()),
                 'warnings' => $snapshot->getWarnings(),
             ];
