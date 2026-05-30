@@ -3,6 +3,7 @@
 namespace App\Tests\Intelligence\Domain;
 
 use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateFieldMapping;
 use App\Intelligence\Domain\ProcessTemplateParallelGroup;
 use App\Intelligence\Domain\ProcessTemplateStep;
 use App\Intelligence\Domain\ProcessTemplateSuggestionArraySerializer;
@@ -65,6 +66,19 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
                 parallelGroups: [
                     new ProcessTemplateParallelGroup('suggested_parallel_1', 'A', ['B', 'C'], 'any'),
                 ],
+                fieldMappings: [
+                    'invoice_direction' => new ProcessTemplateFieldMapping(
+                        'invoice_direction',
+                        'amagno',
+                        'Eingang/Ausgang'
+                    ),
+                    'amount_net' => new ProcessTemplateFieldMapping(
+                        'amount_net',
+                        'amagno',
+                        'Nettobetrag',
+                        valueType: 'number'
+                    ),
+                ],
             ),
             ['doc-a', 'doc-b'],
             [
@@ -85,6 +99,12 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
                     'suggested_parallel_1',
                     ['doc-a', 'doc-b'],
                     0.5
+                ),
+                new ProcessTemplateSuggestionNote(
+                    'possible_decision_point',
+                    'Multiple next steps observed after A. Context fields may be required to explain routing.',
+                    afterStepKey: 'A',
+                    observedNextSteps: ['B', 'C']
                 ),
             ]
         );
@@ -114,6 +134,17 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
                         'document_uuids' => ['doc-a', 'doc-b'],
                     ],
                 ],
+                'field_mapping' => [
+                    'invoice_direction' => [
+                        'source' => 'amagno',
+                        'tag_name' => 'Eingang/Ausgang',
+                    ],
+                    'amount_net' => [
+                        'source' => 'amagno',
+                        'tag_name' => 'Nettobetrag',
+                        'value_type' => 'number',
+                    ],
+                ],
                 'parallel_groups' => [
                     [
                         'key' => 'suggested_parallel_1',
@@ -131,6 +162,12 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
                         'parallel_group_key' => 'suggested_parallel_1',
                         'message' => 'Observed both orders across document timelines.',
                         'document_uuids' => ['doc-a', 'doc-b'],
+                    ],
+                    [
+                        'type' => 'possible_decision_point',
+                        'after_step' => 'A',
+                        'observed_next_steps' => ['B', 'C'],
+                        'message' => 'Multiple next steps observed after A. Context fields may be required to explain routing.',
                     ],
                 ],
             ],

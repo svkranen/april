@@ -13,10 +13,14 @@ use App\Intelligence\Domain\SuggestedTransition;
 
 final class ProcessTemplateMultiDocumentSuggestionService
 {
+    private readonly DecisionPointCandidateDetector $decisionPointCandidateDetector;
+
     public function __construct(
         private readonly DocumentTimelineProvider $timelineProvider,
-        private readonly ProcessDocumentUuidProvider $documentUuidProvider
+        private readonly ProcessDocumentUuidProvider $documentUuidProvider,
+        ?DecisionPointCandidateDetector $decisionPointCandidateDetector = null
     ) {
+        $this->decisionPointCandidateDetector = $decisionPointCandidateDetector ?? new DecisionPointCandidateDetector();
     }
 
     /**
@@ -85,7 +89,7 @@ final class ProcessTemplateMultiDocumentSuggestionService
         }
 
         $maxObservedCount = $this->maxObservedCount($transitions);
-        $parallelGroups = $this->suggestedParallelGroups($sequences, $steps);
+        $parallelGroups = $this->suggestedParallelGroups($sequences, $steps, $transitions);
         $warnings = $this->conflictingTransitionWarnings($transitions);
         $suggestions = [];
         foreach ($parallelGroups as $parallelGroup) {
@@ -104,6 +108,17 @@ final class ProcessTemplateMultiDocumentSuggestionService
                 $parallelGroup['key'],
                 $parallelGroup['document_uuids'],
                 $parallelGroup['confidence']
+            );
+        }
+        foreach ($this->decisionPointCandidateDetector->detect($sequences) as $candidate) {
+            $suggestions[] = new ProcessTemplateSuggestionNote(
+                'possible_decision_point',
+                sprintf(
+                    'Multiple next steps observed after %s. Context fields may be required to explain routing.',
+                    $candidate->afterStepKey
+                ),
+                afterStepKey: $candidate->afterStepKey,
+                observedNextSteps: $candidate->observedNextSteps
             );
         }
 
@@ -127,7 +142,8 @@ final class ProcessTemplateMultiDocumentSuggestionService
                         $parallelGroup['order']
                     ),
                     $parallelGroups
-                )
+                ),
+                decisionPoints: []
             ),
             $usedDocumentUuids,
             $this->publicTransitions($transitions, $maxObservedCount),
@@ -261,17 +277,31 @@ final class ProcessTemplateMultiDocumentSuggestionService
     /**
      * @param array<int, array{document_uuid: string, steps: array<int, array{key: string, normalized: string}>}> $sequences
      * @param array<string, string> $steps
+     * @param array<string, array{from: string, to: string, from_normalized: string, to_normalized: string, observed_count: int}> $transitions
      * @return array<int, array{key: string, after?: string, required_steps: array<int, string>, order: string, confidence: float, reason: string, document_uuids: array<int, string>}>
      */
-    private function suggestedParallelGroups(array $sequences, array $steps): array
+    private function suggestedParallelGroups(array $sequences, array $steps, array $transitions): array
     {
         $pairs = [];
         $firstSteps = [];
         $lastSteps = [];
         $stepOccurrences = [];
+        $directTransitionDocuments = [];
 
         foreach ($sequences as $documentSequence) {
             $documentUuid = $documentSequence['document_uuid'];
+            $sequence = $documentSequence['steps'];
+
+            for ($i = 0, $max = count($sequence) - 1; $i < $max; ++$i) {
+                $from = $sequence[$i]['normalized'];
+                $to = $sequence[$i + 1]['normalized'];
+                if ($from === $to) {
+                    continue;
+                }
+
+                $directTransitionDocuments[$from . "\0" . $to][$documentUuid] = true;
+            }
+
             $uniqueSequence = $this->uniqueSequence($documentSequence['steps']);
             if ($uniqueSequence === []) {
                 continue;
@@ -320,7 +350,8 @@ final class ProcessTemplateMultiDocumentSuggestionService
         }
 
         $groups = [];
-        foreach ($pairs as $pair) {
+        $groupedPairKeys = [];
+        foreach ($pairs as $pairKey => $pair) {
             if (count($pair['documents']) < 2 || count($pair['orders']) < 2) {
                 continue;
             }
@@ -337,7 +368,8 @@ final class ProcessTemplateMultiDocumentSuggestionService
                 continue;
             }
 
-            if (!$this->hasSharedDirectBoundary($pair, $left . "\0" . $right, $right . "\0" . $left)) {
+            $hasSharedDirectBoundary = $this->hasSharedDirectBoundary($pair, $left . "\0" . $right, $right . "\0" . $left);
+            if (!$hasSharedDirectBoundary && !$this->hasObservedBidirectionalDirectTransitions($transitions, $left, $right)) {
                 continue;
             }
 
@@ -361,12 +393,24 @@ final class ProcessTemplateMultiDocumentSuggestionService
                 ],
                 'order' => 'any',
                 'confidence' => $total === 0 ? 0.0 : round(min($forward, $reverse) / $total, 4),
-                'reason' => 'Observed both orders across document timelines.',
+                'reason' => $hasSharedDirectBoundary
+                    ? 'Observed both orders across document timelines.'
+                    : 'Observed bidirectional direct transitions; boundary context varies.',
                 'document_uuids' => $documentUuids,
             ];
+            $groupedPairKeys[$pairKey] = true;
         }
 
-        return $groups;
+        return $this->appendBidirectionalFallbackParallelGroups(
+            $groups,
+            $transitions,
+            $steps,
+            $stepOccurrences,
+            $firstSteps,
+            $lastSteps,
+            $directTransitionDocuments,
+            $groupedPairKeys
+        );
     }
 
     /**
@@ -446,6 +490,118 @@ final class ProcessTemplateMultiDocumentSuggestionService
         }
 
         return $unique;
+    }
+
+    /**
+     * @param array<string, array{observed_count: int}> $transitions
+     */
+    private function hasObservedBidirectionalDirectTransitions(array $transitions, string $left, string $right): bool
+    {
+        $forward = $transitions[$left . "\0" . $right]['observed_count'] ?? 0;
+        $reverse = $transitions[$right . "\0" . $left]['observed_count'] ?? 0;
+
+        return $forward >= 2 && $reverse >= 2;
+    }
+
+    /**
+     * @param array<int, array{key: string, after?: string, required_steps: array<int, string>, order: string, confidence: float, reason: string, document_uuids: array<int, string>}> $groups
+     * @param array<string, array{from: string, to: string, from_normalized: string, to_normalized: string, observed_count: int}> $transitions
+     * @param array<string, string> $steps
+     * @param array<string, array<string, true>> $stepOccurrences
+     * @param array<string, array<string, true>> $firstSteps
+     * @param array<string, array<string, true>> $lastSteps
+     * @param array<string, array<string, true>> $directTransitionDocuments
+     * @param array<string, true> $groupedPairKeys
+     * @return array<int, array{key: string, after?: string, required_steps: array<int, string>, order: string, confidence: float, reason: string, document_uuids: array<int, string>}>
+     */
+    private function appendBidirectionalFallbackParallelGroups(
+        array $groups,
+        array $transitions,
+        array $steps,
+        array $stepOccurrences,
+        array $firstSteps,
+        array $lastSteps,
+        array $directTransitionDocuments,
+        array $groupedPairKeys
+    ): array {
+        $seenPairs = [];
+
+        foreach ($transitions as $transition) {
+            $left = $transition['from_normalized'];
+            $right = $transition['to_normalized'];
+            $reverseKey = $right . "\0" . $left;
+            if (!isset($transitions[$reverseKey])) {
+                continue;
+            }
+
+            $pair = [$left, $right];
+            sort($pair);
+            $pairKey = implode("\0", $pair);
+            if (isset($seenPairs[$pairKey]) || isset($groupedPairKeys[$pairKey])) {
+                continue;
+            }
+            $seenPairs[$pairKey] = true;
+
+            [$first, $second] = $pair;
+            if (!$this->hasObservedBidirectionalDirectTransitions($transitions, $first, $second)) {
+                continue;
+            }
+
+            $documentUuids = array_keys(
+                ($directTransitionDocuments[$first . "\0" . $second] ?? [])
+                + ($directTransitionDocuments[$second . "\0" . $first] ?? [])
+            );
+            if (count($documentUuids) < 2) {
+                continue;
+            }
+            sort($documentUuids);
+
+            if ($this->isStableBoundaryPairForFallback($documentUuids, $first, $second, $firstSteps, $lastSteps)) {
+                continue;
+            }
+
+            $forward = $transitions[$first . "\0" . $second]['observed_count'];
+            $reverse = $transitions[$second . "\0" . $first]['observed_count'];
+            $total = $forward + $reverse;
+
+            $groups[] = [
+                'key' => sprintf('suggested_parallel_%d', count($groups) + 1),
+                'required_steps' => [
+                    $steps[$first] ?? $first,
+                    $steps[$second] ?? $second,
+                ],
+                'order' => 'any',
+                'confidence' => $total === 0 ? 0.0 : round(min($forward, $reverse) / $total, 4),
+                'reason' => 'Observed bidirectional direct transitions; boundary context varies.',
+                'document_uuids' => $documentUuids,
+            ];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * @param array<int, string> $documentUuids
+     * @param array<string, array<string, true>> $firstSteps
+     * @param array<string, array<string, true>> $lastSteps
+     */
+    private function isStableBoundaryPairForFallback(
+        array $documentUuids,
+        string $first,
+        string $second,
+        array $firstSteps,
+        array $lastSteps
+    ): bool {
+        $documentCount = count($documentUuids);
+        if ($documentCount === 0) {
+            return true;
+        }
+
+        $firstBoundaryDocuments = ($firstSteps[$first] ?? []) + ($firstSteps[$second] ?? []);
+        $lastBoundaryDocuments = ($lastSteps[$first] ?? []) + ($lastSteps[$second] ?? []);
+
+        return count(array_intersect_key($firstBoundaryDocuments, array_flip($documentUuids))) === $documentCount
+            || count(array_intersect_key($lastBoundaryDocuments, array_flip($documentUuids))) === $documentCount;
     }
 
 }

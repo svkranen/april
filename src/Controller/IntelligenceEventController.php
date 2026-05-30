@@ -4,6 +4,8 @@ namespace App\Controller;
 
 use App\Intelligence\Application\EventReceiver;
 use App\Intelligence\Port\SignatureVerifier;
+use DateTimeImmutable;
+use Exception;
 use JsonException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -46,6 +48,11 @@ final class IntelligenceEventController
             return new JsonResponse(['accepted' => false, 'error' => 'invalid_payload'], 400);
         }
 
+        $validationError = $this->validatePayload($payload);
+        if ($validationError !== null) {
+            return new JsonResponse(['accepted' => false] + $validationError, 400);
+        }
+
         $result = $this->eventReceiver->receive($payload, $rawPayload);
 
         return new JsonResponse([
@@ -54,6 +61,69 @@ final class IntelligenceEventController
             'event_id' => $result->event->id,
             'external_event_key' => $result->event->externalEventKey,
         ], $result->duplicate ? 200 : 202);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array{error: string, message: string, field?: string}|null
+     */
+    private function validatePayload(array $payload): ?array
+    {
+        foreach (['documentId', 'documentUuid', 'eventKey', 'eventPhase', 'occurredAt', 'processKey', 'stepKey'] as $field) {
+            if (!$this->hasScalarField($payload, $field) || (!in_array($field, ['processKey', 'stepKey'], true) && trim((string) $payload[$field]) === '')) {
+                return [
+                    'error' => 'missing_required_field',
+                    'field' => $field,
+                    'message' => sprintf('Missing required field "%s".', $field),
+                ];
+            }
+        }
+
+        $processKey = trim((string) $payload['processKey']);
+        if ($processKey === '' || strtolower($processKey) === 'unknown') {
+            return [
+                'error' => 'unknown_process_key',
+                'field' => 'processKey',
+                'message' => 'Unknown processKey.',
+            ];
+        }
+
+        if (trim((string) $payload['stepKey']) === '') {
+            return [
+                'error' => 'empty_step_key',
+                'field' => 'stepKey',
+                'message' => 'stepKey must not be empty.',
+            ];
+        }
+
+        $eventPhase = strtolower(trim((string) $payload['eventPhase']));
+        if (!in_array($eventPhase, ['before', 'after'], true)) {
+            return [
+                'error' => 'invalid_event_phase',
+                'field' => 'eventPhase',
+                'message' => 'eventPhase must be "before" or "after".',
+            ];
+        }
+
+        try {
+            new DateTimeImmutable((string) $payload['occurredAt']);
+        } catch (Exception) {
+            return [
+                'error' => 'invalid_occurred_at',
+                'field' => 'occurredAt',
+                'message' => 'occurredAt must be a valid datetime.',
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function hasScalarField(array $payload, string $field): bool
+    {
+        return array_key_exists($field, $payload) && is_scalar($payload[$field]);
     }
 
     private function debugLogRequest(Request $request, string $rawPayload): void

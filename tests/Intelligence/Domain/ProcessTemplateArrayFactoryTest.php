@@ -86,7 +86,44 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame([], $template->transitions);
         self::assertSame([], $template->parallelGroups);
         self::assertSame([], $template->contextProfileRequiredFields);
+        self::assertSame([], $template->fieldMappings);
         self::assertSame([], $template->decisionPoints);
+    }
+
+    public function testBuildsTemplateWithFieldMappings(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'field_mapping' => [
+                'invoice_direction' => [
+                    'source' => 'amagno',
+                    'tag_name' => 'Eingang/Ausgang',
+                ],
+                'amount_net' => [
+                    'source' => 'amagno',
+                    'tag_name' => 'Nettobetrag',
+                    'value_type' => 'number',
+                ],
+                'project_id' => [
+                    'source' => 'amagno',
+                    'tag_id' => 'tag-project-id',
+                ],
+            ],
+        ]);
+
+        self::assertCount(3, $template->fieldMappings);
+
+        self::assertSame('invoice_direction', $template->fieldMappings['invoice_direction']->fieldKey);
+        self::assertSame('amagno', $template->fieldMappings['invoice_direction']->source);
+        self::assertSame('Eingang/Ausgang', $template->fieldMappings['invoice_direction']->tagName);
+        self::assertNull($template->fieldMappings['invoice_direction']->tagId);
+        self::assertNull($template->fieldMappings['invoice_direction']->valueType);
+
+        self::assertSame('amount_net', $template->fieldMappings['amount_net']->fieldKey);
+        self::assertSame('Nettobetrag', $template->fieldMappings['amount_net']->tagName);
+        self::assertSame('number', $template->fieldMappings['amount_net']->valueType);
+
+        self::assertSame('tag-project-id', $template->fieldMappings['project_id']->tagId);
     }
 
     public function testBuildsTemplateWithDecisionPoints(): void

@@ -124,6 +124,51 @@ class IntelligenceTemplateSuggestFromDocumentsCommandTest extends TestCase
             ],
             $template['transitions']
         );
+        self::assertSame(
+            [
+                'type' => 'possible_decision_point',
+                'after_step' => 'eingang',
+                'observed_next_steps' => ['pruefung', 'freigabe'],
+                'message' => 'Multiple next steps observed after eingang. Context fields may be required to explain routing.',
+            ],
+            $template['suggestions'][0]
+        );
+    }
+
+    public function testSuggestsPossibleDecisionPointForMultipleObservedNextSteps(): void
+    {
+        $tester = new CommandTester($this->commandWithEvents([
+            $this->event(1, 'doc-a-1', '01 Rechnungen pruefen', 'doc-a', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(2, 'doc-a-2', '05 Ausgangsrechnung buchen', 'doc-a', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(3, 'doc-b-1', '01 Rechnungen pruefen', 'doc-b', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(4, 'doc-b-2', '03 Freigabe_klein', 'doc-b', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(5, 'doc-c-1', '01 Rechnungen pruefen', 'doc-c', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(6, 'doc-c-2', '02 Versenden', 'doc-c', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(7, 'doc-d-1', '01 Rechnungen pruefen', 'doc-d', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(8, 'doc-d-2', '07 Zahlungseingang erwartet', 'doc-d', 1, '2026-05-29T10:00:00+00:00'),
+        ]));
+
+        $tester->execute([
+            'processKey' => 'eingangsrechnung',
+            'documentUuids' => ['doc-a', 'doc-b', 'doc-c', 'doc-d'],
+        ]);
+
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertSame(
+            [
+                'type' => 'possible_decision_point',
+                'after_step' => '01 Rechnungen pruefen',
+                'observed_next_steps' => [
+                    '05 Ausgangsrechnung buchen',
+                    '03 Freigabe_klein',
+                    '02 Versenden',
+                    '07 Zahlungseingang erwartet',
+                ],
+                'message' => 'Multiple next steps observed after 01 Rechnungen pruefen. Context fields may be required to explain routing.',
+            ],
+            $template['suggestions'][0]
+        );
     }
 
     public function testDefaultOrderUsesReceivedAtForEqualOccurredAtValuesAcrossDocuments(): void
@@ -259,6 +304,164 @@ class IntelligenceTemplateSuggestFromDocumentsCommandTest extends TestCase
         );
     }
 
+    public function testSuggestsPossibleParallelGroupForBidirectionalTransitionsWithVariableBoundaryContext(): void
+    {
+        $tester = new CommandTester($this->commandWithEvents([
+            $this->event(1, 'doc-a-1', 'X', 'doc-a', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(2, 'doc-a-2', 'B', 'doc-a', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(3, 'doc-a-3', 'C', 'doc-a', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(4, 'doc-a-4', 'D', 'doc-a', 1, '2026-05-29T12:00:00+00:00'),
+            $this->event(5, 'doc-b-1', 'Y', 'doc-b', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(6, 'doc-b-2', 'B', 'doc-b', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(7, 'doc-b-3', 'C', 'doc-b', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(8, 'doc-b-4', 'E', 'doc-b', 1, '2026-05-29T12:00:00+00:00'),
+            $this->event(9, 'doc-c-1', 'M', 'doc-c', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(10, 'doc-c-2', 'C', 'doc-c', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(11, 'doc-c-3', 'B', 'doc-c', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(12, 'doc-c-4', 'F', 'doc-c', 1, '2026-05-29T12:00:00+00:00'),
+            $this->event(13, 'doc-d-1', 'N', 'doc-d', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(14, 'doc-d-2', 'C', 'doc-d', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(15, 'doc-d-3', 'B', 'doc-d', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(16, 'doc-d-4', 'G', 'doc-d', 1, '2026-05-29T12:00:00+00:00'),
+        ]));
+
+        $tester->execute([
+            'processKey' => 'eingangsrechnung',
+            'documentUuids' => ['doc-a', 'doc-b', 'doc-c', 'doc-d'],
+        ]);
+
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertSame(
+            [
+                [
+                    'key' => 'suggested_parallel_1',
+                    'required_steps' => ['B', 'C'],
+                    'order' => 'any',
+                    'confidence' => 0.5,
+                    'reason' => 'Observed bidirectional direct transitions; boundary context varies.',
+                    'document_uuids' => ['doc-a', 'doc-b', 'doc-c', 'doc-d'],
+                ],
+            ],
+            $template['parallel_groups']
+        );
+        self::assertSame('possible_parallel_group', $template['suggestions'][0]['type']);
+        self::assertSame(
+            'Observed bidirectional direct transitions; boundary context varies.',
+            $template['suggestions'][0]['message']
+        );
+    }
+
+    public function testSuggestsPossibleParallelGroupForRepeatedBidirectionalDirectTransitionsWithoutStableBoundary(): void
+    {
+        $tester = new CommandTester($this->commandWithEvents([
+            $this->event(1, 'doc-a-1', '01 Rechnungen pruefen', 'doc-a', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(2, 'doc-a-2', '05 Ausgangsrechnung buchen', 'doc-a', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(3, 'doc-a-3', '07 Zahlungseingang erwartet', 'doc-a', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(4, 'doc-a-4', '05 Ausgangsrechnung buchen', 'doc-a', 1, '2026-05-29T12:00:00+00:00'),
+            $this->event(5, 'doc-a-5', '09 Rechnungen Abschluss', 'doc-a', 1, '2026-05-29T13:00:00+00:00'),
+            $this->event(6, 'doc-b-1', '02 Versenden', 'doc-b', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(7, 'doc-b-2', '05 Ausgangsrechnung buchen', 'doc-b', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(8, 'doc-b-3', '07 Zahlungseingang erwartet', 'doc-b', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(9, 'doc-b-4', '05 Ausgangsrechnung buchen', 'doc-b', 1, '2026-05-29T12:00:00+00:00'),
+            $this->event(10, 'doc-b-5', '10 Mahnung vorbereiten', 'doc-b', 1, '2026-05-29T13:00:00+00:00'),
+            $this->event(11, 'doc-c-1', '03 Freigabe_klein', 'doc-c', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(12, 'doc-c-2', '07 Zahlungseingang erwartet', 'doc-c', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(13, 'doc-c-3', '05 Ausgangsrechnung buchen', 'doc-c', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(14, 'doc-c-4', '07 Zahlungseingang erwartet', 'doc-c', 1, '2026-05-29T12:00:00+00:00'),
+            $this->event(15, 'doc-c-5', '11 Zahlung klaeren', 'doc-c', 1, '2026-05-29T13:00:00+00:00'),
+            $this->event(16, 'doc-d-1', '04 Freigabe_gross', 'doc-d', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(17, 'doc-d-2', '07 Zahlungseingang erwartet', 'doc-d', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(18, 'doc-d-3', '05 Ausgangsrechnung buchen', 'doc-d', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(19, 'doc-d-4', '07 Zahlungseingang erwartet', 'doc-d', 1, '2026-05-29T12:00:00+00:00'),
+            $this->event(20, 'doc-d-5', '12 Archivieren', 'doc-d', 1, '2026-05-29T13:00:00+00:00'),
+            $this->event(21, 'doc-e-1', '05 Ausgangsrechnung buchen', 'doc-e', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(22, 'doc-e-2', '07 Zahlungseingang erwartet', 'doc-e', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(23, 'doc-e-3', '13 Nachlauf', 'doc-e', 1, '2026-05-29T11:00:00+00:00'),
+        ]));
+
+        $tester->execute([
+            'processKey' => 'eingangsrechnung',
+            'documentUuids' => ['doc-a', 'doc-b', 'doc-c', 'doc-d', 'doc-e'],
+        ]);
+
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertSame(
+            [
+                [
+                    'key' => 'suggested_parallel_1',
+                    'required_steps' => ['05 Ausgangsrechnung buchen', '07 Zahlungseingang erwartet'],
+                    'order' => 'any',
+                    'confidence' => 0.4444,
+                    'reason' => 'Observed bidirectional direct transitions; boundary context varies.',
+                    'document_uuids' => ['doc-a', 'doc-b', 'doc-c', 'doc-d', 'doc-e'],
+                ],
+            ],
+            $template['parallel_groups']
+        );
+        self::assertContains('conflicting_transition', array_column($template['warnings'], 'type'));
+        self::assertSame('possible_parallel_group', $template['suggestions'][0]['type']);
+        self::assertSame(
+            'Observed bidirectional direct transitions; boundary context varies.',
+            $template['suggestions'][0]['message']
+        );
+    }
+
+    public function testDoesNotUseBidirectionalFallbackForSingleObservedTransitions(): void
+    {
+        $tester = new CommandTester($this->commandWithEvents([
+            $this->event(1, 'doc-a-1', 'X', 'doc-a', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(2, 'doc-a-2', 'B', 'doc-a', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(3, 'doc-a-3', 'C', 'doc-a', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(4, 'doc-a-4', 'D', 'doc-a', 1, '2026-05-29T12:00:00+00:00'),
+            $this->event(5, 'doc-b-1', 'M', 'doc-b', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(6, 'doc-b-2', 'C', 'doc-b', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(7, 'doc-b-3', 'B', 'doc-b', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(8, 'doc-b-4', 'F', 'doc-b', 1, '2026-05-29T12:00:00+00:00'),
+        ]));
+
+        $tester->execute([
+            'processKey' => 'eingangsrechnung',
+            'documentUuids' => ['doc-a', 'doc-b'],
+        ]);
+
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertArrayNotHasKey('parallel_groups', $template);
+        self::assertContains('possible_decision_point', array_column($template['suggestions'], 'type'));
+        self::assertContains('conflicting_transition', array_column($template['warnings'], 'type'));
+    }
+
+    public function testBidirectionalFallbackKeepsStartStepProtection(): void
+    {
+        $tester = new CommandTester($this->commandWithEvents([
+            $this->event(1, 'doc-a-1', 'A', 'doc-a', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(2, 'doc-a-2', 'B', 'doc-a', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(3, 'doc-a-3', 'C', 'doc-a', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(4, 'doc-b-1', 'A', 'doc-b', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(5, 'doc-b-2', 'B', 'doc-b', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(6, 'doc-b-3', 'D', 'doc-b', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(7, 'doc-c-1', 'B', 'doc-c', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(8, 'doc-c-2', 'A', 'doc-c', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(9, 'doc-c-3', 'E', 'doc-c', 1, '2026-05-29T11:00:00+00:00'),
+            $this->event(10, 'doc-d-1', 'B', 'doc-d', 1, '2026-05-29T09:00:00+00:00'),
+            $this->event(11, 'doc-d-2', 'A', 'doc-d', 1, '2026-05-29T10:00:00+00:00'),
+            $this->event(12, 'doc-d-3', 'F', 'doc-d', 1, '2026-05-29T11:00:00+00:00'),
+        ]));
+
+        $tester->execute([
+            'processKey' => 'eingangsrechnung',
+            'documentUuids' => ['doc-a', 'doc-b', 'doc-c', 'doc-d'],
+        ]);
+
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertArrayNotHasKey('parallel_groups', $template);
+        self::assertContains('possible_decision_point', array_column($template['suggestions'], 'type'));
+        self::assertContains('conflicting_transition', array_column($template['warnings'], 'type'));
+    }
+
     public function testLinearProcessDoesNotSuggestParallelGroup(): void
     {
         $tester = new CommandTester($this->commandWithEvents([
@@ -301,7 +504,7 @@ class IntelligenceTemplateSuggestFromDocumentsCommandTest extends TestCase
         $template = Yaml::parse($tester->getDisplay());
 
         self::assertArrayNotHasKey('parallel_groups', $template);
-        self::assertArrayNotHasKey('suggestions', $template);
+        self::assertContains('possible_decision_point', array_column($template['suggestions'], 'type'));
     }
 
     public function testEndStepIsNeverSuggestedAsParallelGroup(): void

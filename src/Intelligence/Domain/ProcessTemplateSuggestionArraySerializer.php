@@ -33,6 +33,13 @@ final class ProcessTemplateSuggestionArraySerializer
             $data['warnings'] = [];
         }
 
+        if ($template->fieldMappings !== []) {
+            $data['field_mapping'] = array_map(
+                static fn (ProcessTemplateFieldMapping $mapping): array => self::fieldMappingToArray($mapping),
+                $template->fieldMappings
+            );
+        }
+
         if ($result->warnings !== []) {
             $data['warnings'] = array_map(
                 static fn (ProcessTemplateSuggestionWarning $warning): array => self::warningToArray($warning),
@@ -52,6 +59,27 @@ final class ProcessTemplateSuggestionArraySerializer
                 static fn (ProcessTemplateSuggestionNote $suggestion): array => self::suggestionToArray($suggestion),
                 $result->suggestions
             );
+        }
+
+        return $data;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function fieldMappingToArray(ProcessTemplateFieldMapping $mapping): array
+    {
+        $data = [
+            'source' => $mapping->source,
+        ];
+        if ($mapping->tagName !== null) {
+            $data['tag_name'] = $mapping->tagName;
+        }
+        if ($mapping->tagId !== null) {
+            $data['tag_id'] = $mapping->tagId;
+        }
+        if ($mapping->valueType !== null) {
+            $data['value_type'] = $mapping->valueType;
         }
 
         return $data;
@@ -184,6 +212,12 @@ final class ProcessTemplateSuggestionArraySerializer
         ];
         if ($suggestion->parallelGroupKey !== null) {
             $data['parallel_group_key'] = $suggestion->parallelGroupKey;
+        }
+        if ($suggestion->afterStepKey !== null) {
+            $data['after_step'] = $suggestion->afterStepKey;
+        }
+        if ($suggestion->observedNextSteps !== []) {
+            $data['observed_next_steps'] = $suggestion->observedNextSteps;
         }
         $data['message'] = $suggestion->message;
         if ($suggestion->documentUuids !== []) {

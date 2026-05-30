@@ -68,6 +68,9 @@ class IntelligenceEventControllerTest extends TestCase
             'externalEventKey' => 'event',
             'sourceSystem' => 'amagno',
             'documentId' => 'doc-form-version-default',
+            'documentUuid' => 'uuid-form-version-default',
+            'eventKey' => 'received',
+            'eventPhase' => 'after',
             'processKey' => 'invoice',
             'stepKey' => 'received',
             'occurredAt' => '2026-05-29T08:00:00+00:00',
@@ -90,6 +93,9 @@ class IntelligenceEventControllerTest extends TestCase
         $payload = [
             'sourceSystem' => 'amagno',
             'documentId' => 'doc-form-duplicate',
+            'documentUuid' => 'uuid-form-duplicate',
+            'eventKey' => 'received',
+            'eventPhase' => 'after',
             'processKey' => 'invoice',
             'stepKey' => 'received',
             'occurredAt' => '2026-05-29T08:00:00+00:00',
@@ -115,6 +121,9 @@ class IntelligenceEventControllerTest extends TestCase
         $payload = [
             'sourceSystem' => 'amagno',
             'documentId' => 'doc-form-repeat-step',
+            'documentUuid' => 'uuid-form-repeat-step',
+            'eventKey' => 'approved',
+            'eventPhase' => 'after',
             'processKey' => 'invoice',
             'stepKey' => 'approved',
             'occurredAt' => '2026-05-29T08:00:00+00:00',
@@ -146,6 +155,7 @@ class IntelligenceEventControllerTest extends TestCase
             'sourceSystem' => 'amagno',
             'documentId' => 'doc-phase-before',
             'documentUuid' => 'uuid-phase-before',
+            'eventKey' => 'workflow_step',
             'processKey' => 'invoice',
         ];
 
@@ -180,6 +190,7 @@ class IntelligenceEventControllerTest extends TestCase
             'sourceSystem' => 'amagno',
             'documentId' => 'doc-phase-after',
             'documentUuid' => 'uuid-phase-after',
+            'eventKey' => 'workflow_step',
             'processKey' => 'invoice',
         ];
 
@@ -201,7 +212,7 @@ class IntelligenceEventControllerTest extends TestCase
         self::assertSame('approved', $instance?->currentStepKey);
     }
 
-    public function testOccuredAtTypoIsAcceptedAsOccurredAtFallback(): void
+    public function testInvalidOccurredAtReturnsValidationError(): void
     {
         $store = new InMemoryEventStore();
         $controller = new IntelligenceEventController(
@@ -209,21 +220,21 @@ class IntelligenceEventControllerTest extends TestCase
             $this->receiver($store)
         );
         $payload = $this->payload([
-            'external_event_key' => 'evt-typo-1',
-            'occurred_at' => null,
-            'occurredAt' => null,
-            'occuredAt' => '2026-05-29T11:15:00+00:00',
+            'externalEventKey' => 'evt-invalid-date-1',
+            'occurredAt' => 'not-a-date',
         ]);
-        unset($payload['occurred_at'], $payload['occurredAt']);
 
         $response = $controller($this->request($payload));
-        $events = $store->all();
+        $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(202, $response->getStatusCode());
-        self::assertSame('2026-05-29T11:15:00+00:00', $events[0]->occurredAt->format(\DateTimeImmutable::ATOM));
+        self::assertSame(400, $response->getStatusCode());
+        self::assertFalse($data['accepted']);
+        self::assertSame('invalid_occurred_at', $data['error']);
+        self::assertSame('occurredAt', $data['field']);
+        self::assertSame(0, $store->count());
     }
 
-    public function testMissingDocumentUuidWithDocumentIdIsAcceptedAndExternalKeyIsGenerated(): void
+    public function testMinimalAmagnoPayloadIsAcceptedAndExternalKeyIsGenerated(): void
     {
         $store = new InMemoryEventStore();
         $controller = new IntelligenceEventController(
@@ -233,7 +244,9 @@ class IntelligenceEventControllerTest extends TestCase
         $payload = [
             'sourceSystem' => 'amagno',
             'documentId' => 'doc-only-123',
-            'documentVersion' => 3,
+            'documentUuid' => 'uuid-only-123',
+            'eventKey' => 'approved',
+            'eventPhase' => 'after',
             'processKey' => 'invoice',
             'stepKey' => 'approved',
             'occurredAt' => '2026-05-29T12:00:00+00:00',
@@ -249,8 +262,79 @@ class IntelligenceEventControllerTest extends TestCase
         self::assertSame(200, $second->getStatusCode());
         self::assertSame($firstData['external_event_key'], $secondData['external_event_key']);
         self::assertSame('doc-only-123', $events[0]->documentExternalId);
-        self::assertNull($events[0]->documentUuid);
+        self::assertSame('uuid-only-123', $events[0]->documentUuid);
         self::assertSame(1, $store->count());
+    }
+
+    public function testMissingRequiredFieldReturnsValidationError(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+        $payload = $this->payload();
+        unset($payload['documentUuid']);
+
+        $response = $controller($this->request($payload));
+        $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertFalse($data['accepted']);
+        self::assertSame('missing_required_field', $data['error']);
+        self::assertSame('documentUuid', $data['field']);
+        self::assertSame(0, $store->count());
+    }
+
+    public function testUnknownProcessKeyReturnsValidationError(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+
+        $response = $controller($this->request($this->payload(['processKey' => 'unknown'])));
+        $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertFalse($data['accepted']);
+        self::assertSame('unknown_process_key', $data['error']);
+        self::assertSame('processKey', $data['field']);
+    }
+
+    public function testEmptyStepKeyReturnsValidationError(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+
+        $response = $controller($this->request($this->payload(['stepKey' => ''])));
+        $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertFalse($data['accepted']);
+        self::assertSame('empty_step_key', $data['error']);
+        self::assertSame('stepKey', $data['field']);
+    }
+
+    public function testInvalidEventPhaseReturnsValidationError(): void
+    {
+        $store = new InMemoryEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->receiver($store)
+        );
+
+        $response = $controller($this->request($this->payload(['eventPhase' => 'during'])));
+        $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(400, $response->getStatusCode());
+        self::assertFalse($data['accepted']);
+        self::assertSame('invalid_event_phase', $data['error']);
+        self::assertSame('eventPhase', $data['field']);
     }
 
     public function testApiKeyCanBeProvidedAsFormOrQueryParameter(): void
@@ -439,13 +523,16 @@ class IntelligenceEventControllerTest extends TestCase
     private function payload(array $overrides = []): array
     {
         return array_replace([
-            'external_event_key' => 'evt-controller-1',
-            'source_system' => 'amagno',
-            'document_external_id' => 'doc-123',
-            'document_uuid' => 'uuid-123',
-            'document_version' => 1,
-            'step_key' => 'invoice.received',
-            'occurred_at' => '2026-05-29T10:00:00+00:00',
+            'externalEventKey' => 'evt-controller-1',
+            'sourceSystem' => 'amagno',
+            'documentId' => 'doc-123',
+            'documentUuid' => 'uuid-123',
+            'documentVersion' => 1,
+            'eventKey' => 'invoice.received',
+            'eventPhase' => 'after',
+            'processKey' => 'invoice',
+            'stepKey' => 'invoice.received',
+            'occurredAt' => '2026-05-29T10:00:00+00:00',
         ], $overrides);
     }
 

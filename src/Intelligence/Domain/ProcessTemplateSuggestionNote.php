@@ -12,7 +12,9 @@ final readonly class ProcessTemplateSuggestionNote
         public string $message,
         public ?string $parallelGroupKey = null,
         public array $documentUuids = [],
-        public ?float $confidence = null
+        public ?float $confidence = null,
+        public ?string $afterStepKey = null,
+        public array $observedNextSteps = []
     ) {
     }
 }

@@ -126,6 +126,9 @@ services:
     App\Intelligence\Application\ProcessStatusReportProvider:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessStatusReportProvider
 
+    App\Intelligence\Application\ContextCoverageReportProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineContextCoverageReportProvider
+
     App\Intelligence\Application\DocumentTimelineProvider:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineDocumentTimelineProvider
 

@@ -31,6 +31,7 @@ final class ProcessTemplateArrayFactory
             self::transitions($data['transitions'] ?? $data['allowed_transitions'] ?? []),
             self::parallelGroups($data['parallel_groups'] ?? []),
             self::contextProfileRequiredFields($data['context_profile'] ?? []),
+            self::fieldMappings($data['field_mapping'] ?? []),
             self::decisionPoints($data['decision_points'] ?? [])
         );
     }
@@ -133,6 +134,39 @@ final class ProcessTemplateArrayFactory
         }
 
         return self::stringList($contextProfile['required'] ?? []);
+    }
+
+    /**
+     * @return array<string, ProcessTemplateFieldMapping>
+     */
+    private static function fieldMappings(mixed $fieldMappings): array
+    {
+        if (!is_array($fieldMappings)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($fieldMappings as $fieldKey => $mapping) {
+            if (!is_scalar($fieldKey) || !is_array($mapping)) {
+                continue;
+            }
+
+            $fieldKey = trim((string) $fieldKey);
+            $source = self::nullableString($mapping['source'] ?? null);
+            if ($fieldKey === '' || $source === null) {
+                continue;
+            }
+
+            $result[$fieldKey] = new ProcessTemplateFieldMapping(
+                $fieldKey,
+                $source,
+                self::nullableString($mapping['tag_name'] ?? null),
+                self::nullableString($mapping['tag_id'] ?? null),
+                self::nullableString($mapping['value_type'] ?? null)
+            );
+        }
+
+        return $result;
     }
 
     /**
