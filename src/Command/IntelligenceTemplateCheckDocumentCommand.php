@@ -87,15 +87,22 @@ final class IntelligenceTemplateCheckDocumentCommand extends Command
         }
 
         $output->writeln('<info>Abweichungen:</info>');
-
         if ($result->deviations === []) {
             $output->writeln('  - none');
-
-            return Command::SUCCESS;
+        } else {
+            foreach ($result->deviations as $deviation) {
+                $output->writeln(sprintf('  - %s', $deviation));
+            }
         }
 
-        foreach ($result->deviations as $deviation) {
-            $output->writeln(sprintf('  - %s', $deviation));
+        $output->writeln('<info>Context Issues:</info>');
+
+        if ($result->contextIssues === []) {
+            $output->writeln('  - none');
+        } else {
+            foreach ($result->contextIssues as $contextIssue) {
+                $output->writeln(sprintf('  - %s', $contextIssue));
+            }
         }
 
         return Command::SUCCESS;

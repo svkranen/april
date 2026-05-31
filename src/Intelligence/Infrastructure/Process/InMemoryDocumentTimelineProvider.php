@@ -87,6 +87,14 @@ final class InMemoryDocumentTimelineProvider implements DocumentTimelineProvider
                 'attributes' => $snapshot->attributes,
                 'fields' => array_keys($snapshot->attributes),
                 'warnings' => $snapshot->warnings,
+                'occurred_at' => $snapshot->occurredAt?->format(DATE_ATOM),
+                'loaded_at' => $snapshot->loadedAt->format(DATE_ATOM),
+                'incoming_event_id' => $snapshot->incomingEventId,
+                'freshness_seconds' => $snapshot->occurredAt === null
+                    ? $snapshot->freshnessSeconds
+                    : $snapshot->loadedAt->getTimestamp() - $snapshot->occurredAt->getTimestamp(),
+                'is_fresh_for_decision_check' => $snapshot->isFreshForDecisionCheck,
+                'source' => 'snapshot',
             ];
         }
 

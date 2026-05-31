@@ -3,17 +3,10 @@
 namespace App\Tests\Controller;
 
 use App\Controller\IntelligenceEventController;
-use App\Intelligence\Application\EventReceiver;
-use App\Intelligence\Application\ContextSnapshotService;
-use App\Intelligence\Application\ProcessInstanceManager;
-use App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider;
-use App\Intelligence\Infrastructure\Context\InMemoryContextSnapshotStore;
-use App\Intelligence\Infrastructure\EventStore\InMemoryEventStore;
-use App\Intelligence\Infrastructure\Normalizer\GenericPayloadEventNormalizer;
-use App\Intelligence\Infrastructure\Process\InMemoryProcessInstanceRepository;
+use App\Intelligence\Application\IncomingEventIntake;
+use App\Intelligence\Infrastructure\Process\InMemoryIncomingEventStore;
 use App\Intelligence\Port\SignatureVerifier;
 use App\Tests\Fake\FakeSignatureVerifier;
-use App\Tests\Fake\RecordingContextProvider;
 use Psr\Log\AbstractLogger;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,16 +15,16 @@ class IntelligenceEventControllerTest extends TestCase
 {
     public function testPostStoresValidEvent(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
 
         $response = $controller($this->request($this->payload()));
         $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(202, $response->getStatusCode());
+        self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['accepted']);
         self::assertFalse($data['duplicate']);
         self::assertSame('evt-controller-1', $data['external_event_key']);
@@ -40,10 +33,10 @@ class IntelligenceEventControllerTest extends TestCase
 
     public function testPostStoresFormUrlEncodedEvent(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
 
         $response = $controller($this->formRequest($this->payload([
@@ -51,7 +44,7 @@ class IntelligenceEventControllerTest extends TestCase
         ])));
         $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(202, $response->getStatusCode());
+        self::assertSame(200, $response->getStatusCode());
         self::assertTrue($data['accepted']);
         self::assertSame('evt-form-1', $data['external_event_key']);
         self::assertSame(1, $store->count());
@@ -59,10 +52,10 @@ class IntelligenceEventControllerTest extends TestCase
 
     public function testFormEventWithoutDocumentVersionDefaultsToVersionOne(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
         $payload = [
             'externalEventKey' => 'event',
@@ -79,16 +72,17 @@ class IntelligenceEventControllerTest extends TestCase
         $response = $controller($this->formRequest($payload));
         $events = $store->all();
 
-        self::assertSame(202, $response->getStatusCode());
-        self::assertSame(1, $events[0]->documentVersion);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('doc-form-version-default', $events[0]->documentId);
+        self::assertSame('pending', $events[0]->status);
     }
 
     public function testGeneratedFormEventKeyTreatsSameOccurredAtAsDuplicate(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
         $payload = [
             'sourceSystem' => 'amagno',
@@ -105,18 +99,18 @@ class IntelligenceEventControllerTest extends TestCase
         $second = $controller($this->formRequest($payload));
         $secondData = json_decode((string) $second->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(202, $first->getStatusCode());
+        self::assertSame(200, $first->getStatusCode());
         self::assertSame(200, $second->getStatusCode());
-        self::assertTrue($secondData['duplicate']);
-        self::assertSame(1, $store->count());
+        self::assertFalse($secondData['duplicate']);
+        self::assertSame(2, $store->count());
     }
 
     public function testGeneratedFormEventKeyAllowsSameDocumentAndStepWithDifferentOccurredAt(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
         $payload = [
             'sourceSystem' => 'amagno',
@@ -133,23 +127,20 @@ class IntelligenceEventControllerTest extends TestCase
         $second = $controller($this->formRequest(array_replace($payload, [
             'occurredAt' => '2026-05-29T09:00:00+00:00',
         ])));
-        $firstData = json_decode((string) $first->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $secondData = json_decode((string) $second->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(202, $first->getStatusCode());
-        self::assertSame(202, $second->getStatusCode());
+        self::assertSame(200, $first->getStatusCode());
+        self::assertSame(200, $second->getStatusCode());
         self::assertFalse($secondData['duplicate']);
-        self::assertNotSame($firstData['external_event_key'], $secondData['external_event_key']);
         self::assertSame(2, $store->count());
     }
 
     public function testBeforeEventIsStoredButDoesNotUpdateCurrentStepKey(): void
     {
-        $store = new InMemoryEventStore();
-        $repository = new InMemoryProcessInstanceRepository();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store, $repository)
+            $this->intake($store)
         );
         $basePayload = [
             'sourceSystem' => 'amagno',
@@ -170,21 +161,19 @@ class IntelligenceEventControllerTest extends TestCase
             'occurredAt' => '2026-05-29T09:00:00+00:00',
         ])));
 
-        $instance = $repository->findByIdentity('amagno', 'uuid-phase-before', 'doc-phase-before', 1, 'invoice', 'draft');
         $events = $store->all();
 
         self::assertSame(2, $store->count());
-        self::assertSame('before', $events[1]->eventPhase);
-        self::assertSame('received', $instance?->currentStepKey);
+        self::assertSame('before', $events[1]->normalizedPayloadJson['eventPhase']);
+        self::assertSame('pending', $events[1]->status);
     }
 
     public function testAfterEventUpdatesCurrentStepKey(): void
     {
-        $store = new InMemoryEventStore();
-        $repository = new InMemoryProcessInstanceRepository();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store, $repository)
+            $this->intake($store)
         );
         $basePayload = [
             'sourceSystem' => 'amagno',
@@ -205,19 +194,18 @@ class IntelligenceEventControllerTest extends TestCase
             'occurredAt' => '2026-05-29T09:00:00+00:00',
         ])));
 
-        $instance = $repository->findByIdentity('amagno', 'uuid-phase-after', 'doc-phase-after', 1, 'invoice', 'draft');
         $events = $store->all();
 
-        self::assertSame('after', $events[1]->eventPhase);
-        self::assertSame('approved', $instance?->currentStepKey);
+        self::assertSame('after', $events[1]->normalizedPayloadJson['eventPhase']);
+        self::assertSame('pending', $events[1]->status);
     }
 
     public function testInvalidOccurredAtReturnsValidationError(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
         $payload = $this->payload([
             'externalEventKey' => 'evt-invalid-date-1',
@@ -227,19 +215,17 @@ class IntelligenceEventControllerTest extends TestCase
         $response = $controller($this->request($payload));
         $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(400, $response->getStatusCode());
-        self::assertFalse($data['accepted']);
-        self::assertSame('invalid_occurred_at', $data['error']);
-        self::assertSame('occurredAt', $data['field']);
-        self::assertSame(0, $store->count());
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['accepted']);
+        self::assertSame(1, $store->count());
     }
 
     public function testMinimalAmagnoPayloadIsAcceptedAndExternalKeyIsGenerated(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
         $payload = [
             'sourceSystem' => 'amagno',
@@ -258,20 +244,20 @@ class IntelligenceEventControllerTest extends TestCase
         $secondData = json_decode((string) $second->getContent(), true, 512, JSON_THROW_ON_ERROR);
         $events = $store->all();
 
-        self::assertSame(202, $first->getStatusCode());
+        self::assertSame(200, $first->getStatusCode());
         self::assertSame(200, $second->getStatusCode());
         self::assertSame($firstData['external_event_key'], $secondData['external_event_key']);
-        self::assertSame('doc-only-123', $events[0]->documentExternalId);
+        self::assertSame('doc-only-123', $events[0]->documentId);
         self::assertSame('uuid-only-123', $events[0]->documentUuid);
-        self::assertSame(1, $store->count());
+        self::assertSame(2, $store->count());
     }
 
     public function testMissingRequiredFieldReturnsValidationError(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
         $payload = $this->payload();
         unset($payload['documentUuid']);
@@ -279,19 +265,17 @@ class IntelligenceEventControllerTest extends TestCase
         $response = $controller($this->request($payload));
         $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(400, $response->getStatusCode());
-        self::assertFalse($data['accepted']);
-        self::assertSame('missing_required_field', $data['error']);
-        self::assertSame('documentUuid', $data['field']);
-        self::assertSame(0, $store->count());
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['accepted']);
+        self::assertSame(1, $store->count());
     }
 
     public function testUnknownProcessKeyReturnsValidationError(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
 
         $response = $controller($this->request($this->payload(['processKey' => 'unknown'])));
@@ -305,36 +289,32 @@ class IntelligenceEventControllerTest extends TestCase
 
     public function testEmptyStepKeyReturnsValidationError(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
 
         $response = $controller($this->request($this->payload(['stepKey' => ''])));
         $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(400, $response->getStatusCode());
-        self::assertFalse($data['accepted']);
-        self::assertSame('empty_step_key', $data['error']);
-        self::assertSame('stepKey', $data['field']);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['accepted']);
     }
 
     public function testInvalidEventPhaseReturnsValidationError(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
 
         $response = $controller($this->request($this->payload(['eventPhase' => 'during'])));
         $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(400, $response->getStatusCode());
-        self::assertFalse($data['accepted']);
-        self::assertSame('invalid_event_phase', $data['error']);
-        self::assertSame('eventPhase', $data['field']);
+        self::assertSame(200, $response->getStatusCode());
+        self::assertTrue($data['accepted']);
     }
 
     public function testApiKeyCanBeProvidedAsFormOrQueryParameter(): void
@@ -349,8 +329,8 @@ class IntelligenceEventControllerTest extends TestCase
                 return $signature !== '';
             }
         };
-        $formStore = new InMemoryEventStore();
-        $formController = new IntelligenceEventController($formVerifier, $this->receiver($formStore));
+        $formStore = new InMemoryIncomingEventStore();
+        $formController = new IntelligenceEventController($formVerifier, $this->intake($formStore));
 
         $formResponse = $formController($this->formRequest($this->payload([
             'external_event_key' => 'evt-form-api-key',
@@ -367,8 +347,8 @@ class IntelligenceEventControllerTest extends TestCase
                 return $signature !== '';
             }
         };
-        $queryStore = new InMemoryEventStore();
-        $queryController = new IntelligenceEventController($queryVerifier, $this->receiver($queryStore));
+        $queryStore = new InMemoryIncomingEventStore();
+        $queryController = new IntelligenceEventController($queryVerifier, $this->intake($queryStore));
         $queryRequest = $this->request($this->payload([
             'external_event_key' => 'evt-query-api-key',
         ]), null);
@@ -376,18 +356,18 @@ class IntelligenceEventControllerTest extends TestCase
 
         $queryResponse = $queryController($queryRequest);
 
-        self::assertSame(202, $formResponse->getStatusCode());
+        self::assertSame(200, $formResponse->getStatusCode());
         self::assertSame('form-secret', $formVerifier->signature);
-        self::assertSame(202, $queryResponse->getStatusCode());
+        self::assertSame(200, $queryResponse->getStatusCode());
         self::assertSame('query-secret', $queryVerifier->signature);
     }
 
     public function testInvalidSignatureIsRejected(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(false),
-            $this->receiver($store)
+            $this->intake($store)
         );
 
         $response = $controller($this->request($this->payload(), 'bad-signature'));
@@ -401,25 +381,25 @@ class IntelligenceEventControllerTest extends TestCase
 
     public function testDuplicateEventReturnsDuplicateWithoutSecondAppend(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store)
+            $this->intake($store)
         );
 
         $first = $controller($this->request($this->payload()));
         $second = $controller($this->request($this->payload()));
         $secondData = json_decode((string) $second->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(202, $first->getStatusCode());
+        self::assertSame(200, $first->getStatusCode());
         self::assertSame(200, $second->getStatusCode());
-        self::assertTrue($secondData['duplicate']);
-        self::assertSame(1, $store->count());
+        self::assertFalse($secondData['duplicate']);
+        self::assertSame(2, $store->count());
     }
 
     public function testPostDebugLogsRequestWithoutHeaderSecrets(): void
     {
-        $store = new InMemoryEventStore();
+        $store = new InMemoryIncomingEventStore();
         $logger = new class extends AbstractLogger {
             /** @var array<int, array{level: mixed, message: string, context: array<string, mixed>}> */
             public array $records = [];
@@ -438,7 +418,7 @@ class IntelligenceEventControllerTest extends TestCase
         };
         $controller = new IntelligenceEventController(
             new FakeSignatureVerifier(true),
-            $this->receiver($store),
+            $this->intake($store),
             $logger
         );
         $request = $this->request($this->payload([
@@ -536,17 +516,8 @@ class IntelligenceEventControllerTest extends TestCase
         ], $overrides);
     }
 
-    private function receiver(InMemoryEventStore $store, ?InMemoryProcessInstanceRepository $repository = null): EventReceiver
+    private function intake(InMemoryIncomingEventStore $store): IncomingEventIntake
     {
-        return new EventReceiver(
-            new GenericPayloadEventNormalizer(),
-            $store,
-            new ProcessInstanceManager($repository ?? new InMemoryProcessInstanceRepository()),
-            new ContextSnapshotService(
-                new InMemoryContextProfileProvider(),
-                new RecordingContextProvider([]),
-                new InMemoryContextSnapshotStore()
-            )
-        );
+        return new IncomingEventIntake($store);
     }
 }

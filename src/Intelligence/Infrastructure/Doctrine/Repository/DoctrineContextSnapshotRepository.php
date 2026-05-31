@@ -25,10 +25,15 @@ final class DoctrineContextSnapshotRepository implements ContextSnapshotStore
         $entity->setDocumentVersion($snapshot->document->version);
         $entity->setProcessKey($snapshot->processKey);
         $entity->setExternalEventKey($snapshot->externalEventKey);
+        $entity->setIncomingEventId($snapshot->incomingEventId);
         if ($snapshot->processInstanceId !== null) {
             $entity->setProcessInstance($this->entityManager->getReference(ProcessInstanceEntity::class, $snapshot->processInstanceId));
         }
         $entity->setCapturedAt($snapshot->capturedAt);
+        $entity->setOccurredAt($snapshot->occurredAt);
+        $entity->setLoadedAt($snapshot->loadedAt);
+        $entity->setFreshnessSeconds($snapshot->freshnessSeconds);
+        $entity->setIsFreshForDecisionCheck($snapshot->isFreshForDecisionCheck);
         $entity->setContextJson($snapshot->attributes);
         $entity->setWarnings($snapshot->warnings);
 
@@ -57,7 +62,12 @@ final class DoctrineContextSnapshotRepository implements ContextSnapshotStore
             $entity->getWarnings(),
             $entity->getProcessKey(),
             $entity->getExternalEventKey(),
-            $entity->getProcessInstance()?->getId()
+            $entity->getProcessInstance()?->getId(),
+            $entity->getOccurredAt(),
+            $entity->getLoadedAt(),
+            $entity->getIncomingEventId(),
+            $entity->getFreshnessSeconds(),
+            $entity->isFreshForDecisionCheck()
         );
     }
 }

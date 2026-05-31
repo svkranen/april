@@ -9,6 +9,8 @@ use App\Intelligence\Application\ProcessDocumentRef;
 use App\Intelligence\Application\ProcessDocumentUuidProvider;
 use App\Intelligence\Application\ProcessTemplateCheckResult;
 use App\Intelligence\Application\ProcessTemplateCheckService;
+use App\Intelligence\Domain\ContextSnapshot;
+use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessDocumentUuidProvider;
@@ -75,7 +77,20 @@ class IntelligenceTemplateCheckProcessCommandTest extends TestCase
         self::assertSame(0, $report['warning_count']);
         self::assertSame(1, $report['deviation_count']);
         self::assertSame(0, $report['error_count']);
-        self::assertSame(['OK' => 1, 'WARNING' => 0, 'DEVIATION' => 1, 'ERROR' => 0], $report['status_counts']);
+        self::assertSame([
+            'OK' => 1,
+            'WARNING' => 0,
+            'DEVIATION' => 1,
+            'UNCERTAIN_CONTEXT_STALE' => 0,
+            'UNCERTAIN_CONTEXT_TIME_SKEW' => 0,
+            'UNCHECKABLE_CONTEXT_MISSING' => 0,
+            'ERROR' => 0,
+        ], $report['status_counts']);
+        self::assertSame([
+            'UNCERTAIN_CONTEXT_STALE' => 0,
+            'UNCERTAIN_CONTEXT_TIME_SKEW' => 0,
+            'UNCHECKABLE_CONTEXT_MISSING' => 0,
+        ], $report['context_status_counts']);
         self::assertCount(1, $report['documents']);
         self::assertSame('external-doc-bad', $report['documents'][0]['documentId']);
         self::assertSame('doc-bad', $report['documents'][0]['documentUuid']);
@@ -87,6 +102,78 @@ class IntelligenceTemplateCheckProcessCommandTest extends TestCase
         self::assertSame([], $report['warning_summary']);
         self::assertSame('external-doc-bad', $report['top_problem_documents'][0]['documentId']);
         self::assertSame(4, $report['top_problem_documents'][0]['problem_score']);
+    }
+
+    public function testContextIssueCountersUseSameRowsAsContextIssueSummaryEvenWhenDocumentStatusIsDeviation(): void
+    {
+        $directory = sys_get_temp_dir().'/amagno-template-check-process-'.bin2hex(random_bytes(6));
+        mkdir($directory, 0775, true);
+        $path = $directory.'/eingangsrechnung.yaml';
+        file_put_contents($path, <<<'YAML'
+key: eingangsrechnung
+version: draft
+required_steps:
+  - eingang
+  - abschluss
+steps:
+  - key: eingang
+  - key: freigabe
+  - key: abschluss
+context_profile:
+  required: []
+context_policy:
+  snapshot:
+    max_delay_seconds: 300
+    stale_behavior: uncertain
+field_mapping:
+  amount:
+    source: test
+    stability: snapshot_required
+decision_points:
+  - key: route_after_eingang
+    after: eingang
+    required_fields:
+      - amount
+    rules:
+      - when:
+          amount:
+            gt: 50
+        expect_next: freigabe
+YAML);
+        $event = $this->event(1, 'doc-skew-deviation', 'eingang', 0);
+        $snapshot = new ContextSnapshot(
+            new DocumentRef('amagno', 'external-doc-skew-deviation', 'doc-skew-deviation', 1),
+            new DateTimeImmutable('2026-05-29T10:00:00+00:00'),
+            ['amount' => 100],
+            [],
+            'eingangsrechnung',
+            'evt-1',
+            1,
+            new DateTimeImmutable('2026-05-29T10:05:00+00:00'),
+            new DateTimeImmutable('2026-05-29T10:00:00+00:00')
+        );
+        $timelineProvider = new InMemoryDocumentTimelineProvider([], [$event], [$snapshot]);
+        $tester = new CommandTester(new IntelligenceTemplateCheckProcessCommand(
+            new ProcessTemplateCheckService($timelineProvider),
+            new InMemoryProcessDocumentUuidProvider([$event])
+        ));
+
+        $exitCode = $tester->execute([
+            'processKey' => 'eingangsrechnung',
+            '--template' => $path,
+            '--format' => 'json',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        $report = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(1, $report['deviation_count']);
+        self::assertSame(1, $report['uncertain_context_time_skew_count']);
+        self::assertSame(1, $report['context_status_counts']['UNCERTAIN_CONTEXT_TIME_SKEW']);
+        self::assertSame(['Uncertain context time skew' => 1], $report['context_issue_summary']);
+        self::assertSame('DEVIATION', $report['documents'][0]['status']);
+        self::assertSame('UNCERTAIN_CONTEXT_TIME_SKEW', $report['documents'][0]['context_status']);
+        self::assertStringContainsString('snapshot freshness_seconds=-300 is negative', $report['documents'][0]['context_issues'][0]);
     }
 
     public function testOnlyDeviationsFiltersOkDocumentsFromDetails(): void
@@ -444,6 +531,10 @@ key: eingangsrechnung
 version: draft
 steps:
   - key: eingang
+field_mapping:
+  amount:
+    source: test
+    stability: immutable
 decision_points:
   - key: route_after_eingang
     after: eingang

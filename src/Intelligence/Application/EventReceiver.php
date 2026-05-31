@@ -3,6 +3,7 @@
 namespace App\Intelligence\Application;
 
 use App\Intelligence\Domain\CanonicalEvent;
+use App\Intelligence\Domain\DateTimeNormalizer;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Port\EventNormalizer;
 use App\Intelligence\Port\EventStore;
@@ -16,7 +17,8 @@ final class EventReceiver
         private readonly EventNormalizer $eventNormalizer,
         private readonly EventStore $eventStore,
         private readonly ProcessInstanceManager $processInstanceManager,
-        private readonly ContextSnapshotService $contextSnapshotService
+        private readonly ContextSnapshotService $contextSnapshotService,
+        private readonly DateTimeNormalizer $dateTimeNormalizer = new DateTimeNormalizer()
     ) {
     }
 
@@ -25,7 +27,7 @@ final class EventReceiver
      *
      * @throws JsonException
      */
-    public function receive(array $payload, string $rawPayload): EventStoreResult
+    public function receive(array $payload, string $rawPayload, ?int $incomingEventId = null): EventStoreResult
     {
         $canonicalEvent = $this->eventNormalizer->normalize($payload);
         $normalizedJson = json_encode($this->normalizeEvent($canonicalEvent), JSON_THROW_ON_ERROR);
@@ -41,8 +43,8 @@ final class EventReceiver
             $canonicalEvent->document->externalUuid,
             $canonicalEvent->document->version,
             $canonicalEvent->actorRef,
-            $canonicalEvent->occurredAt,
-            new DateTimeImmutable(),
+            $this->dateTimeNormalizer->toUtc($canonicalEvent->occurredAt),
+            $this->dateTimeNormalizer->nowUtc(),
             $rawPayload,
             $normalizedJson,
             null,
@@ -56,7 +58,7 @@ final class EventReceiver
 
         $instance = $this->processInstanceManager->findOrCreateForEvent($result->event);
         $eventWithInstance = $this->eventStore->attachProcessInstance($result->event, (int) $instance->id);
-        $this->contextSnapshotService->captureForEvent($eventWithInstance);
+        $this->contextSnapshotService->captureForEvent($eventWithInstance, $incomingEventId);
 
         return new EventStoreResult($eventWithInstance, false);
     }

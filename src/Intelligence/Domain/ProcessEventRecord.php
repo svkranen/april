@@ -2,6 +2,7 @@
 
 namespace App\Intelligence\Domain;
 
+use App\Intelligence\Domain\DateTimeNormalizer;
 use DateTimeImmutable;
 
 final readonly class ProcessEventRecord
@@ -131,8 +132,8 @@ final readonly class ProcessEventRecord
             isset($data['documentUuid']) ? (string) $data['documentUuid'] : null,
             (int) $data['documentVersion'],
             isset($data['actorRef']) ? (string) $data['actorRef'] : null,
-            new DateTimeImmutable((string) $data['occurredAt']),
-            new DateTimeImmutable((string) $data['receivedAt']),
+            (new DateTimeNormalizer())->parseAmagnoValue((string) $data['occurredAt']),
+            (new DateTimeNormalizer())->parseAmagnoValue((string) $data['receivedAt']),
             (string) $data['rawPayloadJson'],
             (string) $data['normalizedEventJson'],
             isset($data['processInstanceId']) ? (int) $data['processInstanceId'] : null,

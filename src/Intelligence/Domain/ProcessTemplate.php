@@ -25,7 +25,8 @@ final readonly class ProcessTemplate
         public array $fieldMappings = [],
         public array $decisionPoints = [],
         public array $requiredStepKeys = [],
-        public ?ProcessTemplateConnector $connector = null
+        public ?ProcessTemplateConnector $connector = null,
+        public ?ProcessTemplateContextPolicy $contextPolicy = null
     ) {
     }
 }

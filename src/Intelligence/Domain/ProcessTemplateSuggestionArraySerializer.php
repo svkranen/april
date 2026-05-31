@@ -44,6 +44,15 @@ final class ProcessTemplateSuggestionArraySerializer
             );
         }
 
+        if ($template->contextPolicy !== null) {
+            $data['context_policy'] = [
+                'snapshot' => [
+                    'max_delay_seconds' => $template->contextPolicy->snapshotMaxDelaySeconds,
+                    'stale_behavior' => $template->contextPolicy->snapshotStaleBehavior,
+                ],
+            ];
+        }
+
         if ($result->warnings !== []) {
             $data['warnings'] = array_map(
                 static fn (ProcessTemplateSuggestionWarning $warning): array => self::warningToArray($warning),
@@ -84,6 +93,9 @@ final class ProcessTemplateSuggestionArraySerializer
         }
         if ($mapping->valueType !== null) {
             $data['value_type'] = $mapping->valueType;
+        }
+        if ($mapping->stability !== null) {
+            $data['stability'] = $mapping->stability;
         }
 
         return $data;

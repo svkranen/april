@@ -35,4 +35,16 @@ class GenericPayloadEventNormalizerTest extends TestCase
         self::assertSame('2026-05-29T10:00:00+00:00', $event->occurredAt->format('c'));
         self::assertSame(['amount' => 12000], $event->attributes);
     }
+
+    public function testParsesOffsetlessAmagnoTimeAsBerlinLocalTime(): void
+    {
+        $normalizer = new GenericPayloadEventNormalizer();
+
+        $event = $normalizer->normalize([
+            'documentId' => 'doc-123',
+            'occurredAt' => '2026-05-31 07:08:00',
+        ]);
+
+        self::assertSame('2026-05-31T05:08:00+00:00', $event->occurredAt->format(DATE_ATOM));
+    }
 }

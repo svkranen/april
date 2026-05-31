@@ -75,7 +75,12 @@ final class InMemoryEventDetailsProvider implements EventDetailsProvider
                 null,
                 $snapshot->capturedAt,
                 $snapshot->attributes,
-                $snapshot->warnings
+                $snapshot->warnings,
+                $snapshot->occurredAt,
+                $snapshot->loadedAt,
+                $snapshot->incomingEventId,
+                $snapshot->freshnessSeconds,
+                $snapshot->isFreshForDecisionCheck
             );
         }
 

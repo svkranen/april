@@ -36,12 +36,27 @@ class ContextSnapshotEntity
     #[ORM\Column(name: 'external_event_key', type: 'string', length: 255, nullable: true)]
     private ?string $externalEventKey;
 
+    #[ORM\Column(name: 'incoming_event_id', type: 'integer', nullable: true)]
+    private ?int $incomingEventId = null;
+
     #[ORM\ManyToOne(targetEntity: ProcessInstanceEntity::class)]
     #[ORM\JoinColumn(name: 'process_instance_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?ProcessInstanceEntity $processInstance = null;
 
     #[ORM\Column(name: 'captured_at', type: 'datetime_immutable')]
     private DateTimeImmutable $capturedAt;
+
+    #[ORM\Column(name: 'occurred_at', type: 'datetime_immutable', nullable: true)]
+    private ?DateTimeImmutable $occurredAt = null;
+
+    #[ORM\Column(name: 'loaded_at', type: 'datetime_immutable')]
+    private DateTimeImmutable $loadedAt;
+
+    #[ORM\Column(name: 'freshness_seconds', type: 'integer', nullable: true)]
+    private ?int $freshnessSeconds = null;
+
+    #[ORM\Column(name: 'is_fresh_for_decision_check', type: 'boolean', nullable: true)]
+    private ?bool $isFreshForDecisionCheck = null;
 
     /** @var array<string, mixed> */
     #[ORM\Column(name: 'context_json', type: 'json', options: ['jsonb' => true])]
@@ -64,10 +79,42 @@ class ContextSnapshotEntity
     public function getProcessKey(): ?string { return $this->processKey; }
     public function setExternalEventKey(?string $externalEventKey): void { $this->externalEventKey = $externalEventKey; }
     public function getExternalEventKey(): ?string { return $this->externalEventKey; }
+    public function setIncomingEventId(?int $incomingEventId): void { $this->incomingEventId = $incomingEventId; }
+    public function getIncomingEventId(): ?int { return $this->incomingEventId; }
     public function setProcessInstance(?ProcessInstanceEntity $processInstance): void { $this->processInstance = $processInstance; }
     public function getProcessInstance(): ?ProcessInstanceEntity { return $this->processInstance; }
     public function setCapturedAt(DateTimeImmutable $capturedAt): void { $this->capturedAt = $capturedAt; }
     public function getCapturedAt(): DateTimeImmutable { return $this->capturedAt; }
+    public function setOccurredAt(?DateTimeImmutable $occurredAt): void { $this->occurredAt = $occurredAt; }
+    public function getOccurredAt(): ?DateTimeImmutable { return $this->occurredAt; }
+    public function setEventOccurredAt(?DateTimeImmutable $eventOccurredAt): void { $this->occurredAt = $eventOccurredAt; }
+    public function getEventOccurredAt(): ?DateTimeImmutable { return $this->occurredAt; }
+    public function setLoadedAt(DateTimeImmutable $loadedAt): void { $this->loadedAt = $loadedAt; }
+    public function getLoadedAt(): DateTimeImmutable { return $this->loadedAt; }
+    public function setFreshnessSeconds(?int $freshnessSeconds): void { $this->freshnessSeconds = $freshnessSeconds; }
+    public function getFreshnessSeconds(): ?int { return $this->freshnessSeconds; }
+    public function setIsFreshForDecisionCheck(?bool $isFreshForDecisionCheck): void { $this->isFreshForDecisionCheck = $isFreshForDecisionCheck; }
+    public function isFreshForDecisionCheck(): ?bool { return $this->isFreshForDecisionCheck; }
+    public function calculatedFreshnessSeconds(): ?int
+    {
+        return $this->occurredAt === null ? null : $this->loadedAt->getTimestamp() - $this->occurredAt->getTimestamp();
+    }
+    public function calculatedIsFreshForDecisionCheck(int $maxDelaySeconds): ?bool
+    {
+        $freshnessSeconds = $this->calculatedFreshnessSeconds();
+
+        return $freshnessSeconds === null ? null : $freshnessSeconds >= 0 && $freshnessSeconds <= $maxDelaySeconds;
+    }
+    public function recalculateFreshnessForDecisionCheck(int $maxDelaySeconds): bool
+    {
+        $freshnessSeconds = $this->calculatedFreshnessSeconds();
+        $isFreshForDecisionCheck = $this->calculatedIsFreshForDecisionCheck($maxDelaySeconds);
+        $changed = $this->freshnessSeconds !== $freshnessSeconds || $this->isFreshForDecisionCheck !== $isFreshForDecisionCheck;
+        $this->freshnessSeconds = $freshnessSeconds;
+        $this->isFreshForDecisionCheck = $isFreshForDecisionCheck;
+
+        return $changed;
+    }
     /** @param array<string, mixed> $contextJson */
     public function setContextJson(array $contextJson): void { $this->contextJson = $contextJson; }
     /** @return array<string, mixed> */

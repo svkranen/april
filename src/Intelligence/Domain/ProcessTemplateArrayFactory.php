@@ -34,7 +34,30 @@ final class ProcessTemplateArrayFactory
             fieldMappings: self::fieldMappings($data['field_mapping'] ?? []),
             decisionPoints: self::decisionPoints($data['decision_points'] ?? []),
             requiredStepKeys: self::stringList($data['required_steps'] ?? []),
-            connector: self::connector($data['connector'] ?? null)
+            connector: self::connector($data['connector'] ?? null),
+            contextPolicy: self::contextPolicy($data['context_policy'] ?? null)
+        );
+    }
+
+    private static function contextPolicy(mixed $contextPolicy): ?ProcessTemplateContextPolicy
+    {
+        if (!is_array($contextPolicy)) {
+            return null;
+        }
+
+        $snapshot = $contextPolicy['snapshot'] ?? null;
+        if (!is_array($snapshot)) {
+            return null;
+        }
+
+        $maxDelaySeconds = null;
+        if (isset($snapshot['max_delay_seconds']) && is_scalar($snapshot['max_delay_seconds'])) {
+            $maxDelaySeconds = max(0, (int) $snapshot['max_delay_seconds']);
+        }
+
+        return new ProcessTemplateContextPolicy(
+            $maxDelaySeconds,
+            self::stringValue($snapshot['stale_behavior'] ?? 'uncertain', 'uncertain')
         );
     }
 
@@ -181,11 +204,30 @@ final class ProcessTemplateArrayFactory
                 $source,
                 self::nullableString($mapping['tag_name'] ?? null),
                 self::nullableString($mapping['tag_id'] ?? null),
-                self::nullableString($mapping['value_type'] ?? null)
+                self::nullableString($mapping['value_type'] ?? null),
+                self::fieldStability($mapping['stability'] ?? null)
             );
         }
 
         return $result;
+    }
+
+    private static function fieldStability(mixed $value): ?string
+    {
+        $stability = self::nullableString($value);
+        if ($stability === null) {
+            return null;
+        }
+
+        if (!in_array($stability, [
+            ProcessTemplateFieldMapping::STABILITY_IMMUTABLE,
+            ProcessTemplateFieldMapping::STABILITY_MUTABLE,
+            ProcessTemplateFieldMapping::STABILITY_SNAPSHOT_REQUIRED,
+        ], true)) {
+            throw new InvalidArgumentException(sprintf('Unsupported field stability "%s".', $stability));
+        }
+
+        return $stability;
     }
 
     /**

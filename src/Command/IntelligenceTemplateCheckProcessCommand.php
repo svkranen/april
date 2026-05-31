@@ -96,6 +96,7 @@ final class IntelligenceTemplateCheckProcessCommand extends Command
         }
 
         $statusCounts = $this->statusCounts($rows);
+        $contextStatusCounts = $this->contextStatusCounts($rows);
         $visibleRows = $this->visibleRows(
             $rows,
             $input->getOption('show-ok') === true,
@@ -106,13 +107,18 @@ final class IntelligenceTemplateCheckProcessCommand extends Command
             'process_key' => $processKey,
             'template_key' => $template->key,
             'total_documents' => count($documentRefs),
-            'ok_count' => $statusCounts['OK'],
-            'warning_count' => $statusCounts['WARNING'],
-            'deviation_count' => $statusCounts['DEVIATION'],
-            'error_count' => $statusCounts['ERROR'],
+            'ok_count' => $statusCounts['OK'] ?? 0,
+            'warning_count' => $statusCounts['WARNING'] ?? 0,
+            'deviation_count' => $statusCounts['DEVIATION'] ?? 0,
+            'uncertain_context_stale_count' => $contextStatusCounts['UNCERTAIN_CONTEXT_STALE'] ?? 0,
+            'uncertain_context_time_skew_count' => $contextStatusCounts['UNCERTAIN_CONTEXT_TIME_SKEW'] ?? 0,
+            'uncheckable_context_missing_count' => $contextStatusCounts['UNCHECKABLE_CONTEXT_MISSING'] ?? 0,
+            'error_count' => $statusCounts['ERROR'] ?? 0,
             'status_counts' => $statusCounts,
+            'context_status_counts' => $contextStatusCounts,
             'deviation_summary' => $this->problemSummary($rows, 'deviations'),
             'warning_summary' => $this->problemSummary($rows, 'warnings'),
+            'context_issue_summary' => $this->problemSummary($rows, 'context_issues'),
             'top_problem_documents' => $this->topProblemDocuments($rows),
             'documents' => $visibleRows,
             'groups' => $this->groupRows($visibleRows),
@@ -144,18 +150,21 @@ final class IntelligenceTemplateCheckProcessCommand extends Command
         $messages = $this->normalizedMessages($result->deviations, 'Unknown deviation');
         $warnings = $status === 'WARNING' ? $messages : [];
         $deviations = $status === 'DEVIATION' ? $messages : [];
+        $contextIssues = $this->normalizedMessages($result->contextIssues, 'Unknown context issue');
 
         return [
             'documentId' => $documentRef->documentExternalId ?? '<unknown>',
             'documentUuid' => $documentRef->documentUuid,
             'documentVersion' => $documentRef->documentVersion,
             'status' => $status,
-            'problem_score' => $this->problemScore($deviations, $warnings, null),
+            'problem_score' => $this->problemScore($deviations, $warnings, null) + ($contextIssues === [] ? 0 : 1),
             'warning_count' => $status === 'WARNING' ? count($result->deviations) : 0,
             'deviation_count' => $status === 'DEVIATION' ? count($result->deviations) : 0,
             'error' => null,
             'warnings' => $warnings,
             'deviations' => $deviations,
+            'context_issues' => $contextIssues,
+            'context_status' => $result->contextStatus,
         ];
     }
 
@@ -175,6 +184,8 @@ final class IntelligenceTemplateCheckProcessCommand extends Command
             'error' => $exception->getMessage() !== '' ? $exception->getMessage() : 'Unknown error',
             'warnings' => [],
             'deviations' => [],
+            'context_issues' => [],
+            'context_status' => null,
         ];
     }
 
@@ -189,12 +200,16 @@ final class IntelligenceTemplateCheckProcessCommand extends Command
         $output->writeln(sprintf('ok_count: %d', $report['ok_count']));
         $output->writeln(sprintf('warning_count: %d', $report['warning_count']));
         $output->writeln(sprintf('deviation_count: %d', $report['deviation_count']));
+        $output->writeln(sprintf('uncertain_context_stale_count: %d', $report['uncertain_context_stale_count'] ?? 0));
+        $output->writeln(sprintf('uncertain_context_time_skew_count: %d', $report['uncertain_context_time_skew_count'] ?? 0));
+        $output->writeln(sprintf('uncheckable_context_missing_count: %d', $report['uncheckable_context_missing_count'] ?? 0));
         $output->writeln(sprintf('error_count: %d', $report['error_count']));
         $this->renderSummary('Deviation Summary', $report['deviation_summary'], $output);
         $this->renderSummary('Warning Summary', $report['warning_summary'], $output);
+        $this->renderSummary('Context Issue Summary', $report['context_issue_summary'] ?? [], $output);
         $this->renderTopProblemDocuments($report['top_problem_documents'], $output);
 
-        foreach (['WARNING', 'DEVIATION', 'ERROR', 'OK'] as $status) {
+        foreach (['UNCHECKABLE_CONTEXT_MISSING', 'UNCERTAIN_CONTEXT_TIME_SKEW', 'UNCERTAIN_CONTEXT_STALE', 'WARNING', 'DEVIATION', 'ERROR', 'OK'] as $status) {
             $rows = $report['groups'][$status] ?? [];
             if ($rows === []) {
                 continue;
@@ -216,6 +231,9 @@ final class IntelligenceTemplateCheckProcessCommand extends Command
                 }
                 foreach ($row['deviations'] as $deviation) {
                     $output->writeln(sprintf('      - %s', $deviation));
+                }
+                foreach ($row['context_issues'] as $contextIssue) {
+                    $output->writeln(sprintf('      - %s', $contextIssue));
                 }
                 if ($row['error'] !== null) {
                     $output->writeln(sprintf('      - %s', $row['error']));
@@ -258,6 +276,10 @@ final class IntelligenceTemplateCheckProcessCommand extends Command
 
     private function statusForResult(ProcessTemplateCheckResult $result): string
     {
+        if (in_array($result->status(), ['UNCERTAIN_CONTEXT_STALE', 'UNCERTAIN_CONTEXT_TIME_SKEW', 'UNCHECKABLE_CONTEXT_MISSING'], true)) {
+            return $result->status();
+        }
+
         if ($result->deviations === []) {
             return 'OK';
         }
@@ -410,13 +432,33 @@ final class IntelligenceTemplateCheckProcessCommand extends Command
 
     /**
      * @param array<int, array<string, mixed>> $rows
-     * @return array{OK: int, WARNING: int, DEVIATION: int, ERROR: int}
+     * @return array<string, int>
      */
     private function statusCounts(array $rows): array
     {
-        $counts = ['OK' => 0, 'WARNING' => 0, 'DEVIATION' => 0, 'ERROR' => 0];
+        $counts = ['OK' => 0, 'WARNING' => 0, 'DEVIATION' => 0, 'UNCERTAIN_CONTEXT_STALE' => 0, 'UNCERTAIN_CONTEXT_TIME_SKEW' => 0, 'UNCHECKABLE_CONTEXT_MISSING' => 0, 'ERROR' => 0];
         foreach ($rows as $row) {
+            $counts[$row['status']] ??= 0;
             ++$counts[$row['status']];
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<string, int>
+     */
+    private function contextStatusCounts(array $rows): array
+    {
+        $counts = ['UNCERTAIN_CONTEXT_STALE' => 0, 'UNCERTAIN_CONTEXT_TIME_SKEW' => 0, 'UNCHECKABLE_CONTEXT_MISSING' => 0];
+        foreach ($rows as $row) {
+            $contextStatus = $row['context_status'] ?? null;
+            if (!is_string($contextStatus) || !array_key_exists($contextStatus, $counts)) {
+                continue;
+            }
+
+            ++$counts[$contextStatus];
         }
 
         return $counts;
@@ -446,8 +488,9 @@ final class IntelligenceTemplateCheckProcessCommand extends Command
      */
     private function groupRows(array $rows): array
     {
-        $groups = ['OK' => [], 'WARNING' => [], 'DEVIATION' => [], 'ERROR' => []];
+        $groups = ['OK' => [], 'WARNING' => [], 'DEVIATION' => [], 'UNCERTAIN_CONTEXT_STALE' => [], 'UNCERTAIN_CONTEXT_TIME_SKEW' => [], 'UNCHECKABLE_CONTEXT_MISSING' => [], 'ERROR' => []];
         foreach ($rows as $row) {
+            $groups[$row['status']] ??= [];
             $groups[$row['status']][] = $row;
         }
 

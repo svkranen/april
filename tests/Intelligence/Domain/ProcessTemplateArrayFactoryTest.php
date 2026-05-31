@@ -138,6 +138,7 @@ class ProcessTemplateArrayFactoryTest extends TestCase
                     'source' => 'amagno',
                     'tag_name' => 'Nettobetrag',
                     'value_type' => 'number',
+                    'stability' => 'immutable',
                 ],
                 'project_id' => [
                     'source' => 'amagno',
@@ -157,8 +158,42 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame('amount_net', $template->fieldMappings['amount_net']->fieldKey);
         self::assertSame('Nettobetrag', $template->fieldMappings['amount_net']->tagName);
         self::assertSame('number', $template->fieldMappings['amount_net']->valueType);
+        self::assertSame('immutable', $template->fieldMappings['amount_net']->stability);
 
         self::assertSame('tag-project-id', $template->fieldMappings['project_id']->tagId);
+    }
+
+    public function testBuildsContextSnapshotPolicy(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'context_policy' => [
+                'snapshot' => [
+                    'max_delay_seconds' => 300,
+                    'stale_behavior' => 'uncertain',
+                ],
+            ],
+        ]);
+
+        self::assertNotNull($template->contextPolicy);
+        self::assertSame(300, $template->contextPolicy->snapshotMaxDelaySeconds);
+        self::assertSame('uncertain', $template->contextPolicy->snapshotStaleBehavior);
+    }
+
+    public function testRejectsUnsupportedFieldStability(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Unsupported field stability "sometimes".');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'field_mapping' => [
+                'amount_net' => [
+                    'source' => 'amagno',
+                    'stability' => 'sometimes',
+                ],
+            ],
+        ]);
     }
 
     public function testBuildsTemplateWithDecisionPoints(): void

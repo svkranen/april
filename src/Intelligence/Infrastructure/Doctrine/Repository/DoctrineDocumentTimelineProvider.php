@@ -88,6 +88,12 @@ final class DoctrineDocumentTimelineProvider implements DocumentTimelineProvider
                 'attributes' => $snapshot->getContextJson(),
                 'fields' => array_keys($snapshot->getContextJson()),
                 'warnings' => $snapshot->getWarnings(),
+                'occurred_at' => $snapshot->getOccurredAt()?->format(DATE_ATOM),
+                'loaded_at' => $snapshot->getLoadedAt()->format(DATE_ATOM),
+                'incoming_event_id' => $snapshot->getIncomingEventId(),
+                'freshness_seconds' => $snapshot->calculatedFreshnessSeconds() ?? $snapshot->getFreshnessSeconds(),
+                'is_fresh_for_decision_check' => $snapshot->isFreshForDecisionCheck(),
+                'source' => 'snapshot',
             ];
         }
 

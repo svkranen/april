@@ -4,11 +4,16 @@ namespace App\Intelligence\Infrastructure\Normalizer;
 
 use App\Intelligence\Domain\CanonicalEvent;
 use App\Intelligence\Domain\DocumentRef;
+use App\Intelligence\Domain\DateTimeNormalizer;
 use App\Intelligence\Port\EventNormalizer;
-use DateTimeImmutable;
 
 final class GenericPayloadEventNormalizer implements EventNormalizer
 {
+    public function __construct(
+        private readonly DateTimeNormalizer $dateTimeNormalizer = new DateTimeNormalizer()
+    ) {
+    }
+
     public function normalize(array $payload): CanonicalEvent
     {
         $document = is_array($payload['document'] ?? null) ? $payload['document'] : [];
@@ -22,7 +27,7 @@ final class GenericPayloadEventNormalizer implements EventNormalizer
             ),
             $this->stringValue($payload, ['step_key', 'stepKey', 'event_key', 'eventKey', 'event_type', 'eventType', 'type'], 'unknown'),
             $this->nullableStringValue($payload, ['actor_ref', 'actorRef', 'actor', 'user']),
-            new DateTimeImmutable($this->stringValue($payload, ['occurred_at', 'occurredAt', 'occured_at', 'occuredAt', 'timestamp', 'changeDate'], 'now')),
+            $this->dateTimeNormalizer->parseAmagnoValue($this->stringValue($payload, ['occurred_at', 'occurredAt', 'occured_at', 'occuredAt', 'timestamp', 'changeDate'], 'now')),
             $this->eventPhase($payload),
             is_array($payload['attributes'] ?? null) ? $payload['attributes'] : []
         );

@@ -2,10 +2,8 @@
 
 namespace App\Controller;
 
-use App\Intelligence\Application\EventReceiver;
+use App\Intelligence\Application\IncomingEventIntake;
 use App\Intelligence\Port\SignatureVerifier;
-use DateTimeImmutable;
-use Exception;
 use JsonException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -17,7 +15,7 @@ final class IntelligenceEventController
 {
     public function __construct(
         private readonly SignatureVerifier $signatureVerifier,
-        private readonly EventReceiver $eventReceiver,
+        private readonly IncomingEventIntake $incomingEventIntake,
         private readonly ?LoggerInterface $logger = null
     ) {
     }
@@ -53,14 +51,15 @@ final class IntelligenceEventController
             return new JsonResponse(['accepted' => false] + $validationError, 400);
         }
 
-        $result = $this->eventReceiver->receive($payload, $rawPayload);
+        $event = $this->incomingEventIntake->accept($payload, $rawPayload, $request->headers->get('Content-Type'));
 
         return new JsonResponse([
+            'status' => 'accepted',
             'accepted' => true,
-            'duplicate' => $result->duplicate,
-            'event_id' => $result->event->id,
-            'external_event_key' => $result->event->externalEventKey,
-        ], $result->duplicate ? 200 : 202);
+            'duplicate' => false,
+            'incoming_event_id' => $event->id,
+            'external_event_key' => $event->externalEventKey,
+        ], 200);
     }
 
     /**
@@ -69,49 +68,12 @@ final class IntelligenceEventController
      */
     private function validatePayload(array $payload): ?array
     {
-        foreach (['documentId', 'documentUuid', 'eventKey', 'eventPhase', 'occurredAt', 'processKey', 'stepKey'] as $field) {
-            if (!$this->hasScalarField($payload, $field) || (!in_array($field, ['processKey', 'stepKey'], true) && trim((string) $payload[$field]) === '')) {
-                return [
-                    'error' => 'missing_required_field',
-                    'field' => $field,
-                    'message' => sprintf('Missing required field "%s".', $field),
-                ];
-            }
-        }
-
-        $processKey = trim((string) $payload['processKey']);
+        $processKey = $this->firstScalar($payload, ['processKey', 'process_key']);
         if ($processKey === '' || strtolower($processKey) === 'unknown') {
             return [
                 'error' => 'unknown_process_key',
                 'field' => 'processKey',
                 'message' => 'Unknown processKey.',
-            ];
-        }
-
-        if (trim((string) $payload['stepKey']) === '') {
-            return [
-                'error' => 'empty_step_key',
-                'field' => 'stepKey',
-                'message' => 'stepKey must not be empty.',
-            ];
-        }
-
-        $eventPhase = strtolower(trim((string) $payload['eventPhase']));
-        if (!in_array($eventPhase, ['before', 'after'], true)) {
-            return [
-                'error' => 'invalid_event_phase',
-                'field' => 'eventPhase',
-                'message' => 'eventPhase must be "before" or "after".',
-            ];
-        }
-
-        try {
-            new DateTimeImmutable((string) $payload['occurredAt']);
-        } catch (Exception) {
-            return [
-                'error' => 'invalid_occurred_at',
-                'field' => 'occurredAt',
-                'message' => 'occurredAt must be a valid datetime.',
             ];
         }
 
@@ -124,6 +86,21 @@ final class IntelligenceEventController
     private function hasScalarField(array $payload, string $field): bool
     {
         return array_key_exists($field, $payload) && is_scalar($payload[$field]);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<int, string> $fields
+     */
+    private function firstScalar(array $payload, array $fields): string
+    {
+        foreach ($fields as $field) {
+            if ($this->hasScalarField($payload, $field)) {
+                return trim((string) $payload[$field]);
+            }
+        }
+
+        return '';
     }
 
     private function debugLogRequest(Request $request, string $rawPayload): void

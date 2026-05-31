@@ -4,12 +4,13 @@ namespace App\Intelligence\Application;
 
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Domain\ProcessInstance;
-use DateTimeImmutable;
+use App\Intelligence\Domain\DateTimeNormalizer;
 
 final class ProcessInstanceManager
 {
     public function __construct(
-        private readonly ProcessInstanceRepository $repository
+        private readonly ProcessInstanceRepository $repository,
+        private readonly DateTimeNormalizer $dateTimeNormalizer = new DateTimeNormalizer()
     ) {
     }
 
@@ -25,7 +26,7 @@ final class ProcessInstanceManager
         );
 
         if ($instance === null) {
-            $now = new DateTimeImmutable();
+            $now = $this->dateTimeNormalizer->nowUtc();
             $instance = new ProcessInstance(
                 null,
                 $event->sourceSystem,
@@ -47,6 +48,6 @@ final class ProcessInstanceManager
             return $this->repository->save($instance);
         }
 
-        return $this->repository->save($instance->withEvent($event, new DateTimeImmutable()));
+        return $this->repository->save($instance->withEvent($event, $this->dateTimeNormalizer->nowUtc()));
     }
 }

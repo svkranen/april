@@ -3,10 +3,10 @@
 namespace App\Intelligence\Application;
 
 use App\Intelligence\Domain\ContextSnapshot;
+use App\Intelligence\Domain\DateTimeNormalizer;
 use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Port\ContextProvider;
-use DateTimeImmutable;
 use Psr\Log\LoggerInterface;
 
 final class ContextSnapshotService
@@ -16,11 +16,12 @@ final class ContextSnapshotService
         private readonly ContextProvider $contextProvider,
         private readonly ContextSnapshotStore $snapshotStore,
         private readonly ?TemplateContextProviderResolver $templateContextProviderResolver = null,
+        private readonly DateTimeNormalizer $dateTimeNormalizer = new DateTimeNormalizer(),
         private readonly ?LoggerInterface $logger = null
     ) {
     }
 
-    public function captureForEvent(ProcessEventRecord $event): ContextSnapshotResult
+    public function captureForEvent(ProcessEventRecord $event, ?int $incomingEventId = null): ContextSnapshotResult
     {
         $profile = $this->profileProvider->profileForProcess($event->processKey);
         $document = new DocumentRef(
@@ -37,20 +38,36 @@ final class ContextSnapshotService
             $contextProvider = $templateContext->contextProvider;
             $requiredFields = $templateContext->requiredFields;
         }
+        $template = $templateContext?->template;
 
         $attributes = $contextProvider->loadAttributes($document, $requiredFields);
         $warnings = array_merge(
             $contextProvider instanceof ContextProviderWarningProvider ? $contextProvider->warnings() : [],
             $this->missingFieldWarnings($requiredFields, $attributes)
         );
+        $loadedAt = $this->dateTimeNormalizer->nowUtc();
+        $eventOccurredAt = $this->dateTimeNormalizer->toUtc($event->occurredAt);
+        $freshnessSeconds = $loadedAt->getTimestamp() - $eventOccurredAt->getTimestamp();
+        $maxDelaySeconds = $template?->contextPolicy?->snapshotMaxDelaySeconds;
+        if ($freshnessSeconds < 0) {
+            $warnings[] = sprintf(
+                'Context freshness is negative (%d seconds). Possible timezone skew between event occurred_at and context loaded_at.',
+                $freshnessSeconds
+            );
+        }
         $snapshot = new ContextSnapshot(
             $document,
-            new DateTimeImmutable(),
+            $loadedAt,
             $attributes,
             $warnings,
             $event->processKey,
             $event->externalEventKey,
-            $event->processInstanceId
+            $event->processInstanceId,
+            $eventOccurredAt,
+            $loadedAt,
+            $incomingEventId ?? $event->id,
+            $freshnessSeconds,
+            $maxDelaySeconds === null ? null : $freshnessSeconds >= 0 && $freshnessSeconds <= $maxDelaySeconds
         );
         $this->logger?->debug('Saved snapshot attributes', [
             'process_key' => $event->processKey,

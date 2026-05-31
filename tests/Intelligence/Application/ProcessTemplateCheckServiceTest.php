@@ -2,13 +2,19 @@
 
 namespace App\Tests\Intelligence\Application;
 
+use App\Intelligence\Application\DocumentTimelineEventRow;
+use App\Intelligence\Application\DocumentTimelineProvider;
+use App\Intelligence\Application\DocumentTimelineReport;
+use App\Intelligence\Application\EventTimelineOrder;
 use App\Intelligence\Application\ProcessTemplateCheckService;
 use App\Intelligence\Domain\ContextSnapshot;
 use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateContextPolicy;
 use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
 use App\Intelligence\Domain\ProcessTemplateDecisionRule;
+use App\Intelligence\Domain\ProcessTemplateFieldMapping;
 use App\Intelligence\Domain\ProcessTemplateParallelGroup;
 use App\Intelligence\Domain\ProcessTemplateStep;
 use App\Intelligence\Domain\ProcessTemplateRuleCondition;
@@ -114,6 +120,7 @@ class ProcessTemplateCheckServiceTest extends TestCase
                     new ProcessTemplateStep('small_approval'),
                     new ProcessTemplateStep('invoice_finished'),
                 ],
+                fieldMappings: $this->immutableFieldMappings(['amount']),
                 decisionPoints: [
                     new ProcessTemplateDecisionPoint(
                         'approval_route',
@@ -279,6 +286,7 @@ class ProcessTemplateCheckServiceTest extends TestCase
                         'any'
                     ),
                 ],
+                fieldMappings: $this->immutableFieldMappings(['amount_net']),
                 decisionPoints: [
                     new ProcessTemplateDecisionPoint(
                         'route_after_pruefung',
@@ -591,6 +599,7 @@ class ProcessTemplateCheckServiceTest extends TestCase
                     new ProcessTemplateStep('booked'),
                     new ProcessTemplateStep('payment_expected'),
                 ],
+                fieldMappings: $this->immutableFieldMappings(['invoice_direction', 'amount_net']),
                 decisionPoints: [
                     new ProcessTemplateDecisionPoint(
                         'route_after_pruefung',
@@ -727,6 +736,7 @@ class ProcessTemplateCheckServiceTest extends TestCase
                     new ProcessTemplateStep('department_approval'),
                     new ProcessTemplateStep('gf_approval'),
                 ],
+                fieldMappings: $this->immutableFieldMappings(['invoice_direction', 'amount_net']),
                 decisionPoints: [
                     new ProcessTemplateDecisionPoint(
                         'route_after_pruefung',
@@ -756,6 +766,282 @@ class ProcessTemplateCheckServiceTest extends TestCase
         );
     }
 
+    public function testCheckDocumentFailsWhenDecisionFieldStabilityIsMissing(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                ]
+            )
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Missing stability for decision field "amount" in decision point "approval_route".');
+
+        $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('invoice_checked'),
+                    new ProcessTemplateStep('department_approval'),
+                ],
+                fieldMappings: [
+                    'amount' => new ProcessTemplateFieldMapping('amount', 'test'),
+                ],
+                decisionPoints: [
+                    new ProcessTemplateDecisionPoint(
+                        'approval_route',
+                        'invoice_checked',
+                        ['amount'],
+                        [
+                            new ProcessTemplateDecisionRule(null, 'department_approval', true),
+                        ]
+                    ),
+                ]
+            ),
+            1
+        );
+    }
+
+    public function testSnapshotRequiredContextLoadedAfter60SecondsIsUsedForDecision(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                    $this->event(2, 'gf_approval', 1),
+                ],
+                [
+                    $this->snapshotForEvent('evt-1', ['amount' => 12000], 0, 60, true),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            $this->templateWithSingleDecisionField(
+                'amount',
+                ProcessTemplateFieldMapping::STABILITY_SNAPSHOT_REQUIRED,
+                'gf_approval',
+                300
+            ),
+            1
+        );
+
+        self::assertSame('OK', $result->status());
+        self::assertSame([], $result->deviations);
+        self::assertSame([], $result->contextIssues);
+    }
+
+    public function testSnapshotRequiredContextLoadedAfter301SecondsIsUncertainAndDoesNotCreateDecisionDeviation(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                    $this->event(2, 'department_approval', 1),
+                ],
+                [
+                    $this->snapshotForEvent('evt-1', ['amount' => 12000], 0, 301, false),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            $this->templateWithSingleDecisionField(
+                'amount',
+                ProcessTemplateFieldMapping::STABILITY_SNAPSHOT_REQUIRED,
+                'department_approval',
+                300
+            ),
+            1
+        );
+
+        self::assertSame('UNCERTAIN_CONTEXT_STALE', $result->status());
+        self::assertSame([], $result->deviations);
+        self::assertSame([
+            'Uncertain context stale: decision point approval_route field amount snapshot freshness_seconds=301 exceeds max_delay_seconds=300. event occurred_at=2026-05-29T09:00:00+00:00 loaded_at=2026-05-29T09:05:01+00:00',
+        ], $result->contextIssues);
+    }
+
+    public function testMutableDecisionFieldWithoutSnapshotIsUncheckable(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                    $this->event(2, 'department_approval', 1),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            $this->templateWithSingleDecisionField(
+                'amount',
+                ProcessTemplateFieldMapping::STABILITY_MUTABLE,
+                'department_approval',
+                300
+            ),
+            1
+        );
+
+        self::assertSame('UNCHECKABLE_CONTEXT_MISSING', $result->status());
+        self::assertSame([], $result->deviations);
+        self::assertSame([
+            'Uncheckable context missing: decision point approval_route field amount requires a snapshot. event occurred_at=2026-05-29T09:00:00+00:00',
+        ], $result->contextIssues);
+    }
+
+    public function testNegativeFreshnessIsTimeSkewAndDoesNotCreateDecisionDeviation(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                    $this->event(2, 'department_approval', 1),
+                ],
+                [
+                    $this->snapshotForEvent('evt-1', ['amount' => 12000], 300, 0, false),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            $this->templateWithSingleDecisionField(
+                'amount',
+                ProcessTemplateFieldMapping::STABILITY_MUTABLE,
+                'department_approval',
+                300
+            ),
+            1
+        );
+
+        self::assertSame('UNCERTAIN_CONTEXT_TIME_SKEW', $result->status());
+        self::assertSame([], $result->deviations);
+        self::assertSame([
+            'Uncertain context time skew: decision point approval_route field amount snapshot freshness_seconds=-300 is negative. event occurred_at=2026-05-29T09:05:00+00:00 loaded_at=2026-05-29T09:00:00+00:00',
+        ], $result->contextIssues);
+    }
+
+    public function testDecisionCheckRecalculatesFreshnessFromSnapshotTimestampsInsteadOfTrustingStoredValue(): void
+    {
+        $eventOccurredAt = new DateTimeImmutable('2026-05-31T05:08:00+00:00');
+        $loadedAt = new DateTimeImmutable('2026-05-31T05:11:44+00:00');
+        $service = new ProcessTemplateCheckService(
+            new class($eventOccurredAt, $loadedAt) implements DocumentTimelineProvider {
+                public function __construct(
+                    private readonly DateTimeImmutable $eventOccurredAt,
+                    private readonly DateTimeImmutable $loadedAt
+                ) {
+                }
+
+                public function build(string $documentUuid, EventTimelineOrder $order = EventTimelineOrder::DEFAULT): DocumentTimelineReport
+                {
+                    return new DocumentTimelineReport(
+                        $documentUuid,
+                        [],
+                        [
+                            new DocumentTimelineEventRow(
+                                'evt-1',
+                                'invoice_checked',
+                                'invoice_checked',
+                                'invoice',
+                                1,
+                                $this->eventOccurredAt,
+                                $this->eventOccurredAt,
+                                1,
+                                1,
+                                [
+                                    'attributes' => ['amount' => 12000],
+                                    'fields' => ['amount'],
+                                    'occurred_at' => $this->eventOccurredAt->format(DATE_ATOM),
+                                    'loaded_at' => $this->loadedAt->format(DATE_ATOM),
+                                    'freshness_seconds' => -6976,
+                                    'is_fresh_for_decision_check' => false,
+                                    'source' => 'snapshot',
+                                ]
+                            ),
+                            new DocumentTimelineEventRow(
+                                'evt-2',
+                                'gf_approval',
+                                'gf_approval',
+                                'invoice',
+                                1,
+                                $this->loadedAt,
+                                $this->loadedAt,
+                                2,
+                                1
+                            ),
+                        ]
+                    );
+                }
+            }
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            $this->templateWithSingleDecisionField(
+                'amount',
+                ProcessTemplateFieldMapping::STABILITY_SNAPSHOT_REQUIRED,
+                'gf_approval',
+                300
+            ),
+            1
+        );
+
+        self::assertSame('OK', $result->status());
+        self::assertSame([], $result->contextIssues);
+        self::assertSame([], $result->deviations);
+    }
+
+    public function testImmutableDecisionFieldMayUseLateSnapshot(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                    $this->event(2, 'gf_approval', 1),
+                ],
+                [
+                    $this->snapshotForEvent('evt-1', ['amount' => 12000], 0, 1200, false),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            $this->templateWithSingleDecisionField(
+                'amount',
+                ProcessTemplateFieldMapping::STABILITY_IMMUTABLE,
+                'gf_approval',
+                300
+            ),
+            1
+        );
+
+        self::assertSame('OK', $result->status());
+        self::assertSame([], $result->deviations);
+        self::assertSame([], $result->contextIssues);
+    }
+
     private function templateWithDecisionPath(string $nextStepKey): ProcessTemplate
     {
         return new ProcessTemplate(
@@ -764,6 +1050,7 @@ class ProcessTemplateCheckServiceTest extends TestCase
                 new ProcessTemplateStep('invoice_checked'),
                 new ProcessTemplateStep($nextStepKey),
             ],
+            fieldMappings: $this->immutableFieldMappings(['amount']),
             decisionPoints: [
                 new ProcessTemplateDecisionPoint(
                     'approval_route',
@@ -804,6 +1091,7 @@ class ProcessTemplateCheckServiceTest extends TestCase
                     'any'
                 ),
             ],
+            fieldMappings: $this->immutableFieldMappings(['amount']),
             decisionPoints: [
                 new ProcessTemplateDecisionPoint(
                     'booking_route',
@@ -831,6 +1119,7 @@ class ProcessTemplateCheckServiceTest extends TestCase
                 new ProcessTemplateStep('small_approval'),
                 new ProcessTemplateStep('invoice_finished'),
             ],
+            fieldMappings: $this->immutableFieldMappings(['amount']),
             decisionPoints: [
                 new ProcessTemplateDecisionPoint(
                     'approval_route',
@@ -865,6 +1154,41 @@ class ProcessTemplateCheckServiceTest extends TestCase
         );
     }
 
+    private function templateWithSingleDecisionField(string $field, string $stability, string $actualNextStepKey, int $maxDelaySeconds): ProcessTemplate
+    {
+        return new ProcessTemplate(
+            'invoice',
+            steps: [
+                new ProcessTemplateStep('invoice_checked'),
+                new ProcessTemplateStep('department_approval'),
+                new ProcessTemplateStep('gf_approval'),
+            ],
+            fieldMappings: [
+                $field => new ProcessTemplateFieldMapping(
+                    $field,
+                    'test',
+                    stability: $stability
+                ),
+            ],
+            decisionPoints: [
+                new ProcessTemplateDecisionPoint(
+                    'approval_route',
+                    'invoice_checked',
+                    [$field],
+                    [
+                        new ProcessTemplateDecisionRule(
+                            new ProcessTemplateRuleCondition($field, 'gt', 10000),
+                            'gf_approval'
+                        ),
+                        new ProcessTemplateDecisionRule(null, $actualNextStepKey, true),
+                    ]
+                ),
+            ],
+            requiredStepKeys: ['invoice_checked'],
+            contextPolicy: new ProcessTemplateContextPolicy($maxDelaySeconds, 'uncertain')
+        );
+    }
+
     private function event(int $id, string $stepKey, int $minuteOffset): ProcessEventRecord
     {
         $time = (new DateTimeImmutable('2026-05-29T09:00:00+00:00'))->modify(sprintf('+%d minutes', $minuteOffset));
@@ -889,6 +1213,24 @@ class ProcessTemplateCheckServiceTest extends TestCase
     }
 
     /**
+     * @param array<int, string> $fields
+     * @return array<string, ProcessTemplateFieldMapping>
+     */
+    private function immutableFieldMappings(array $fields): array
+    {
+        $mappings = [];
+        foreach ($fields as $field) {
+            $mappings[$field] = new ProcessTemplateFieldMapping(
+                $field,
+                'test',
+                stability: ProcessTemplateFieldMapping::STABILITY_IMMUTABLE
+            );
+        }
+
+        return $mappings;
+    }
+
+    /**
      * @param array<string, mixed> $attributes
      */
     private function snapshot(string $externalEventKey, array $attributes): ContextSnapshot
@@ -901,6 +1243,31 @@ class ProcessTemplateCheckServiceTest extends TestCase
             'invoice',
             $externalEventKey,
             1
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    private function snapshotForEvent(string $externalEventKey, array $attributes, int $occurredSecondOffset, int $loadedSecondOffset, bool $isFresh): ContextSnapshot
+    {
+        $base = new DateTimeImmutable('2026-05-29T09:00:00+00:00');
+        $occurredAt = $base->modify(sprintf('+%d seconds', $occurredSecondOffset));
+        $loadedAt = $base->modify(sprintf('+%d seconds', $loadedSecondOffset));
+
+        return new ContextSnapshot(
+            new DocumentRef('test', 'doc-1', 'uuid-1', 1),
+            $loadedAt,
+            $attributes,
+            [],
+            'invoice',
+            $externalEventKey,
+            1,
+            $occurredAt,
+            $loadedAt,
+            1,
+            $loadedAt->getTimestamp() - $occurredAt->getTimestamp(),
+            $isFresh
         );
     }
 }

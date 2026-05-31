@@ -59,7 +59,12 @@ final class DoctrineEventDetailsProvider implements EventDetailsProvider
                 $snapshot->getId(),
                 $snapshot->getCapturedAt(),
                 $snapshot->getContextJson(),
-                $snapshot->getWarnings()
+                $snapshot->getWarnings(),
+                $snapshot->getOccurredAt(),
+                $snapshot->getLoadedAt(),
+                $snapshot->getIncomingEventId(),
+                $snapshot->getFreshnessSeconds(),
+                $snapshot->isFreshForDecisionCheck()
             ),
             $snapshots
         );

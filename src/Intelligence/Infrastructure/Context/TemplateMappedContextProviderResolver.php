@@ -66,13 +66,15 @@ final readonly class TemplateMappedContextProviderResolver implements TemplateCo
         if ($connection !== null) {
             return new ContextProviderSelection(
                 $this->amagnoContextProviderFactory->fromFieldMapForConnection($fieldMap, $connection),
-                $template->contextProfileRequiredFields
+                $template->contextProfileRequiredFields,
+                $template
             );
         }
 
         return new ContextProviderSelection(
             $this->amagnoContextProviderFactory->fromFieldMap($fieldMap),
-            $template->contextProfileRequiredFields
+            $template->contextProfileRequiredFields,
+            $template
         );
     }
 

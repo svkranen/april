@@ -7,8 +7,11 @@ use App\Intelligence\Domain\ProcessTemplateArrayFactory;
 use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
 use App\Intelligence\Domain\ProcessTemplateDecisionRule;
 use App\Intelligence\Domain\ProcessTemplateDecisionRuleEvaluator;
+use App\Intelligence\Domain\ProcessTemplateFieldMapping;
 use App\Intelligence\Domain\ProcessTemplateParallelGroup;
 use App\Intelligence\Domain\ProcessTemplateStep;
+use DateTimeImmutable;
+use InvalidArgumentException;
 
 final class ProcessTemplateCheckService
 {
@@ -44,6 +47,8 @@ final class ProcessTemplateCheckService
         ?int $documentVersion = null,
         EventTimelineOrder $order = EventTimelineOrder::DEFAULT
     ): ProcessTemplateCheckResult {
+        $this->assertDecisionFieldsHaveStability($template);
+
         $parallelGroups = $this->parallelGroups($template);
         $expectedSteps = $this->expectedSteps($template);
         $knownSteps = $this->knownSteps($template, $parallelGroups, $expectedSteps);
@@ -53,10 +58,18 @@ final class ProcessTemplateCheckService
             $actualStepEntries
         );
         $deviations = $this->deviations($expectedSteps, $actualSteps, $parallelGroups, $knownSteps);
-        $deviations = array_merge($deviations, $this->decisionDeviations($template->decisionPoints, $actualStepEntries, $parallelGroups, $actualSteps));
+        $decisionCheck = $this->decisionDeviations($template, $actualStepEntries, $parallelGroups, $actualSteps);
+        $deviations = array_merge($deviations, $decisionCheck['deviations']);
         $parallelGroupMessages = $this->parallelGroupMessages($parallelGroups, $actualSteps);
 
-        return new ProcessTemplateCheckResult($expectedSteps, $actualSteps, $deviations, $parallelGroupMessages);
+        return new ProcessTemplateCheckResult(
+            $expectedSteps,
+            $actualSteps,
+            $deviations,
+            $parallelGroupMessages,
+            $decisionCheck['context_issues'],
+            $decisionCheck['context_status']
+        );
     }
 
     /**
@@ -124,7 +137,7 @@ final class ProcessTemplateCheckService
     }
 
     /**
-     * @return array<int, array{step: string, context: array<string, mixed>|null}>
+     * @return array<int, array{step: string, context: array<string, mixed>|null, context_summary: array<string, mixed>|null, occurred_at: DateTimeImmutable}>
      */
     private function actualStepEntries(string $documentUuid, string $processKey, ?int $documentVersion, EventTimelineOrder $order): array
     {
@@ -157,6 +170,7 @@ final class ProcessTemplateCheckService
                 if ($context !== null && $entries !== []) {
                     $lastIndex = count($entries) - 1;
                     $entries[$lastIndex]['context'] = $this->mergeContexts($entries[$lastIndex]['context'], $context);
+                    $entries[$lastIndex]['context_summary'] = $event->contextSummary ?? $entries[$lastIndex]['context_summary'];
                 }
 
                 continue;
@@ -165,6 +179,8 @@ final class ProcessTemplateCheckService
             $entries[] = [
                 'step' => $event->stepKey,
                 'context' => $context,
+                'context_summary' => $event->contextSummary,
+                'occurred_at' => $event->occurredAt,
             ];
             $previousStepKey = $event->stepKey;
         }
@@ -202,21 +218,22 @@ final class ProcessTemplateCheckService
     }
 
     /**
-     * @param array<int, ProcessTemplateDecisionPoint> $decisionPoints
-     * @param array<int, array{step: string, context: array<string, mixed>|null}> $actualStepEntries
+     * @param array<int, array{step: string, context: array<string, mixed>|null, context_summary: array<string, mixed>|null, occurred_at: DateTimeImmutable}> $actualStepEntries
      * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
      * @param array<int, string> $actualSteps
-     * @return array<int, string>
+     * @return array{deviations: array<int, string>, context_issues: array<int, string>, context_status: string|null}
      */
-    private function decisionDeviations(array $decisionPoints, array $actualStepEntries, array $parallelGroups, array $actualSteps): array
+    private function decisionDeviations(ProcessTemplate $template, array $actualStepEntries, array $parallelGroups, array $actualSteps): array
     {
         $deviations = [];
-        if ($decisionPoints === []) {
-            return $deviations;
+        $contextIssues = [];
+        $contextStatus = null;
+        if ($template->decisionPoints === []) {
+            return ['deviations' => $deviations, 'context_issues' => $contextIssues, 'context_status' => $contextStatus];
         }
 
         $expectedDecisionStepKeys = [];
-        foreach ($decisionPoints as $decisionPoint) {
+        foreach ($template->decisionPoints as $decisionPoint) {
             if ($decisionPoint->after === null) {
                 continue;
             }
@@ -235,8 +252,16 @@ final class ProcessTemplateCheckService
                 continue;
             }
 
-            $context = $this->contextForDecisionPoint($actualStepEntries, $position, $decisionPoint->requiredFields);
-            $missingContextFields = $this->missingContextFields($decisionPoint, $context);
+            $requiredFields = $this->decisionFields($decisionPoint);
+            $contextIssue = $this->contextIssueForDecisionPoint($template, $decisionPoint, $actualStepEntries[$position]);
+            if ($contextIssue !== null) {
+                $contextIssues[] = $contextIssue['message'];
+                $contextStatus = $this->contextStatusPriority($contextStatus, $contextIssue['status']);
+                continue;
+            }
+
+            $context = $this->contextForDecisionPoint($actualStepEntries, $position, $requiredFields);
+            $missingContextFields = $this->missingContextFields($requiredFields, $context);
             if ($missingContextFields !== []) {
                 $deviations[] = sprintf(
                     'Missing context for decision point %s: %s',
@@ -275,7 +300,7 @@ final class ProcessTemplateCheckService
             }
         }
 
-        return $deviations;
+        return ['deviations' => $deviations, 'context_issues' => $contextIssues, 'context_status' => $contextStatus];
     }
 
     /**
@@ -297,6 +322,161 @@ final class ProcessTemplateCheckService
         }
 
         return false;
+    }
+
+    private function assertDecisionFieldsHaveStability(ProcessTemplate $template): void
+    {
+        foreach ($template->decisionPoints as $decisionPoint) {
+            foreach ($this->decisionFields($decisionPoint) as $field) {
+                $mapping = $template->fieldMappings[$field] ?? null;
+                if (!$mapping instanceof ProcessTemplateFieldMapping) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Missing field_mapping for decision field "%s" in decision point "%s".',
+                        $field,
+                        $decisionPoint->key
+                    ));
+                }
+
+                if ($mapping->stability === null) {
+                    throw new InvalidArgumentException(sprintf(
+                        'Missing stability for decision field "%s" in decision point "%s".',
+                        $field,
+                        $decisionPoint->key
+                    ));
+                }
+            }
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function decisionFields(ProcessTemplateDecisionPoint $decisionPoint): array
+    {
+        $fields = $decisionPoint->requiredFields;
+        foreach ($decisionPoint->rules as $rule) {
+            if ($rule->condition !== null) {
+                $fields[] = $rule->condition->field;
+            }
+        }
+
+        return array_values(array_unique($fields));
+    }
+
+    /**
+     * @param array{step: string, context: array<string, mixed>|null, context_summary: array<string, mixed>|null, occurred_at: DateTimeImmutable} $decisionEntry
+     * @return array{status: string, message: string}|null
+     */
+    private function contextIssueForDecisionPoint(ProcessTemplate $template, ProcessTemplateDecisionPoint $decisionPoint, array $decisionEntry): ?array
+    {
+        $contextSummary = $decisionEntry['context_summary'] ?? [];
+        $attributes = is_array($contextSummary['attributes'] ?? null) ? $contextSummary['attributes'] : [];
+        $snapshotLoadedAt = $this->dateTimeFromSummary($contextSummary['loaded_at'] ?? null);
+        $snapshotOccurredAt = $this->dateTimeFromSummary($contextSummary['occurred_at'] ?? null) ?? $decisionEntry['occurred_at'];
+        $hasSnapshot = ($contextSummary['source'] ?? null) === 'snapshot';
+        $maxDelaySeconds = $template->contextPolicy?->snapshotMaxDelaySeconds;
+        $storedFreshnessSeconds = $this->intFromSummary($contextSummary['freshness_seconds'] ?? null);
+        $calculatedFreshnessSeconds = $snapshotLoadedAt !== null
+            ? $snapshotLoadedAt->getTimestamp() - $snapshotOccurredAt->getTimestamp()
+            : null;
+        $freshnessSeconds = $calculatedFreshnessSeconds ?? $storedFreshnessSeconds;
+
+        foreach ($this->decisionFields($decisionPoint) as $field) {
+            $mapping = $template->fieldMappings[$field] ?? null;
+            if (!$mapping instanceof ProcessTemplateFieldMapping || $mapping->isImmutable()) {
+                continue;
+            }
+
+            if (!$hasSnapshot || !array_key_exists($field, $attributes)) {
+                return [
+                    'status' => 'UNCHECKABLE_CONTEXT_MISSING',
+                    'message' => sprintf(
+                        'Uncheckable context missing: decision point %s field %s requires a snapshot. event occurred_at=%s',
+                        $decisionPoint->key,
+                        $field,
+                        $snapshotOccurredAt->format(DATE_ATOM)
+                    ),
+                ];
+            }
+
+            if ($snapshotLoadedAt === null) {
+                return [
+                    'status' => 'UNCHECKABLE_CONTEXT_MISSING',
+                    'message' => sprintf(
+                        'Uncheckable context missing: decision point %s field %s snapshot has no loaded_at timestamp. event occurred_at=%s',
+                        $decisionPoint->key,
+                        $field,
+                        $snapshotOccurredAt->format(DATE_ATOM)
+                    ),
+                ];
+            }
+
+            if ($freshnessSeconds !== null && $freshnessSeconds < 0) {
+                return [
+                    'status' => 'UNCERTAIN_CONTEXT_TIME_SKEW',
+                    'message' => sprintf(
+                        'Uncertain context time skew: decision point %s field %s snapshot freshness_seconds=%d is negative. event occurred_at=%s loaded_at=%s',
+                        $decisionPoint->key,
+                        $field,
+                        $freshnessSeconds,
+                        $snapshotOccurredAt->format(DATE_ATOM),
+                        $snapshotLoadedAt->format(DATE_ATOM)
+                    ),
+                ];
+            }
+
+            if ($maxDelaySeconds !== null && $freshnessSeconds !== null && $freshnessSeconds > $maxDelaySeconds) {
+                return [
+                    'status' => 'UNCERTAIN_CONTEXT_STALE',
+                    'message' => sprintf(
+                        'Uncertain context stale: decision point %s field %s snapshot freshness_seconds=%d exceeds max_delay_seconds=%d. event occurred_at=%s loaded_at=%s',
+                        $decisionPoint->key,
+                        $field,
+                        $freshnessSeconds,
+                        $maxDelaySeconds,
+                        $snapshotOccurredAt->format(DATE_ATOM),
+                        $snapshotLoadedAt->format(DATE_ATOM)
+                    ),
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    private function contextStatusPriority(?string $currentStatus, string $newStatus): string
+    {
+        if ($currentStatus === 'UNCHECKABLE_CONTEXT_MISSING' || $newStatus === 'UNCHECKABLE_CONTEXT_MISSING') {
+            return 'UNCHECKABLE_CONTEXT_MISSING';
+        }
+
+        if ($currentStatus === 'UNCERTAIN_CONTEXT_TIME_SKEW' || $newStatus === 'UNCERTAIN_CONTEXT_TIME_SKEW') {
+            return 'UNCERTAIN_CONTEXT_TIME_SKEW';
+        }
+
+        return $newStatus;
+    }
+
+    private function dateTimeFromSummary(mixed $value): ?DateTimeImmutable
+    {
+        if ($value instanceof DateTimeImmutable) {
+            return $value;
+        }
+
+        if (!is_scalar($value) || trim((string) $value) === '') {
+            return null;
+        }
+
+        return new DateTimeImmutable((string) $value);
+    }
+
+    private function intFromSummary(mixed $value): ?int
+    {
+        if (!is_scalar($value) || trim((string) $value) === '') {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     /**
@@ -369,7 +549,7 @@ final class ProcessTemplateCheckService
     }
 
     /**
-     * @param array<int, array{step: string, context: array<string, mixed>|null}> $actualStepEntries
+     * @param array<int, array{step: string, context: array<string, mixed>|null, context_summary: array<string, mixed>|null, occurred_at: DateTimeImmutable}> $actualStepEntries
      * @param array<int, string> $requiredFields
      * @return array<string, mixed>|null
      */
@@ -419,18 +599,18 @@ final class ProcessTemplateCheckService
      * @param array<string, mixed>|null $context
      * @return array<int, string>
      */
-    private function missingContextFields(ProcessTemplateDecisionPoint $decisionPoint, ?array $context): array
+    private function missingContextFields(array $requiredFields, ?array $context): array
     {
-        if ($decisionPoint->requiredFields === []) {
+        if ($requiredFields === []) {
             return [];
         }
 
         if ($context === null) {
-            return $decisionPoint->requiredFields;
+            return $requiredFields;
         }
 
         return array_values(array_filter(
-            $decisionPoint->requiredFields,
+            $requiredFields,
             fn (string $field): bool => !array_key_exists($field, $context) || !$this->hasContextValue($context[$field])
         ));
     }
