@@ -1205,11 +1205,11 @@
             "source": {
                 "type": "git",
                 "url": "http://10.0.3.198:3000/svankranen/AmagnoApiConnector.git",
-                "reference": "929ed1333981764431e90fa94ae36227195fcd34"
+                "reference": "2a687c7ad4068b9b51879d283b1c0564d08a496e"
             },
             "require": {
                 "doctrine/doctrine-bundle": "^2.11",
-                "php": "8.2.*",
+                "php": ">=8.2",
                 "php-amqplib/rabbitmq-bundle": "^2.13",
                 "symfony/framework-bundle": "^6.4 || ^7.4"
             },
@@ -1230,7 +1230,7 @@
                 }
             ],
             "description": "API Connector for Amagno, providing consumer and service layers for interaction with the Amagno API.",
-            "time": "2026-05-31T17:46:11+00:00"
+            "time": "2026-05-31T18:01:58+00:00"
         },
         {
             "name": "maennchen/zipstream-php",
