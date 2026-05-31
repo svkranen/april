@@ -191,21 +191,21 @@ services:
     
     # Security-Klassen
     Iileven\AmagnoConnector\Security\:
-        resource: '../vendor/iileven/AmagnoApiConnector/Security/*'
+        resource: '../vendor/iileven/amagno-connector-bundle/Security/*'
         public: false
         autowire: true
         autoconfigure: true
 
     # Factory-Klassen
     Iileven\AmagnoConnector\Factory\:
-        resource: '../vendor/iileven/AmagnoApiConnector/Factory/*'
+        resource: '../vendor/iileven/amagno-connector-bundle/Factory/*'
         public: false
         autowire: true
         autoconfigure: true
 
     # Interface-Definitionen (PSR-Interfaces)
     Iileven\AmagnoConnector\Interface\:
-        resource: '../vendor/iileven/AmagnoApiConnector/Interface/*'
+        resource: '../vendor/iileven/amagno-connector-bundle/Interface/*'
         public: false
         autowire: true
         autoconfigure: true
