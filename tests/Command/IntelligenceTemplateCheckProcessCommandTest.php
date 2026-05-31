@@ -531,6 +531,9 @@ key: eingangsrechnung
 version: draft
 steps:
   - key: eingang
+  - key: freigabe
+required_steps:
+  - eingang
 field_mapping:
   amount:
     source: test

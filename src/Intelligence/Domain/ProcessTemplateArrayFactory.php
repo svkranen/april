@@ -22,17 +22,20 @@ final class ProcessTemplateArrayFactory
      */
     public static function fromArray(array $data): ProcessTemplate
     {
+        $steps = self::steps($data['steps'] ?? []);
+        $parallelGroups = self::parallelGroups($data['parallel_groups'] ?? []);
+
         return new ProcessTemplate(
             self::stringValue($data['key'] ?? '', ''),
             self::stringValue($data['version'] ?? 'draft', 'draft'),
             self::nullableString($data['name'] ?? null),
             self::nullableString($data['initial_step'] ?? $data['initialStepKey'] ?? null),
-            steps: self::steps($data['steps'] ?? []),
-            transitions: self::transitions($data['transitions'] ?? $data['allowed_transitions'] ?? []),
-            parallelGroups: self::parallelGroups($data['parallel_groups'] ?? []),
+            steps: $steps,
+            transitions: self::transitions($data['transitions'] ?? $data['allowed_transitions'] ?? [], $steps, $parallelGroups),
+            parallelGroups: $parallelGroups,
             contextProfileRequiredFields: self::contextProfileRequiredFields($data['context_profile'] ?? []),
             fieldMappings: self::fieldMappings($data['field_mapping'] ?? []),
-            decisionPoints: self::decisionPoints($data['decision_points'] ?? []),
+            decisionPoints: self::decisionPoints($data['decision_points'] ?? [], $steps, $parallelGroups),
             requiredStepKeys: self::stringList($data['required_steps'] ?? []),
             connector: self::connector($data['connector'] ?? null),
             contextPolicy: self::contextPolicy($data['context_policy'] ?? null)
@@ -109,30 +112,97 @@ final class ProcessTemplateArrayFactory
     }
 
     /**
+     * @param array<int, ProcessTemplateStep> $steps
+     * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
      * @return array<int, ProcessTemplateTransition>
      */
-    private static function transitions(mixed $transitions): array
+    private static function transitions(mixed $transitions, array $steps, array $parallelGroups): array
     {
         if (!is_array($transitions)) {
             return [];
         }
 
+        $stepKeys = array_fill_keys(array_map(static fn (ProcessTemplateStep $step): string => $step->key, $steps), true);
+        $parallelGroupKeys = array_fill_keys(array_map(static fn (ProcessTemplateParallelGroup $group): string => $group->key, $parallelGroups), true);
         $result = [];
         foreach ($transitions as $transition) {
-            if (!is_array($transition) || !isset($transition['from'], $transition['to']) || !is_scalar($transition['from']) || !is_scalar($transition['to'])) {
+            if (!is_array($transition) || !isset($transition['from']) || !is_scalar($transition['from'])) {
                 continue;
             }
 
             $from = trim((string) $transition['from']);
-            $to = trim((string) $transition['to']);
-            if ($from === '' || $to === '') {
+            $to = self::nullableString($transition['to'] ?? null);
+            $toParallelGroup = self::nullableString($transition['to_parallel_group'] ?? null);
+            if ($from === '') {
                 continue;
             }
 
-            $result[] = new ProcessTemplateTransition($from, $to);
+            if (($to === null) === ($toParallelGroup === null)) {
+                throw new InvalidArgumentException(sprintf('Transition from "%s" must define exactly one of "to" or "to_parallel_group".', $from));
+            }
+
+            if (!isset($stepKeys[$from])) {
+                throw new InvalidArgumentException(sprintf('Transition from "%s" references unknown step.', $from));
+            }
+
+            if ($to !== null && !isset($stepKeys[$to])) {
+                throw new InvalidArgumentException(sprintf('Transition from "%s" references unknown target step "%s".', $from, $to));
+            }
+
+            if ($toParallelGroup !== null && !isset($parallelGroupKeys[$toParallelGroup])) {
+                throw new InvalidArgumentException(sprintf('Transition from "%s" references unknown parallel group "%s".', $from, $toParallelGroup));
+            }
+
+            $result[] = new ProcessTemplateTransition($from, $to, $toParallelGroup);
         }
 
+        self::assertNoRedundantAnyOrderParallelGroupTransitions($result, $parallelGroups);
+
         return $result;
+    }
+
+    /**
+     * @param array<int, ProcessTemplateTransition> $transitions
+     * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
+     */
+    private static function assertNoRedundantAnyOrderParallelGroupTransitions(array $transitions, array $parallelGroups): void
+    {
+        $parallelGroupsByKey = [];
+        foreach ($parallelGroups as $parallelGroup) {
+            $parallelGroupsByKey[$parallelGroup->key] = $parallelGroup;
+        }
+
+        $directTargetsByFrom = [];
+        $parallelTargetsByFrom = [];
+        foreach ($transitions as $transition) {
+            if ($transition->to !== null) {
+                $directTargetsByFrom[$transition->from][$transition->to] = true;
+            }
+            if ($transition->toParallelGroup !== null) {
+                $parallelTargetsByFrom[$transition->from][] = $transition->toParallelGroup;
+            }
+        }
+
+        foreach ($parallelTargetsByFrom as $from => $parallelGroupKeys) {
+            foreach ($parallelGroupKeys as $parallelGroupKey) {
+                $parallelGroup = $parallelGroupsByKey[$parallelGroupKey] ?? null;
+                if (!$parallelGroup instanceof ProcessTemplateParallelGroup || $parallelGroup->order !== 'any') {
+                    continue;
+                }
+
+                foreach ($parallelGroup->requiredStepKeys as $requiredStepKey) {
+                    if (isset($directTargetsByFrom[$from][$requiredStepKey])) {
+                        throw new InvalidArgumentException(sprintf(
+                            'Transition from "%s" to "%s" is redundant because "%s" also activates any-order parallel group "%s".',
+                            $from,
+                            $requiredStepKey,
+                            $from,
+                            $parallelGroupKey
+                        ));
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -159,7 +229,8 @@ final class ProcessTemplateArrayFactory
                 self::stringValue($group['key'] ?? sprintf('parallel_group_%d', $index), sprintf('parallel_group_%d', $index)),
                 self::nullableString($group['after'] ?? null),
                 $requiredStepKeys,
-                self::stringValue($group['order'] ?? 'any', 'any')
+                self::stringValue($group['order'] ?? 'any', 'any'),
+                self::nullableString($group['next'] ?? null)
             );
         }
 
@@ -233,7 +304,7 @@ final class ProcessTemplateArrayFactory
     /**
      * @return array<int, ProcessTemplateDecisionPoint>
      */
-    private static function decisionPoints(mixed $decisionPoints): array
+    private static function decisionPoints(mixed $decisionPoints, array $steps = [], array $parallelGroups = []): array
     {
         if (!is_array($decisionPoints)) {
             return [];
@@ -250,7 +321,7 @@ final class ProcessTemplateArrayFactory
                 continue;
             }
 
-            $rules = self::decisionRules($decisionPoint['rules'] ?? []);
+            $rules = self::decisionRules($decisionPoint['rules'] ?? [], $steps, $parallelGroups, $key);
             if ($rules === []) {
                 continue;
             }
@@ -269,34 +340,30 @@ final class ProcessTemplateArrayFactory
     /**
      * @return array<int, ProcessTemplateDecisionRule>
      */
-    private static function decisionRules(mixed $rules): array
+    private static function decisionRules(mixed $rules, array $steps = [], array $parallelGroups = [], string $decisionPointKey = ''): array
     {
         if (!is_array($rules)) {
             return [];
         }
 
+        $stepKeys = array_fill_keys(array_map(static fn (ProcessTemplateStep $step): string => $step->key, $steps), true);
+        $parallelGroupKeys = array_fill_keys(array_map(static fn (ProcessTemplateParallelGroup $group): string => $group->key, $parallelGroups), true);
         $result = [];
-        foreach ($rules as $rule) {
+        foreach ($rules as $ruleIndex => $rule) {
             if (!is_array($rule)) {
                 continue;
             }
 
             if (array_key_exists('else', $rule)) {
-                $expectedNextStepKey = self::nullableString(
-                    is_array($rule['else'] ?? null)
-                        ? ($rule['else']['expect_next'] ?? null)
-                        : ($rule['expect_next'] ?? null)
+                [$expectedNextStepKey, $expectedNextParallelGroupKey] = self::decisionRuleTargets(
+                    is_array($rule['else'] ?? null) ? $rule['else'] : $rule,
+                    $stepKeys,
+                    $parallelGroupKeys,
+                    $decisionPointKey,
+                    $ruleIndex
                 );
-                if ($expectedNextStepKey === null) {
-                    continue;
-                }
 
-                $result[] = new ProcessTemplateDecisionRule(null, $expectedNextStepKey, true);
-                continue;
-            }
-
-            $expectedNextStepKey = self::nullableString($rule['expect_next'] ?? null);
-            if ($expectedNextStepKey === null) {
+                $result[] = new ProcessTemplateDecisionRule(null, $expectedNextStepKey, true, $expectedNextParallelGroupKey);
                 continue;
             }
 
@@ -305,10 +372,47 @@ final class ProcessTemplateArrayFactory
                 continue;
             }
 
-            $result[] = new ProcessTemplateDecisionRule($condition, $expectedNextStepKey);
+            [$expectedNextStepKey, $expectedNextParallelGroupKey] = self::decisionRuleTargets(
+                $rule,
+                $stepKeys,
+                $parallelGroupKeys,
+                $decisionPointKey,
+                $ruleIndex
+            );
+
+            $result[] = new ProcessTemplateDecisionRule($condition, $expectedNextStepKey, false, $expectedNextParallelGroupKey);
         }
 
         return $result;
+    }
+
+    /**
+     * @param array<string, mixed> $rule
+     * @param array<string, true> $stepKeys
+     * @param array<string, true> $parallelGroupKeys
+     * @return array{0: string|null, 1: string|null}
+     */
+    private static function decisionRuleTargets(array $rule, array $stepKeys, array $parallelGroupKeys, string $decisionPointKey, int $ruleIndex): array
+    {
+        $expectedNextStepKey = self::nullableString($rule['expect_next'] ?? null);
+        $expectedNextParallelGroupKey = self::nullableString($rule['expect_next_parallel_group'] ?? null);
+        $ruleLabel = $decisionPointKey === ''
+            ? sprintf('Decision rule #%d', $ruleIndex + 1)
+            : sprintf('Decision rule #%d in decision point "%s"', $ruleIndex + 1, $decisionPointKey);
+
+        if (($expectedNextStepKey === null) === ($expectedNextParallelGroupKey === null)) {
+            throw new InvalidArgumentException(sprintf('%s must define exactly one of "expect_next" or "expect_next_parallel_group".', $ruleLabel));
+        }
+
+        if ($expectedNextStepKey !== null && $stepKeys !== [] && !isset($stepKeys[$expectedNextStepKey])) {
+            throw new InvalidArgumentException(sprintf('%s references unknown target step "%s".', $ruleLabel, $expectedNextStepKey));
+        }
+
+        if ($expectedNextParallelGroupKey !== null && !isset($parallelGroupKeys[$expectedNextParallelGroupKey])) {
+            throw new InvalidArgumentException(sprintf('%s references unknown parallel group "%s".', $ruleLabel, $expectedNextParallelGroupKey));
+        }
+
+        return [$expectedNextStepKey, $expectedNextParallelGroupKey];
     }
 
     private static function decisionCondition(mixed $when): ?ProcessTemplateRuleCondition

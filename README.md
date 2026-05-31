@@ -19,6 +19,8 @@ Amagno ist der erste Connector. Der fachliche Kern bleibt langfristig DMS-unabha
 - Flow- und Duration-Heatmaps erzeugen
 - BPMN-aehnliche JSON-, Mermaid- und SVG-Views erzeugen
 - SVG-Views als Summary, Bottleneck, Deviations oder Combined darstellen
+- neutrale ProcessGraphs als Mermaid exportieren, optional mit Live-Metriken aus ProcessEvents
+- Dev-/Test-Sample-Daten fuer `ai-rechnungen` laden
 
 ## Schnellstart
 
@@ -68,6 +70,22 @@ bin/console intelligence:template:check-process <processKey> \
   --template=templates/<processKey>.yaml \
   --show-ok
 ```
+
+Dev-/Test-Sample-Daten fuer `ai-rechnungen` laden:
+
+```bash
+bin/console intelligence:sample-data:load-ai-rechnungen --purge
+```
+
+Der Sample-Loader schreibt direkt interne `ProcessEvent`-, `ProcessInstance`- und `ContextSnapshot`-Daten. Er nutzt keine IncomingEvent-Worker und fragt keinen Amagno-Context ab.
+
+Fuer feinere Dwell-Heatmap-Verlaeufe kann ein zusaetzliches Fixture geladen werden:
+
+```bash
+bin/console intelligence:sample-data:load-ai-rechnungen --fixture=dwell-gradient --purge
+```
+
+`--purge` loescht dabei nur die Dokumente des gewaehlten Fixtures. Mit `--purge-all-samples` werden alle lokalen Sample-Dokumente `900001` bis `900008` und `901001` bis `901012` entfernt.
 
 ## Batch-Check-Ausgabe verstehen
 
@@ -135,7 +153,9 @@ required_steps:
 
 steps:
   - key: "01 Rechnungen pruefen"
+  - key: "02 Versenden"
   - key: "03 Freigabe_klein"
+  - key: "04 Freigabe_gross"
   - key: "05 Ausgangsrechnung buchen"
   - key: "07 Zahlungseingang erwartet"
   - key: "09 Rechnungen Abschluss"
@@ -153,11 +173,25 @@ field_mapping:
   invoice_direction:
     source: amagno
     tag_name: "Eingang/Ausgang"
+    stability: immutable
 
   amount_net:
     source: amagno
     tag_name: "Nettobetrag"
     value_type: number
+    stability: snapshot_required
+
+context_policy:
+  snapshot:
+    max_delay_seconds: 300
+    stale_behavior: uncertain
+
+transitions:
+  - from: "02 Versenden"
+    to_parallel_group: "buchen_und_zahlung"
+
+  - from: "04 Freigabe_gross"
+    to_parallel_group: "buchen_und_zahlung"
 
 decision_points:
   - key: route_after_pruefung
@@ -177,7 +211,20 @@ decision_points:
         expect_next: "03 Freigabe_klein"
 
       - else:
-          expect_next: "05 Ausgangsrechnung buchen"
+          expect_next_parallel_group: "buchen_und_zahlung"
+
+  - key: freigabe_ab_1000
+    after: "03 Freigabe_klein"
+    required_fields:
+      - amount_net
+    rules:
+      - when:
+          amount_net:
+            gt: 1000
+        expect_next: "04 Freigabe_gross"
+
+      - else:
+          expect_next_parallel_group: "buchen_und_zahlung"
 
 parallel_groups:
   - key: buchen_und_zahlung
@@ -185,6 +232,7 @@ parallel_groups:
       - "05 Ausgangsrechnung buchen"
       - "07 Zahlungseingang erwartet"
     order: any
+    next: "09 Rechnungen Abschluss"
 ```
 
 Wichtig:
@@ -192,8 +240,13 @@ Wichtig:
 - `steps` ist der Katalog bekannter Schritte.
 - `required_steps` sind globale Pflichtschritte. Bedingte Schritte aus Decision Rules gehoeren nicht automatisch hier hinein.
 - `decision_points` pruefen bedingte Pfade.
-- `parallel_groups` pruefen reihenfolgeunabhaengige Pflichtschritte.
+- `expect_next` zeigt auf einen Step.
+- `expect_next_parallel_group` aktiviert eine Parallelgruppe.
+- `parallel_groups` pruefen reihenfolgeunabhaengige Pflichtschritte. Mit `next` wird nach vollstaendiger Gruppe der naechste Step erwartet.
+- `transitions.to_parallel_group` aktiviert eine Parallelgruppe nach einem Step.
 - `field_mapping` verbindet fachliche Kontextfelder mit Amagno-Tags.
+- `field_mapping.stability` ist Pflicht fuer Felder, die in Decision Rules verwendet werden. Gueltige Werte sind `immutable`, `mutable`, `snapshot_required`.
+- `context_policy.snapshot.max_delay_seconds` begrenzt, wie spaet ein Snapshot fuer historische Decision Checks noch verwendet werden darf.
 
 ## Heatmaps
 
@@ -211,6 +264,111 @@ Der Report enthaelt:
 
 - `flow_heatmap`: beobachtete Transitionen mit Count, Prozent, Intensitaet und `is_allowed`
 - `duration_heatmap`: Dauer, offene Dokumente und Intensitaeten je Schritt
+
+## Mermaid ProcessGraph Export
+
+Der direkte Diagramm-Export nutzt zuerst einen neutralen `ProcessGraph` und rendert danach Mermaid. Das ist bewusst nicht YAML-direkt-zu-Mermaid verdrahtet, damit spaeter weitere Renderer wie draw.io oder BPMN folgen koennen.
+
+Strukturansicht:
+
+```bash
+bin/console intelligence:template:export-diagram templates/<processKey>.yaml
+```
+
+Obsidian-kompatible Labels:
+
+```bash
+bin/console intelligence:template:export-diagram templates/<processKey>.yaml \
+  --compat=obsidian
+```
+
+Default-Order-Kanten aus der Reihenfolge in `steps` sind standardmaessig ausgeblendet. Bei Bedarf:
+
+```bash
+bin/console intelligence:template:export-diagram templates/<processKey>.yaml \
+  --show-default-order
+```
+
+Metrik-Views:
+
+- `--view=structure`: nur Soll-Struktur
+- `--view=flow`: Kanten-Counts
+- `--view=dwell`: Liegedauer-Buckets auf Nodes
+- `--view=deviations`: unerwartete Kanten und Problem-Nodes
+- `--view=combined`: Flow, Dwell und Deviations kombiniert
+
+Dwell-Farben nutzen standardmaessig eine relative Gelb-bis-Rot-Perzentil-Skala im aktuellen Datensatz:
+
+- Default: `--dwell-metric=median`, `--dwell-buckets=8`
+- p10 wird dem hellgelben Bucket `dwell-scale-0` zugeordnet.
+- p90 wird dem roten Bucket `dwell-scale-7` zugeordnet.
+- Dunkler/roter bedeutet laengere Liegedauer im aktuellen Datensatz, nicht automatisch fachlich kritisch.
+- Virtuelle Knoten wie Start, End, Decisions und Parallelgruppen bleiben neutral.
+- `no-dwell` ist hellgelb/neutral und bedeutet: keine belastbare Dwell-Messung oder virtueller Prozessknoten.
+- Dwell-Klassen setzen nur die Fuellfarbe. Rahmen codieren Status oder Struktur, z. B. `required`, `node-deviation` oder `constraint`.
+
+Legende ausgeben:
+
+```bash
+bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+  --view=dwell \
+  --show-dwell-legend
+```
+
+Ohne `--metrics` oder `--heatmap` baut der Export fuer Metrik-Views die Metriken live aus derselben `ProcessEvent`-/Timeline-Basis wie `template:check-process`.
+
+In `--view=flow` codiert die Kantendicke die beobachtete Menge auf der Kante. Node-Fuellfarben nutzen `flow-scale-0` bis `flow-scale-7` relativ zum aktuellen Datensatz:
+
+- Reale Steps: eindeutige Dokumente, die den Step mindestens einmal durchlaufen.
+- Decision Nodes: Dokumente, bei denen der Decision Point projiziert wurde.
+- Parallel Start: Dokumente, bei denen die Gruppe aktiviert wurde.
+- Parallel Complete: Dokumente, bei denen alle Required Steps der Gruppe erfuellt wurden.
+- Rot bedeutet hohes Volumen im aktuellen Datensatz, nicht kritisch.
+
+```bash
+bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+  --view=flow \
+  --show-flow-legend \
+  --show-node-metrics
+```
+
+```bash
+bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+  --view=combined
+```
+
+Eine vorhandene Heatmap-Datei kann explizit genutzt werden:
+
+```bash
+bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+  --view=combined \
+  --metrics=templates/ai-rechnungen-heatmap.json
+```
+
+Wichtig: Wenn `--metrics` gesetzt ist, wird genau diese Datei verwendet. Ohne `--metrics` ist die Live-Datenbasis der aktuelle `processKey`.
+
+Live-Metrik-Filter:
+
+- `--process-key=<key>`: Runtime-ProcessKey, default ist Template-Key
+- `--from=<datetime>` und `--to=<datetime>`
+- `--document-id=<externalId-or-uuid>`
+- `--document-version=<n>`
+- `--sample-only`
+- `--include-ok`
+- `--include-deviations`
+- `--order-by=occurred-at|received-at|occurred-then-received`
+
+Debug-Ausgabe fuer Metrik-Projektion:
+
+```bash
+bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+  --view=combined \
+  --debug-metrics
+```
+
+Die Debug-Ausgabe enthaelt unter anderem `documents_seen`, `documents_projected`, `documents_skipped`, `skip_reasons`, `raw_transition_count`, `projected_edge_count`, `unexpected_edge_count` und pro Dokument die erkannten Transitionen.
+
+Eventlogs enthalten reale Amagno-Steps. Der Soll-Graph enthaelt zusaetzlich virtuelle Knoten wie Decision Gateways, Parallel-Start, Parallel-Join und End. Der Export projiziert beobachtete direkte Step-zu-Step-Transitionen deshalb auf Soll-Graph-Kanten. Nur nicht erklaerbare Transitionen bleiben rote observed-only Kanten.
 
 ## BPMN-aehnliche Prozessansichten
 

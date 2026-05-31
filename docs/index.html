@@ -284,6 +284,7 @@
                                 <li>Process Templates aus Dokument-Timelines vorschlagen</li>
                                 <li>Dokumente gegen Soll-Templates pr&uuml;fen</li>
                                 <li>Flow- und Duration-Heatmaps erzeugen</li>
+                                <li>Mermaid ProcessGraphs mit Live-Metriken exportieren</li>
                                 <li>Amagno als ersten Connector f&uuml;r Dokumentkontext und Merkmale nutzen</li>
                             </ul>
                         </div>
@@ -294,6 +295,8 @@
                                 <li>Multi-Dokument-Vorschlag: <a href="../src/Command/IntelligenceTemplateSuggestFromDocumentsCommand.php">IntelligenceTemplateSuggestFromDocumentsCommand</a></li>
                                 <li>Template-Pr&uuml;fung: <a href="../src/Command/IntelligenceTemplateCheckDocumentCommand.php">IntelligenceTemplateCheckDocumentCommand</a></li>
                                 <li>Heatmap-Report: <a href="../src/Command/IntelligenceTemplateHeatmapCommand.php">IntelligenceTemplateHeatmapCommand</a></li>
+                                <li>Mermaid ProcessGraph: <a href="../src/Command/IntelligenceTemplateExportDiagramCommand.php">IntelligenceTemplateExportDiagramCommand</a></li>
+                                <li>Dev/Test Sample-Daten: <a href="../src/Command/IntelligenceSampleDataLoadAiRechnungenCommand.php">IntelligenceSampleDataLoadAiRechnungenCommand</a></li>
                                 <li>Legacy Sync: <a href="../src/Command/AmagnoSyncCommand.php">src/Command/AmagnoSyncCommand.php</a></li>
                             </ul>
                         </div>
@@ -324,13 +327,21 @@ bin/console intelligence:template:bpmn-view &lt;processKey&gt; \
   --format=svg --view=summary --layout=process</code></pre>
                             <p>SVG-Views unterstuetzen <code>summary</code>, <code>bottleneck</code>, <code>deviations</code>, <code>observed</code> und <code>combined</code>. Das Layout <code>process</code> ist fuer fachliche Prozessansichten gedacht, <code>graph</code> fuer Detailanalyse.</p>
                         </div>
+                        <div class="mini">
+                            <h3>Mermaid ProcessGraph</h3>
+                            <pre><code>bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+  --view=combined --debug-metrics
+bin/console intelligence:sample-data:load-ai-rechnungen --purge</code></pre>
+                            <p>Der Export nutzt fuer Metrik-Views ohne <code>--metrics</code> dieselbe ProcessEvent-/Timeline-Basis wie <code>check-process</code>. Direkte beobachtete Step-Uebergaenge werden auf virtuelle Soll-Knoten wie Decision Gateways und Parallel-Join projiziert.</p>
+                        </div>
                     </div>
                     <h3>Template-Konzepte</h3>
                     <ul class="notes">
                         <li><code>required_steps</code> sind globale Pflichtschritte, nicht der vollstaendige Ablauf.</li>
                         <li><code>decision_points</code> pruefen bedingte Pfade anhand von Kontextfeldern.</li>
-                        <li><code>parallel_groups</code> erlauben reihenfolgeunabhaengige Pflichtschritte.</li>
-                        <li><code>field_mapping</code> verbindet fachliche Felder mit Amagno-Tags per <code>tag_id</code> oder <code>tag_name</code>.</li>
+                        <li><code>expect_next_parallel_group</code> aktiviert eine Parallelgruppe aus einer Decision Rule.</li>
+                        <li><code>parallel_groups</code> erlauben reihenfolgeunabhaengige Pflichtschritte; <code>next</code> definiert den erwarteten Schritt nach Abschluss.</li>
+                        <li><code>field_mapping</code> verbindet fachliche Felder mit Amagno-Tags per <code>tag_id</code> oder <code>tag_name</code>; Decision-Felder brauchen <code>stability</code>.</li>
                     </ul>
                 </section>
 

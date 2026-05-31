@@ -11,7 +11,8 @@ final readonly class ProcessTemplateParallelGroup
         public string $key,
         public ?string $after,
         public array $requiredStepKeys,
-        public string $order = 'any'
+        public string $order = 'any',
+        public ?string $nextStepKey = null
     ) {
     }
 }

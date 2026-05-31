@@ -77,6 +77,10 @@ final class TemplateFlowHeatmapBuilder
     {
         $allowedTransitions = [];
         foreach ($template->transitions as $transition) {
+            if ($transition->to === null) {
+                continue;
+            }
+
             $allowedTransitions[$this->transitionKey($transition->from, $transition->to)] = true;
         }
 

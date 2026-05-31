@@ -18,6 +18,7 @@ use App\Intelligence\Domain\ProcessTemplateFieldMapping;
 use App\Intelligence\Domain\ProcessTemplateParallelGroup;
 use App\Intelligence\Domain\ProcessTemplateStep;
 use App\Intelligence\Domain\ProcessTemplateRuleCondition;
+use App\Intelligence\Domain\ProcessTemplateTransition;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -93,6 +94,120 @@ class ProcessTemplateCheckServiceTest extends TestCase
         self::assertSame(['sent'], $result->expectedSteps);
         self::assertSame(['sent', 'payment_expected', 'booked'], $result->actualSteps);
         self::assertSame(['Parallel Group satisfied: booking_and_payment'], $result->parallelGroupMessages);
+    }
+
+    public function testCompleteParallelGroupReportsMissingConfiguredNextStep(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'sent', 0),
+                    $this->event(2, 'payment_expected', 1),
+                    $this->event(3, 'booked', 2),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('sent'),
+                    new ProcessTemplateStep('booked'),
+                    new ProcessTemplateStep('payment_expected'),
+                    new ProcessTemplateStep('invoice_finished'),
+                ],
+                parallelGroups: [
+                    new ProcessTemplateParallelGroup(
+                        'booking_and_payment',
+                        'sent',
+                        ['booked', 'payment_expected'],
+                        'any',
+                        'invoice_finished'
+                    ),
+                ]
+            ),
+            1
+        );
+
+        self::assertContains('Missing step: invoice_finished', $result->deviations);
+        self::assertContains('Missing next after parallel group: booking_and_payment -> invoice_finished', $result->deviations);
+        self::assertSame(['Parallel Group satisfied: booking_and_payment (next: invoice_finished)'], $result->parallelGroupMessages);
+    }
+
+    public function testExplicitStepTransitionRejectsUnexpectedNextStep(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'sent', 0),
+                    $this->event(2, 'manual_review', 1),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('sent'),
+                    new ProcessTemplateStep('booked'),
+                    new ProcessTemplateStep('manual_review'),
+                ],
+                transitions: [
+                    new ProcessTemplateTransition('sent', 'booked'),
+                ]
+            ),
+            1
+        );
+
+        self::assertContains('Transition violation: sent expected one of booked but got manual_review', $result->deviations);
+    }
+
+    public function testTransitionToParallelGroupActivatesRequiredSteps(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'sent', 0),
+                    $this->event(2, 'booked', 1),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('sent'),
+                    new ProcessTemplateStep('booked'),
+                    new ProcessTemplateStep('payment_expected'),
+                ],
+                transitions: [
+                    new ProcessTemplateTransition('sent', toParallelGroup: 'booking_and_payment'),
+                ],
+                parallelGroups: [
+                    new ProcessTemplateParallelGroup(
+                        'booking_and_payment',
+                        null,
+                        ['booked', 'payment_expected'],
+                        'any'
+                    ),
+                ]
+            ),
+            1
+        );
+
+        self::assertContains('Parallel Group incomplete: booking_and_payment (missing: payment_expected)', $result->deviations);
     }
 
     public function testConditionalDecisionStepIsNotReportedAsGlobalMissingStep(): void
@@ -567,6 +682,94 @@ class ProcessTemplateCheckServiceTest extends TestCase
         );
         self::assertContains(
             'Parallel Group incomplete: booking_and_payment (missing: booked)',
+            $result->deviations
+        );
+    }
+
+    public function testCheckDocumentActivatesParallelGroupFromDecisionRuleTarget(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                    $this->event(2, 'payment_expected', 1),
+                    $this->event(3, 'booked', 2),
+                    $this->event(4, 'invoice_finished', 3),
+                ],
+                [
+                    $this->snapshot('evt-1', ['amount' => 100]),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            $this->templateWithDecisionExpectedParallelGroup(),
+            1
+        );
+
+        self::assertTrue($result->isOk());
+        self::assertSame([], $result->deviations);
+        self::assertSame(['Parallel Group satisfied: booking_and_payment (next: invoice_finished)'], $result->parallelGroupMessages);
+    }
+
+    public function testCheckDocumentReportsIncompleteParallelGroupFromDecisionRuleTarget(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                ],
+                [
+                    $this->snapshot('evt-1', ['amount' => 100]),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            $this->templateWithDecisionExpectedParallelGroup(),
+            1
+        );
+
+        self::assertContains(
+            'Decision rule violation: booking_route after invoice_checked expected parallel group booking_and_payment but got none. Context: amount=100. Rule: else',
+            $result->deviations
+        );
+        self::assertContains(
+            'Parallel Group incomplete: booking_and_payment (missing: booked, payment_expected)',
+            $result->deviations
+        );
+    }
+
+    public function testCheckDocumentReportsDecisionViolationWhenActualNextStepIsOutsideExpectedParallelGroupTarget(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'invoice_checked', 0),
+                    $this->event(2, 'manual_review', 1),
+                ],
+                [
+                    $this->snapshot('evt-1', ['amount' => 100]),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            $this->templateWithDecisionExpectedParallelGroup(),
+            1
+        );
+
+        self::assertContains(
+            'Decision rule violation: booking_route after invoice_checked expected parallel group booking_and_payment but got manual_review. Context: amount=100. Rule: else',
             $result->deviations
         );
     }
@@ -1102,6 +1305,46 @@ class ProcessTemplateCheckServiceTest extends TestCase
                             null,
                             $expectedNextStepKey,
                             true
+                        ),
+                    ]
+                ),
+            ],
+            requiredStepKeys: ['invoice_checked', 'invoice_finished']
+        );
+    }
+
+    private function templateWithDecisionExpectedParallelGroup(): ProcessTemplate
+    {
+        return new ProcessTemplate(
+            'invoice',
+            steps: [
+                new ProcessTemplateStep('invoice_checked'),
+                new ProcessTemplateStep('manual_review'),
+                new ProcessTemplateStep('booked'),
+                new ProcessTemplateStep('payment_expected'),
+                new ProcessTemplateStep('invoice_finished'),
+            ],
+            parallelGroups: [
+                new ProcessTemplateParallelGroup(
+                    'booking_and_payment',
+                    null,
+                    ['booked', 'payment_expected'],
+                    'any',
+                    'invoice_finished'
+                ),
+            ],
+            fieldMappings: $this->immutableFieldMappings(['amount']),
+            decisionPoints: [
+                new ProcessTemplateDecisionPoint(
+                    'booking_route',
+                    'invoice_checked',
+                    ['amount'],
+                    [
+                        new ProcessTemplateDecisionRule(
+                            null,
+                            null,
+                            true,
+                            'booking_and_payment'
                         ),
                     ]
                 ),

@@ -50,6 +50,10 @@ final class ProcessTemplateBpmnViewBuilder
         }
 
         foreach ($template->transitions as $transition) {
+            if ($transition->to === null) {
+                continue;
+            }
+
             $this->addEdge(
                 $edges,
                 $logicalEdgeIndex,
@@ -90,15 +94,24 @@ final class ProcessTemplateBpmnViewBuilder
 
             foreach ($decisionPoint->rules as $rule) {
                 if ($decisionPoint->after !== null) {
+                    $targetKey = $rule->expectedNextParallelGroupKey ?? $rule->expectedNextStepKey;
+                    if ($targetKey === null) {
+                        continue;
+                    }
+
+                    $targetNodeId = $rule->expectedNextParallelGroupKey !== null
+                        ? $this->parallelGroupNodeId($rule->expectedNextParallelGroupKey)
+                        : $this->taskNodeId($rule->expectedNextStepKey);
+
                     $this->addEdge(
                         $edges,
                         $logicalEdgeIndex,
                         $decisionPoint->after,
-                        $rule->expectedNextStepKey,
+                        $targetKey,
                         new BpmnTransitionEdge(
-                            $this->edgeId('decision-rule', $decisionPoint->key, $rule->expectedNextStepKey, $this->conditionLabel($rule)),
+                            $this->edgeId('decision-rule', $decisionPoint->key, $targetKey, $this->conditionLabel($rule)),
                             $gatewayId,
-                            $this->taskNodeId($rule->expectedNextStepKey),
+                            $targetNodeId,
                             'decision_rule',
                             'expected',
                             $this->conditionLabel($rule),
@@ -328,6 +341,7 @@ final class ProcessTemplateBpmnViewBuilder
         return [
             'condition_label' => $this->conditionLabel($rule),
             'expect_next' => $rule->expectedNextStepKey,
+            'expect_next_parallel_group' => $rule->expectedNextParallelGroupKey,
             'is_else' => $rule->isElse,
         ];
     }

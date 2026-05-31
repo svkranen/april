@@ -57,10 +57,22 @@ final class ProcessTemplateCheckService
             static fn (array $entry): string => $entry['step'],
             $actualStepEntries
         );
-        $deviations = $this->deviations($expectedSteps, $actualSteps, $parallelGroups, $knownSteps);
         $decisionCheck = $this->decisionDeviations($template, $actualStepEntries, $parallelGroups, $actualSteps);
+        $deviations = $this->deviations(
+            $expectedSteps,
+            $actualSteps,
+            $parallelGroups,
+            $knownSteps,
+            $template->transitions,
+            $decisionCheck['activated_parallel_groups']
+        );
         $deviations = array_merge($deviations, $decisionCheck['deviations']);
-        $parallelGroupMessages = $this->parallelGroupMessages($parallelGroups, $actualSteps);
+        $parallelGroupMessages = $this->parallelGroupMessages(
+            $parallelGroups,
+            $actualSteps,
+            $template->transitions,
+            $decisionCheck['activated_parallel_groups']
+        );
 
         return new ProcessTemplateCheckResult(
             $expectedSteps,
@@ -109,6 +121,9 @@ final class ProcessTemplateCheckService
         foreach ($parallelGroups as $group) {
             foreach ($group->requiredStepKeys as $stepKey) {
                 $knownSteps[] = $stepKey;
+            }
+            if ($group->nextStepKey !== null) {
+                $knownSteps[] = $group->nextStepKey;
             }
         }
 
@@ -221,15 +236,16 @@ final class ProcessTemplateCheckService
      * @param array<int, array{step: string, context: array<string, mixed>|null, context_summary: array<string, mixed>|null, occurred_at: DateTimeImmutable}> $actualStepEntries
      * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
      * @param array<int, string> $actualSteps
-     * @return array{deviations: array<int, string>, context_issues: array<int, string>, context_status: string|null}
+     * @return array{deviations: array<int, string>, context_issues: array<int, string>, context_status: string|null, activated_parallel_groups: array<int, string>}
      */
     private function decisionDeviations(ProcessTemplate $template, array $actualStepEntries, array $parallelGroups, array $actualSteps): array
     {
         $deviations = [];
         $contextIssues = [];
         $contextStatus = null;
+        $activatedParallelGroups = [];
         if ($template->decisionPoints === []) {
-            return ['deviations' => $deviations, 'context_issues' => $contextIssues, 'context_status' => $contextStatus];
+            return ['deviations' => $deviations, 'context_issues' => $contextIssues, 'context_status' => $contextStatus, 'activated_parallel_groups' => $activatedParallelGroups];
         }
 
         $expectedDecisionStepKeys = [];
@@ -280,7 +296,32 @@ final class ProcessTemplateCheckService
                 continue;
             }
 
+            if ($matchedRule->expectedNextParallelGroupKey !== null) {
+                $expectedParallelGroup = $this->parallelGroupByKey($parallelGroups, $matchedRule->expectedNextParallelGroupKey);
+                $activatedParallelGroups[] = $matchedRule->expectedNextParallelGroupKey;
+                $actualNextStepKey = $actualStepEntries[$position + 1]['step'] ?? null;
+
+                if ($expectedParallelGroup !== null && $actualNextStepKey !== null && in_array($actualNextStepKey, $expectedParallelGroup->requiredStepKeys, true)) {
+                    continue;
+                }
+
+                $deviations[] = sprintf(
+                    'Decision rule violation: %s after %s expected parallel group %s but got %s. Context: %s. Rule: %s',
+                    $decisionPoint->key,
+                    $decisionPoint->after,
+                    $matchedRule->expectedNextParallelGroupKey,
+                    $actualNextStepKey ?? 'none',
+                    $this->formatDecisionContext($decisionPoint, $context),
+                    $this->formatDecisionRule($matchedRule)
+                );
+                continue;
+            }
+
             $expectedNextStepKey = $matchedRule->expectedNextStepKey;
+            if ($expectedNextStepKey === null) {
+                continue;
+            }
+
             $expectedDecisionStepKeys[] = $expectedNextStepKey;
             $actualNextStepKey = $actualStepEntries[$position + 1]['step'] ?? null;
             if ($actualNextStepKey !== null && $this->sameSatisfiedAnyOrderParallelGroup($expectedNextStepKey, $actualNextStepKey, $parallelGroups, $actualSteps)) {
@@ -300,7 +341,26 @@ final class ProcessTemplateCheckService
             }
         }
 
-        return ['deviations' => $deviations, 'context_issues' => $contextIssues, 'context_status' => $contextStatus];
+        return [
+            'deviations' => $deviations,
+            'context_issues' => $contextIssues,
+            'context_status' => $contextStatus,
+            'activated_parallel_groups' => array_values(array_unique($activatedParallelGroups)),
+        ];
+    }
+
+    /**
+     * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
+     */
+    private function parallelGroupByKey(array $parallelGroups, string $key): ?ProcessTemplateParallelGroup
+    {
+        foreach ($parallelGroups as $group) {
+            if ($group->key === $key) {
+                return $group;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -643,9 +703,10 @@ final class ProcessTemplateCheckService
      * @param array<int, string> $actualSteps
      * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
      * @param array<int, string> $knownSteps
+     * @param array<int, \App\Intelligence\Domain\ProcessTemplateTransition> $transitions
      * @return array<int, string>
      */
-    private function deviations(array $expectedSteps, array $actualSteps, array $parallelGroups, array $knownSteps): array
+    private function deviations(array $expectedSteps, array $actualSteps, array $parallelGroups, array $knownSteps, array $transitions, array $activatedParallelGroups = []): array
     {
         $deviations = [];
 
@@ -661,7 +722,15 @@ final class ProcessTemplateCheckService
             $deviations[] = 'Wrong order';
         }
 
+        foreach ($this->transitionViolations($actualSteps, $parallelGroups, $transitions) as $transitionViolation) {
+            $deviations[] = $transitionViolation;
+        }
+
         foreach ($parallelGroups as $group) {
+            if (!$this->isParallelGroupActivated($group, $transitions, $actualSteps, $activatedParallelGroups)) {
+                continue;
+            }
+
             $missingRequiredSteps = array_values(array_diff($group->requiredStepKeys, $actualSteps));
             if ($missingRequiredSteps !== []) {
                 $deviations[] = sprintf(
@@ -669,10 +738,112 @@ final class ProcessTemplateCheckService
                     $group->key,
                     implode(', ', $missingRequiredSteps)
                 );
+
+                continue;
+            }
+
+            if ($group->nextStepKey !== null && !in_array($group->nextStepKey, $actualSteps, true)) {
+                $deviations[] = sprintf(
+                    'Missing next after parallel group: %s -> %s',
+                    $group->key,
+                    $group->nextStepKey
+                );
             }
         }
 
         return $deviations;
+    }
+
+    /**
+     * @param array<int, string> $actualSteps
+     * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
+     * @param array<int, \App\Intelligence\Domain\ProcessTemplateTransition> $transitions
+     * @return array<int, string>
+     */
+    private function transitionViolations(array $actualSteps, array $parallelGroups, array $transitions): array
+    {
+        if ($transitions === []) {
+            return [];
+        }
+
+        $allowedTargetsByFrom = [];
+        foreach ($transitions as $transition) {
+            if ($transition->to !== null) {
+                $allowedTargetsByFrom[$transition->from][] = $transition->to;
+                continue;
+            }
+
+            if ($transition->toParallelGroup !== null) {
+                $allowedTargetsByFrom[$transition->from] = array_merge(
+                    $allowedTargetsByFrom[$transition->from] ?? [],
+                    $this->requiredStepsForParallelGroup($parallelGroups, $transition->toParallelGroup)
+                );
+            }
+        }
+
+        $violations = [];
+        for ($index = 0, $max = count($actualSteps) - 1; $index < $max; ++$index) {
+            $from = $actualSteps[$index];
+            $actualNext = $actualSteps[$index + 1];
+            $allowedTargets = array_values(array_unique($allowedTargetsByFrom[$from] ?? []));
+            if ($allowedTargets === [] || in_array($actualNext, $allowedTargets, true)) {
+                continue;
+            }
+
+            $violations[] = sprintf(
+                'Transition violation: %s expected one of %s but got %s',
+                $from,
+                implode(', ', $allowedTargets),
+                $actualNext
+            );
+        }
+
+        return $violations;
+    }
+
+    /**
+     * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
+     * @return array<int, string>
+     */
+    private function requiredStepsForParallelGroup(array $parallelGroups, string $parallelGroupKey): array
+    {
+        foreach ($parallelGroups as $group) {
+            if ($group->key === $parallelGroupKey) {
+                return $group->requiredStepKeys;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<int, \App\Intelligence\Domain\ProcessTemplateTransition> $transitions
+     * @param array<int, string> $actualSteps
+     */
+    private function isParallelGroupActivated(ProcessTemplateParallelGroup $group, array $transitions, array $actualSteps, array $activatedParallelGroups = []): bool
+    {
+        if (in_array($group->key, $activatedParallelGroups, true)) {
+            return true;
+        }
+
+        $activationSteps = [];
+        foreach ($transitions as $transition) {
+            if ($transition->toParallelGroup === $group->key) {
+                $activationSteps[] = $transition->from;
+            }
+        }
+
+        if ($activationSteps === []) {
+            return true;
+        }
+
+        foreach ($activationSteps as $activationStep) {
+            if (in_array($activationStep, $actualSteps, true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -740,13 +911,19 @@ final class ProcessTemplateCheckService
      * @param array<int, string> $actualSteps
      * @return array<int, string>
      */
-    private function parallelGroupMessages(array $parallelGroups, array $actualSteps): array
+    private function parallelGroupMessages(array $parallelGroups, array $actualSteps, array $transitions = [], array $activatedParallelGroups = []): array
     {
         $messages = [];
         foreach ($parallelGroups as $group) {
+            if (!$this->isParallelGroupActivated($group, $transitions, $actualSteps, $activatedParallelGroups)) {
+                continue;
+            }
+
             $missingRequiredSteps = array_values(array_diff($group->requiredStepKeys, $actualSteps));
             if ($missingRequiredSteps === []) {
-                $messages[] = sprintf('Parallel Group satisfied: %s', $group->key);
+                $messages[] = $group->nextStepKey === null
+                    ? sprintf('Parallel Group satisfied: %s', $group->key)
+                    : sprintf('Parallel Group satisfied: %s (next: %s)', $group->key, $group->nextStepKey);
 
                 continue;
             }

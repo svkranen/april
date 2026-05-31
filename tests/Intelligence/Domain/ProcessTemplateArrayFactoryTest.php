@@ -38,6 +38,11 @@ class ProcessTemplateArrayFactoryTest extends TestCase
     {
         $template = ProcessTemplateArrayFactory::fromArray([
             'key' => 'invoice',
+            'steps' => [
+                ['key' => 'received'],
+                ['key' => 'approved'],
+                ['key' => 'booked'],
+            ],
             'transitions' => [
                 ['from' => 'received', 'to' => 'approved'],
                 ['from' => 'approved', 'to' => 'booked'],
@@ -47,8 +52,133 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertCount(2, $template->transitions);
         self::assertSame('received', $template->transitions[0]->from);
         self::assertSame('approved', $template->transitions[0]->to);
+        self::assertNull($template->transitions[0]->toParallelGroup);
         self::assertSame('approved', $template->transitions[1]->from);
         self::assertSame('booked', $template->transitions[1]->to);
+    }
+
+    public function testBuildsTransitionToParallelGroup(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'approved'],
+                ['key' => 'booked'],
+                ['key' => 'payment_expected'],
+            ],
+            'parallel_groups' => [
+                [
+                    'key' => 'booking_and_payment',
+                    'required_steps' => ['booked', 'payment_expected'],
+                    'order' => 'any',
+                ],
+            ],
+            'transitions' => [
+                ['from' => 'approved', 'to_parallel_group' => 'booking_and_payment'],
+            ],
+        ]);
+
+        self::assertCount(1, $template->transitions);
+        self::assertSame('approved', $template->transitions[0]->from);
+        self::assertNull($template->transitions[0]->to);
+        self::assertSame('booking_and_payment', $template->transitions[0]->toParallelGroup);
+    }
+
+    public function testTransitionValidationRejectsUnknownTargetStep(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Transition from "received" references unknown target step "missing".');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'received'],
+            ],
+            'transitions' => [
+                ['from' => 'received', 'to' => 'missing'],
+            ],
+        ]);
+    }
+
+    public function testTransitionValidationRejectsUnknownSourceStep(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Transition from "missing" references unknown step.');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'received'],
+            ],
+            'transitions' => [
+                ['from' => 'missing', 'to' => 'received'],
+            ],
+        ]);
+    }
+
+    public function testTransitionValidationRejectsUnknownParallelGroup(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Transition from "received" references unknown parallel group "missing_group".');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'received'],
+            ],
+            'transitions' => [
+                ['from' => 'received', 'to_parallel_group' => 'missing_group'],
+            ],
+        ]);
+    }
+
+    public function testTransitionValidationRejectsAmbiguousTarget(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Transition from "received" must define exactly one of "to" or "to_parallel_group".');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'received'],
+                ['key' => 'approved'],
+            ],
+            'parallel_groups' => [
+                [
+                    'key' => 'approval_group',
+                    'required_steps' => ['approved'],
+                ],
+            ],
+            'transitions' => [
+                ['from' => 'received', 'to' => 'approved', 'to_parallel_group' => 'approval_group'],
+            ],
+        ]);
+    }
+
+    public function testTransitionValidationRejectsRedundantDirectTargetIntoAnyOrderParallelGroup(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Transition from "sent" to "booked" is redundant because "sent" also activates any-order parallel group "booking_and_payment".');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'sent'],
+                ['key' => 'booked'],
+                ['key' => 'payment_expected'],
+            ],
+            'parallel_groups' => [
+                [
+                    'key' => 'booking_and_payment',
+                    'required_steps' => ['booked', 'payment_expected'],
+                    'order' => 'any',
+                ],
+            ],
+            'transitions' => [
+                ['from' => 'sent', 'to' => 'booked'],
+                ['from' => 'sent', 'to_parallel_group' => 'booking_and_payment'],
+            ],
+        ]);
     }
 
     public function testBuildsTemplateWithParallelGroups(): void
@@ -61,6 +191,7 @@ class ProcessTemplateArrayFactoryTest extends TestCase
                     'after' => 'received',
                     'required_steps' => ['manager_approval', 'finance_approval'],
                     'order' => 'any',
+                    'next' => 'booked',
                 ],
             ],
         ]);
@@ -70,6 +201,7 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame('received', $template->parallelGroups[0]->after);
         self::assertSame(['manager_approval', 'finance_approval'], $template->parallelGroups[0]->requiredStepKeys);
         self::assertSame('any', $template->parallelGroups[0]->order);
+        self::assertSame('booked', $template->parallelGroups[0]->nextStepKey);
     }
 
     public function testUsesDefaultsForMissingOptionalFields(): void
@@ -243,6 +375,104 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertTrue($elseRule->isElse);
         self::assertNull($elseRule->condition);
         self::assertSame('department_approval', $elseRule->expectedNextStepKey);
+    }
+
+    public function testBuildsDecisionRuleWithExpectedParallelGroup(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'invoice_checked'],
+                ['key' => 'booked'],
+                ['key' => 'payment_expected'],
+            ],
+            'parallel_groups' => [
+                [
+                    'key' => 'booking_and_payment',
+                    'required_steps' => ['booked', 'payment_expected'],
+                    'order' => 'any',
+                ],
+            ],
+            'decision_points' => [
+                [
+                    'key' => 'booking_route',
+                    'after' => 'invoice_checked',
+                    'rules' => [
+                        [
+                            'else' => [
+                                'expect_next_parallel_group' => 'booking_and_payment',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $rule = $template->decisionPoints[0]->rules[0];
+
+        self::assertTrue($rule->isElse);
+        self::assertNull($rule->expectedNextStepKey);
+        self::assertSame('booking_and_payment', $rule->expectedNextParallelGroupKey);
+    }
+
+    public function testRejectsDecisionRuleWithUnknownExpectedParallelGroup(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('references unknown parallel group "missing_group"');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'invoice_checked'],
+            ],
+            'decision_points' => [
+                [
+                    'key' => 'booking_route',
+                    'after' => 'invoice_checked',
+                    'rules' => [
+                        [
+                            'else' => [
+                                'expect_next_parallel_group' => 'missing_group',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    public function testRejectsDecisionRuleWithStepAndParallelGroupTargets(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('must define exactly one of "expect_next" or "expect_next_parallel_group"');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'invoice_checked'],
+                ['key' => 'booked'],
+            ],
+            'parallel_groups' => [
+                [
+                    'key' => 'booking_and_payment',
+                    'required_steps' => ['booked'],
+                ],
+            ],
+            'decision_points' => [
+                [
+                    'key' => 'booking_route',
+                    'after' => 'invoice_checked',
+                    'rules' => [
+                        [
+                            'else' => [
+                                'expect_next' => 'booked',
+                                'expect_next_parallel_group' => 'booking_and_payment',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
     }
 
     public function testBuildsDecisionRuleWithInAndExistsOperators(): void

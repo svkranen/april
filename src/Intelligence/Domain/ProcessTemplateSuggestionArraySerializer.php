@@ -130,10 +130,17 @@ final class ProcessTemplateSuggestionArraySerializer
         }
 
         return array_map(
-            static fn (ProcessTemplateTransition $transition): array => [
-                'from' => $transition->from,
-                'to' => $transition->to,
-            ],
+            static function (ProcessTemplateTransition $transition): array {
+                $data = ['from' => $transition->from];
+                if ($transition->to !== null) {
+                    $data['to'] = $transition->to;
+                }
+                if ($transition->toParallelGroup !== null) {
+                    $data['to_parallel_group'] = $transition->toParallelGroup;
+                }
+
+                return $data;
+            },
             $result->template->transitions
         );
     }
@@ -189,6 +196,9 @@ final class ProcessTemplateSuggestionArraySerializer
             'required_steps' => $parallelGroup->requiredStepKeys,
             'order' => $parallelGroup->order,
         ];
+        if ($parallelGroup->nextStepKey !== null) {
+            $data['next'] = $parallelGroup->nextStepKey;
+        }
 
         $suggestion = $this->suggestionForParallelGroup($parallelGroup->key, $suggestions);
         if ($suggestion !== null) {
