@@ -5,6 +5,7 @@ namespace App\Command;
 use App\Intelligence\Application\DocumentTimelineEventRow;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\EventTimelineOrder;
+use App\Intelligence\Application\KpiRelevantTimelineFilter;
 use App\Intelligence\Application\MermaidProcessGraphRenderer;
 use App\Intelligence\Application\MermaidProcessGraphRenderOptions;
 use App\Intelligence\Application\ObservedTransitionProjection;
@@ -40,6 +41,7 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
         private readonly ?TemplateHeatmapReportBuilder $heatmapReportBuilder = null,
         private readonly ?ProcessDocumentUuidProvider $documentUuidProvider = null,
         private readonly ?DocumentTimelineProvider $timelineProvider = null,
+        private readonly ?KpiRelevantTimelineFilter $timelineFilter = null,
         private readonly ?ProcessTemplateCheckService $checkService = null,
         private readonly ProcessGraphObservationProjector $observationProjector = new ProcessGraphObservationProjector()
     ) {
@@ -63,6 +65,7 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
             ->addOption('sample-only', null, InputOption::VALUE_NONE, 'Restrict live metrics to local sample documents')
             ->addOption('include-deviations', null, InputOption::VALUE_NONE, 'When set with --include-ok, include deviation documents in live metrics')
             ->addOption('include-ok', null, InputOption::VALUE_NONE, 'When set with --include-deviations, include OK documents in live metrics')
+            ->addOption('include-excluded', null, InputOption::VALUE_NONE, 'Include timelines excluded from standard KPI/heatmap eligibility and report exclusion reasons in live metrics')
             ->addOption('debug-metrics', null, InputOption::VALUE_NONE, 'Print live metrics source/projection diagnostics before the Mermaid output')
             ->addOption('dwell-metric', null, InputOption::VALUE_REQUIRED, 'Dwell metric for node buckets: avg, median or p95', MermaidProcessGraphRenderOptions::DWELL_METRIC_MEDIAN)
             ->addOption('dwell-buckets', null, InputOption::VALUE_REQUIRED, 'Number of relative percentile dwell buckets', '8')
@@ -286,8 +289,8 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
      */
     private function liveMetricsReport(InputInterface $input, \App\Intelligence\Domain\ProcessTemplate $template, \App\Intelligence\Domain\ProcessGraph $graph): array
     {
-        if ($this->heatmapReportBuilder === null || $this->documentUuidProvider === null || $this->timelineProvider === null) {
-            throw new \InvalidArgumentException('Live metrics require TemplateHeatmapReportBuilder, ProcessDocumentUuidProvider and DocumentTimelineProvider services.');
+        if ($this->heatmapReportBuilder === null || $this->documentUuidProvider === null || $this->timelineProvider === null || $this->timelineFilter === null) {
+            throw new \InvalidArgumentException('Live metrics require TemplateHeatmapReportBuilder, ProcessDocumentUuidProvider, DocumentTimelineProvider and KpiRelevantTimelineFilter services.');
         }
 
         $processKey = (string) ($input->getOption('process-key') ?: $template->key);
@@ -301,8 +304,7 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
         $versionOption = $input->getOption('document-version');
         $documentVersion = $versionOption === null ? null : (int) $versionOption;
         $documentRefs = $this->documentUuidProvider->documentRefsForProcess($processKey, $from);
-        $documentTimelines = [];
-        $documentTimelineEvents = [];
+        $documentsForMetrics = [];
         $debugDocuments = [];
         $skipReasons = [];
         $rawTransitionCount = 0;
@@ -333,12 +335,12 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
                 ],
                 $events
             );
-            $documentTimelines[] = [
+            $documentForMetrics = [
                 'document_uuid' => $documentRef->documentUuid,
                 'document_id' => $documentRef->documentExternalId,
                 'timeline' => $timeline,
+                'events' => $events,
             ];
-            $documentTimelineEvents[] = $events;
 
             $debugTransitions = [];
             for ($index = 0, $max = count($events) - 1; $index < $max; ++$index) {
@@ -365,14 +367,41 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
                 ];
             }
 
-            $debugDocuments[] = [
+            $documentForMetrics['debug'] = [
                 'documentId' => $documentRef->documentExternalId,
                 'documentUuid' => $documentRef->documentUuid,
                 'transitions' => $debugTransitions,
             ];
+            $documentsForMetrics[] = $documentForMetrics;
         }
 
+        $filterResult = $this->timelineFilter->filterDocumentTimelines(
+            $template,
+            $processKey,
+            $documentsForMetrics,
+            $input->getOption('include-excluded') === true
+        );
+        $documentTimelines = array_map(
+            static fn (array $document): array => [
+                'document_uuid' => $document['document_uuid'],
+                'document_id' => $document['document_id'],
+                'timeline' => $document['timeline'],
+            ],
+            $filterResult->included
+        );
+        $documentTimelineEvents = array_map(
+            static fn (array $document): array => $document['events'],
+            $filterResult->included
+        );
+        $debugDocuments = array_map(
+            static fn (array $document): array => $document['debug'],
+            $filterResult->included
+        );
         $report = $this->heatmapReportBuilder->build($template, $documentTimelines, new DateTimeImmutable(), true);
+        $report['kpi_eligibility'] = $filterResult->summary;
+        if ($input->getOption('include-excluded') === true) {
+            $report['kpi_eligibility']['excluded_timelines'] = $filterResult->excluded;
+        }
         $report['flow_heatmap'] = $this->flowHeatmapFromEvents($documentTimelineEvents);
         $report['virtual_node_durations'] = $this->virtualNodeDurationsFromEvents($documentTimelineEvents, $template, $graph);
         $report['node_flow'] = $this->nodeFlowFromEvents($documentTimelineEvents, $template, $graph);
@@ -381,8 +410,10 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
             'process_key' => $processKey,
             'documents_seen' => count($documentRefs),
             'documents_projected' => count($documentTimelines),
-            'documents_skipped' => array_sum(array_map('count', $skipReasons)),
+            'documents_skipped' => array_sum(array_map('count', $skipReasons))
+                + ($input->getOption('include-excluded') === true ? 0 : $filterResult->summary['excluded_instances']),
             'skip_reasons' => $skipReasons,
+            'kpi_eligibility' => $report['kpi_eligibility'],
             'raw_transition_count' => $rawTransitionCount,
             'projected_edge_count' => $projectedEdgeCount,
             'unexpected_edge_count' => $unexpectedEdgeCount,

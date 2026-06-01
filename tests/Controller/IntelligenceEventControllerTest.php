@@ -50,6 +50,44 @@ class IntelligenceEventControllerTest extends TestCase
         self::assertSame(1, $store->count());
     }
 
+    public function testPostStoresFormUrlEncodedOccurredAtWithEncodedPlusOffset(): void
+    {
+        $store = new InMemoryIncomingEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->intake($store)
+        );
+        $body = 'externalEventKey=evt-form-plus-1&sourceSystem=amagno&documentId=doc-form-plus'
+            .'&documentUuid=uuid-form-plus&documentVersion=1&eventKey=invoice.received'
+            .'&eventPhase=after&processKey=invoice&stepKey=invoice.received'
+            .'&occurredAt=2026-05-31T18%3A45%3A00%2B00%3A00';
+
+        $response = $controller($this->rawFormRequest($body));
+        $events = $store->all();
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('2026-05-31T18:45:00+00:00', $events[0]->occurredAt?->format(DATE_ATOM));
+    }
+
+    public function testPostStoresFormUrlEncodedOccurredAtWithUnencodedPlusOffset(): void
+    {
+        $store = new InMemoryIncomingEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->intake($store)
+        );
+        $body = 'externalEventKey=evt-form-plus-2&sourceSystem=amagno&documentId=doc-form-plus'
+            .'&documentUuid=uuid-form-plus&documentVersion=1&eventKey=invoice.received'
+            .'&eventPhase=after&processKey=invoice&stepKey=invoice.received'
+            .'&occurredAt=2026-05-31T18%3A45%3A00+02%3A00';
+
+        $response = $controller($this->rawFormRequest($body));
+        $events = $store->all();
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('2026-05-31T16:45:00+00:00', $events[0]->occurredAt?->format(DATE_ATOM));
+    }
+
     public function testFormEventWithoutDocumentVersionDefaultsToVersionOne(): void
     {
         $store = new InMemoryIncomingEventStore();
@@ -492,6 +530,28 @@ class IntelligenceEventControllerTest extends TestCase
             [],
             [],
             $server
+        );
+    }
+
+    private function rawFormRequest(string $body, ?string $signature = 'valid-signature'): Request
+    {
+        parse_str($body, $payload);
+
+        $server = [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+        ];
+        if ($signature !== null) {
+            $server['HTTP_X_INTELLIGENCE_SIGNATURE'] = $signature;
+        }
+
+        return Request::create(
+            '/api/intelligence/events',
+            'POST',
+            $payload,
+            [],
+            [],
+            $server,
+            $body
         );
     }
 

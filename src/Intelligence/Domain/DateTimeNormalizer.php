@@ -33,6 +33,7 @@ final readonly class DateTimeNormalizer
             return $this->nowUtc();
         }
 
+        $value = $this->restoreFormUrlencodedOffset($value);
         $timezone = $this->hasExplicitTimezone($value) ? null : $this->defaultTimezone;
 
         return (new DateTimeImmutable($value, $timezone))->setTimezone($this->utc);
@@ -43,5 +44,14 @@ final readonly class DateTimeNormalizer
         $value = trim($value);
 
         return preg_match('/(?:Z|[+-]\d{2}:?\d{2})$/i', $value) === 1;
+    }
+
+    private function restoreFormUrlencodedOffset(string $value): string
+    {
+        return preg_replace_callback(
+            '/(T\d{2}:\d{2}:\d{2})\s([+-]?)(\d{2}:\d{2})$/',
+            static fn (array $matches): string => $matches[1].($matches[2] === '' ? '+' : $matches[2]).$matches[3],
+            $value
+        ) ?? $value;
     }
 }

@@ -8,8 +8,11 @@ use App\Intelligence\Application\ProcessTemplateGraphFactory;
 use App\Intelligence\Domain\ContextSnapshot;
 use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
+use App\Intelligence\Domain\ProcessVersion;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessDocumentUuidProvider;
+use App\Intelligence\Infrastructure\Process\InMemoryProcessVersionRepository;
+use App\Intelligence\Application\KpiRelevantTimelineFilter;
 use App\Intelligence\Template\TemplateDurationHeatmapBuilder;
 use App\Intelligence\Template\TemplateFlowHeatmapBuilder;
 use App\Intelligence\Template\TemplateHeatmapReportBuilder;
@@ -144,6 +147,54 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net gt 50; count 1"| n_03_Freigabe_klein', $tester->getDisplay());
     }
 
+    public function testLiveMetricsExposeEligibilitySummaryWithIncludeExcluded(): void
+    {
+        $events = [
+            $this->event('900001', '00000000-0000-4000-8000-000000900001', 1, '01 Rechnungen pruefen', '2026-05-31T08:00:00+00:00'),
+        ];
+        $tester = new CommandTester($this->command(
+            new InMemoryProcessDocumentUuidProvider($events),
+            new InMemoryDocumentTimelineProvider([], $events),
+            new KpiRelevantTimelineFilter(new InMemoryProcessVersionRepository())
+        ));
+
+        $exitCode = $tester->execute([
+            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            '--view' => 'flow',
+            '--debug-metrics' => true,
+            '--include-excluded' => true,
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('"excluded_instances": 1', $tester->getDisplay());
+        self::assertStringContainsString('"no_process_version_defined": 1', $tester->getDisplay());
+    }
+
+    public function testLiveMetricsExcludeIneligibleTimelinesByDefault(): void
+    {
+        $events = [
+            $this->event('900001', '00000000-0000-4000-8000-000000900001', 1, '03 Freigabe_klein', '2026-05-31T08:00:00+00:00'),
+            $this->event('900002', '00000000-0000-4000-8000-000000900002', 1, '01 Rechnungen pruefen', '2026-05-31T09:00:00+00:00'),
+        ];
+        $tester = new CommandTester($this->command(
+            new InMemoryProcessDocumentUuidProvider($events),
+            new InMemoryDocumentTimelineProvider([], $events)
+        ));
+
+        $exitCode = $tester->execute([
+            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            '--view' => 'flow',
+            '--debug-metrics' => true,
+            '--show-node-metrics' => true,
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('"included_instances": 1', $tester->getDisplay());
+        self::assertStringContainsString('"started_mid_process": 1', $tester->getDisplay());
+        self::assertStringContainsString('n_01_Rechnungen_pruefen["01 Rechnungen pruefen<br/>docs: 1"]', $tester->getDisplay());
+    }
+
+
     public function testExportsFlowViewWithNodeFlowMetrics(): void
     {
         $events = [
@@ -258,7 +309,8 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
 
     private function command(
         ?InMemoryProcessDocumentUuidProvider $documentUuidProvider = null,
-        ?InMemoryDocumentTimelineProvider $timelineProvider = null
+        ?InMemoryDocumentTimelineProvider $timelineProvider = null,
+        ?KpiRelevantTimelineFilter $timelineFilter = null
     ): IntelligenceTemplateExportDiagramCommand
     {
         return new IntelligenceTemplateExportDiagramCommand(
@@ -267,7 +319,10 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
             null,
             new TemplateHeatmapReportBuilder(new TemplateFlowHeatmapBuilder(), new TemplateDurationHeatmapBuilder()),
             $documentUuidProvider,
-            $timelineProvider
+            $timelineProvider,
+            $timelineFilter ?? new KpiRelevantTimelineFilter(new InMemoryProcessVersionRepository([
+                new ProcessVersion(null, 'ai-rechnungen', '1.0', new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
+            ]))
         );
     }
 

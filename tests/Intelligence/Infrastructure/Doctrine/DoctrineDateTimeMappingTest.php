@@ -6,6 +6,7 @@ use App\Intelligence\Infrastructure\Doctrine\Entity\ContextSnapshotEntity;
 use App\Intelligence\Infrastructure\Doctrine\Entity\IncomingEventEntity;
 use App\Intelligence\Infrastructure\Doctrine\Entity\ProcessEventEntity;
 use App\Intelligence\Infrastructure\Doctrine\Entity\ProcessInstanceEntity;
+use App\Intelligence\Infrastructure\Doctrine\Entity\ProcessVersionEntity;
 use DateTimeImmutable;
 use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Types\DateTimeImmutableType;
@@ -35,6 +36,8 @@ final class DoctrineDateTimeMappingTest extends TestCase
         yield 'process instance endedAt' => [ProcessInstanceEntity::class, 'endedAt'];
         yield 'process instance createdAt' => [ProcessInstanceEntity::class, 'createdAt'];
         yield 'process instance updatedAt' => [ProcessInstanceEntity::class, 'updatedAt'];
+        yield 'process version validFrom' => [ProcessVersionEntity::class, 'validFrom'];
+        yield 'process version createdAt' => [ProcessVersionEntity::class, 'createdAt'];
     }
 
     /**

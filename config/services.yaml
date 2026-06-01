@@ -119,6 +119,9 @@ services:
     App\Intelligence\Application\ProcessInstanceRepository:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessInstanceRepository
 
+    App\Intelligence\Application\ProcessVersionRepository:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessVersionRepository
+
     App\Intelligence\Application\ContextProfileProvider:
         alias: App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider
 

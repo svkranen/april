@@ -5,6 +5,7 @@ namespace App\Command;
 use App\Intelligence\Application\DocumentTimelineEventRow;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\EventTimelineOrder;
+use App\Intelligence\Application\KpiRelevantTimelineFilter;
 use App\Intelligence\Application\ProcessDocumentUuidProvider;
 use App\Intelligence\Domain\ProcessTemplateArrayFactory;
 use App\Intelligence\Template\TemplateHeatmapReportBuilder;
@@ -30,6 +31,7 @@ final class IntelligenceTemplateHeatmapCommand extends Command
         private readonly TemplateHeatmapReportBuilder $reportBuilder,
         private readonly ProcessDocumentUuidProvider $documentUuidProvider,
         private readonly DocumentTimelineProvider $timelineProvider,
+        private readonly KpiRelevantTimelineFilter $timelineFilter,
         private readonly KernelInterface $kernel
     ) {
         parent::__construct();
@@ -48,6 +50,7 @@ final class IntelligenceTemplateHeatmapCommand extends Command
             ->addOption('since', null, InputOption::VALUE_REQUIRED, 'Only auto-select documents with events at or after this datetime')
             ->addOption('order-by', null, InputOption::VALUE_REQUIRED, 'Event order: occurred-at, received-at, or occurred-then-received', EventTimelineOrder::DEFAULT->value)
             ->addOption('include-before', null, InputOption::VALUE_NONE, 'Include before-phase events in the heatmap timelines')
+            ->addOption('include-excluded', null, InputOption::VALUE_NONE, 'Include timelines excluded from standard KPI/heatmap eligibility and report exclusion reasons')
             ->addOption('keep-direct-repeats', null, InputOption::VALUE_NONE, 'Keep direct repeated steps such as 03 -> 03');
     }
 
@@ -118,12 +121,23 @@ final class IntelligenceTemplateHeatmapCommand extends Command
             return Command::SUCCESS;
         }
 
+        $filterResult = $this->timelineFilter->filterDocumentTimelines(
+            $template,
+            $processKey,
+            $documentTimelines,
+            $input->getOption('include-excluded') === true
+        );
+
         $report = $this->reportBuilder->build(
             $template,
-            $documentTimelines,
+            $filterResult->included,
             new DateTimeImmutable(),
             $input->getOption('keep-direct-repeats') !== true
         );
+        $report['kpi_eligibility'] = $filterResult->summary;
+        if ($input->getOption('include-excluded') === true) {
+            $report['kpi_eligibility']['excluded_timelines'] = $filterResult->excluded;
+        }
 
         try {
             $contents = $format === 'json'
