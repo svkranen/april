@@ -173,6 +173,47 @@ Der Core bleibt dadurch fachlich eigenständig und langfristig DMS-unabhängig.
 
 ---
 
+## Mandantenfähigkeit
+
+APRIL ist aktuell ein Single-Tenant-System. Bestehende CLI-Commands, Tests und lokale Nutzung funktionieren ohne Tenant-Konfiguration.
+
+Neue Funktionen sollen dennoch tenant-aware entworfen werden, damit eine spätere Mandantenfähigkeit nicht erschwert wird. Als technischer Begriff wird `tenant` verwendet. Der aktuelle Default-Tenant ist `default`.
+
+Tenant-relevante Daten sind insbesondere:
+
+* ProcessEvents
+* ProcessInstances
+* ContextSnapshots
+* ProcessTemplates und Template-Versionen
+* Connector- und Systemeinstellungen
+* Amagno-Zugangsdaten und API-Keys
+* Auswertungen, Heatmaps und Reports
+* Benutzer- und Rollenmodelle, falls sie später ergänzt werden
+
+Neue Persistenzmodelle und Repositories sollen so entworfen werden, dass `tenantId` später sauber ergänzt werden kann oder bei geringem Risiko bereits vorbereitet ist. Eine harte Tenant-Pflicht wird aktuell nicht eingeführt. Bestehende Tabellen werden nicht unnötig umgebaut; bestehende Daten gelten implizit als Daten des Default-Tenants.
+
+Zur Vorbereitung existiert ein kleiner Port:
+
+```php
+interface CurrentTenantProvider
+{
+    public function getTenantId(): string;
+}
+```
+
+Die Default-Implementierung liefert `default`. Sie erzwingt keine Mandantenverwaltung und verändert keine fachliche Logik.
+
+Git-Repositories werden vorerst nicht getrennt. Stattdessen werden die Modulgrenzen im bestehenden Repository geschärft:
+
+* Core / Domain
+* Application Services
+* Infrastructure / Persistence
+* Connectoren, z. B. Amagno
+* CLI / Commands
+* UI / API, falls vorhanden
+
+---
+
 # Ports
 
 ## EventNormalizer

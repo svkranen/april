@@ -122,6 +122,9 @@ services:
     App\Intelligence\Application\ProcessVersionRepository:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessVersionRepository
 
+    App\Intelligence\Application\CurrentTenantProvider:
+        alias: App\Intelligence\Infrastructure\Tenant\DefaultTenantProvider
+
     App\Intelligence\Application\ContextProfileProvider:
         alias: App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider
 
@@ -133,6 +136,9 @@ services:
 
     App\Intelligence\Application\ContextSnapshotStore:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineContextSnapshotRepository
+
+    App\Intelligence\Application\ContextSnapshotHistoryProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineContextSnapshotHistoryProvider
 
     App\Intelligence\Application\IncomingEventStore:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineIncomingEventRepository
