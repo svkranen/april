@@ -8,6 +8,47 @@ use PHPUnit\Framework\TestCase;
 
 class ProcessTemplateArrayFactoryTest extends TestCase
 {
+    public function testParsesSignChecks(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'sign_checks' => [
+                [
+                    'key' => 'bauleiter_freigabe',
+                    'label' => 'Freigabe durch alle vorgesehenen Bauleiter',
+                    'required_set' => 'ToBeSignedBy',
+                    'actual_set' => 'SignedBy',
+                    'operator' => 'required_subset_of_actual',
+                ],
+            ],
+        ]);
+
+        self::assertCount(1, $template->signChecks);
+        self::assertSame('bauleiter_freigabe', $template->signChecks[0]->key);
+        self::assertSame('ToBeSignedBy', $template->signChecks[0]->requiredSetField);
+        self::assertSame('SignedBy', $template->signChecks[0]->actualSetField);
+    }
+
+    public function testParsesTypedChecksSignCheck(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'checks' => [
+                [
+                    'key' => 'bauleiter_freigabe',
+                    'type' => 'sign_check',
+                    'required_set' => ['from_context' => 'ToBeSignedBy'],
+                    'actual_set' => ['from_context' => 'SignedBy'],
+                    'operator' => 'required_subset_of_actual',
+                ],
+            ],
+        ]);
+
+        self::assertCount(1, $template->signChecks);
+        self::assertSame('ToBeSignedBy', $template->signChecks[0]->requiredSetField);
+        self::assertSame('SignedBy', $template->signChecks[0]->actualSetField);
+    }
+
     public function testBuildsTemplateWithSteps(): void
     {
         $template = ProcessTemplateArrayFactory::fromArray([

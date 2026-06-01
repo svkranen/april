@@ -176,4 +176,38 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
             (new ProcessTemplateSuggestionArraySerializer())->toArray($result)
         );
     }
+
+    public function testSerializesRepeatedEventAnalysisHints(): void
+    {
+        $result = new ProcessTemplateSuggestionResult(
+            new ProcessTemplate('eingangsrechnung'),
+            suggestions: [
+                new ProcessTemplateSuggestionNote(
+                    'possible_multi_approval',
+                    'Möglicher dynamischer Mehrpersonenfreigabe-Prozess. Bitte prüfen, ob hierfür ein contextbasierter signCheck definiert werden soll.',
+                    documentUuids: ['doc-a', 'doc-b'],
+                    eventKey: 'B',
+                    affectedDocuments: 2,
+                    minRepetitions: 2,
+                    maxRepetitions: 3,
+                    avgRepetitions: 2.5,
+                    previousEvents: [['event_key' => 'A', 'count' => 2]],
+                    followingEvents: [['event_key' => 'C', 'count' => 2]]
+                ),
+            ]
+        );
+
+        $data = (new ProcessTemplateSuggestionArraySerializer())->toArray($result);
+
+        self::assertSame($data['suggestions'], $data['analysis_hints']);
+        self::assertSame('possible_multi_approval', $data['analysis_hints'][0]['type']);
+        self::assertSame('B', $data['analysis_hints'][0]['event_key']);
+        self::assertTrue($data['analysis_hints'][0]['repeatable']);
+        self::assertSame(2, $data['analysis_hints'][0]['affected_documents']);
+        self::assertSame(2, $data['analysis_hints'][0]['min_repetitions']);
+        self::assertSame(3, $data['analysis_hints'][0]['max_repetitions']);
+        self::assertSame(2.5, $data['analysis_hints'][0]['avg_repetitions']);
+        self::assertSame([['event_key' => 'A', 'count' => 2]], $data['analysis_hints'][0]['previous_events']);
+        self::assertSame([['event_key' => 'C', 'count' => 2]], $data['analysis_hints'][0]['following_events']);
+    }
 }

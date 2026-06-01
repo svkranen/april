@@ -72,6 +72,13 @@ final class ProcessTemplateSuggestionArraySerializer
                 static fn (ProcessTemplateSuggestionNote $suggestion): array => self::suggestionToArray($suggestion),
                 $result->suggestions
             );
+            $analysisHints = array_values(array_filter(
+                $data['suggestions'],
+                static fn (array $suggestion): bool => in_array($suggestion['type'] ?? null, ['possible_multi_approval', 'repeatable_step'], true)
+            ));
+            if ($analysisHints !== []) {
+                $data['analysis_hints'] = $analysisHints;
+            }
         }
 
         return $data;
@@ -244,6 +251,30 @@ final class ProcessTemplateSuggestionArraySerializer
         }
         if ($suggestion->observedNextSteps !== []) {
             $data['observed_next_steps'] = $suggestion->observedNextSteps;
+        }
+        if ($suggestion->eventKey !== null) {
+            $data['event_key'] = $suggestion->eventKey;
+        }
+        if (in_array($suggestion->type, ['possible_multi_approval', 'repeatable_step'], true)) {
+            $data['repeatable'] = true;
+        }
+        if ($suggestion->affectedDocuments !== null) {
+            $data['affected_documents'] = $suggestion->affectedDocuments;
+        }
+        if ($suggestion->minRepetitions !== null) {
+            $data['min_repetitions'] = $suggestion->minRepetitions;
+        }
+        if ($suggestion->maxRepetitions !== null) {
+            $data['max_repetitions'] = $suggestion->maxRepetitions;
+        }
+        if ($suggestion->avgRepetitions !== null) {
+            $data['avg_repetitions'] = $suggestion->avgRepetitions;
+        }
+        if ($suggestion->previousEvents !== []) {
+            $data['previous_events'] = $suggestion->previousEvents;
+        }
+        if ($suggestion->followingEvents !== []) {
+            $data['following_events'] = $suggestion->followingEvents;
         }
         $data['message'] = $suggestion->message;
         if ($suggestion->documentUuids !== []) {

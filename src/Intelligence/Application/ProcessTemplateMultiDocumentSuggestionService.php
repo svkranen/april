@@ -45,10 +45,12 @@ final class ProcessTemplateMultiDocumentSuggestionService
         $steps = [];
         $transitions = [];
         $sequences = [];
+        $rawSequences = [];
         $usedDocumentUuids = [];
 
         foreach ($documentUuids as $documentUuid) {
-            $sequence = $this->stepSequenceForDocument($documentUuid, $processKey, $documentVersion, $includeBefore, $order);
+            $events = $this->eventsForDocument($documentUuid, $processKey, $documentVersion, $includeBefore, $order);
+            $sequence = $this->stepSequenceFromEvents($events);
             if ($sequence === []) {
                 continue;
             }
@@ -56,6 +58,10 @@ final class ProcessTemplateMultiDocumentSuggestionService
             $sequences[] = [
                 'document_uuid' => $documentUuid,
                 'steps' => $sequence,
+            ];
+            $rawSequences[] = [
+                'document_uuid' => $documentUuid,
+                'steps' => $this->rawStepSequenceFromEvents($events),
             ];
 
             foreach ($sequence as $step) {
@@ -121,6 +127,9 @@ final class ProcessTemplateMultiDocumentSuggestionService
                 observedNextSteps: $candidate->observedNextSteps
             );
         }
+        foreach ($this->repeatedEventSuggestions($rawSequences) as $suggestion) {
+            $suggestions[] = $suggestion;
+        }
 
         return new ProcessTemplateSuggestionResult(
             new ProcessTemplate(
@@ -155,7 +164,10 @@ final class ProcessTemplateMultiDocumentSuggestionService
     /**
      * @return array<int, array{key: string, normalized: string}>
      */
-    private function stepSequenceForDocument(
+    /**
+     * @return array<int, DocumentTimelineEventRow>
+     */
+    private function eventsForDocument(
         string $documentUuid,
         string $processKey,
         ?int $documentVersion,
@@ -185,6 +197,15 @@ final class ProcessTemplateMultiDocumentSuggestionService
 
         usort($events, static fn (DocumentTimelineEventRow $left, DocumentTimelineEventRow $right): int => $order->compareTimelineRows($left, $right));
 
+        return $events;
+    }
+
+    /**
+     * @param array<int, DocumentTimelineEventRow> $events
+     * @return array<int, array{key: string, normalized: string}>
+     */
+    private function stepSequenceFromEvents(array $events): array
+    {
         $sequence = [];
         $previousNormalizedStepKey = null;
         foreach ($events as $event) {
@@ -201,6 +222,97 @@ final class ProcessTemplateMultiDocumentSuggestionService
         }
 
         return $sequence;
+    }
+
+    /**
+     * @param array<int, DocumentTimelineEventRow> $events
+     * @return array<int, array{key: string, normalized: string}>
+     */
+    private function rawStepSequenceFromEvents(array $events): array
+    {
+        return array_map(
+            static fn (DocumentTimelineEventRow $event): array => [
+                'key' => $event->stepKey,
+                'normalized' => StepKeyNormalizer::normalize($event->stepKey),
+            ],
+            $events
+        );
+    }
+
+    /**
+     * @param array<int, array{document_uuid: string, steps: array<int, array{key: string, normalized: string}>}> $rawSequences
+     * @return array<int, ProcessTemplateSuggestionNote>
+     */
+    private function repeatedEventSuggestions(array $rawSequences): array
+    {
+        $runsByStep = [];
+        foreach ($rawSequences as $documentSequence) {
+            $steps = $documentSequence['steps'];
+            for ($index = 0, $count = count($steps); $index < $count; ++$index) {
+                $runStart = $index;
+                $normalized = $steps[$index]['normalized'];
+                while ($index + 1 < $count && $steps[$index + 1]['normalized'] === $normalized) {
+                    ++$index;
+                }
+
+                $runLength = $index - $runStart + 1;
+                if ($runLength < 2) {
+                    continue;
+                }
+
+                $runsByStep[$normalized]['event_key'] ??= $steps[$runStart]['key'];
+                $runsByStep[$normalized]['document_uuids'][$documentSequence['document_uuid']] = true;
+                $runsByStep[$normalized]['repetitions'][] = $runLength;
+                $previous = $steps[$runStart - 1]['key'] ?? null;
+                $following = $steps[$index + 1]['key'] ?? null;
+                if ($previous !== null) {
+                    $runsByStep[$normalized]['previous_events'][$previous] = ($runsByStep[$normalized]['previous_events'][$previous] ?? 0) + 1;
+                }
+                if ($following !== null) {
+                    $runsByStep[$normalized]['following_events'][$following] = ($runsByStep[$normalized]['following_events'][$following] ?? 0) + 1;
+                }
+            }
+        }
+
+        $suggestions = [];
+        foreach ($runsByStep as $run) {
+            $repetitions = $run['repetitions'];
+            $suggestions[] = new ProcessTemplateSuggestionNote(
+                'possible_multi_approval',
+                'Möglicher dynamischer Mehrpersonenfreigabe-Prozess. Bitte prüfen, ob hierfür ein contextbasierter signCheck definiert werden soll.',
+                documentUuids: array_keys($run['document_uuids']),
+                eventKey: $run['event_key'],
+                affectedDocuments: count($run['document_uuids']),
+                minRepetitions: min($repetitions),
+                maxRepetitions: max($repetitions),
+                avgRepetitions: round(array_sum($repetitions) / count($repetitions), 2),
+                previousEvents: $this->topEventCounts($run['previous_events'] ?? []),
+                followingEvents: $this->topEventCounts($run['following_events'] ?? [])
+            );
+        }
+
+        usort(
+            $suggestions,
+            static fn (ProcessTemplateSuggestionNote $left, ProcessTemplateSuggestionNote $right): int => ($right->affectedDocuments <=> $left->affectedDocuments)
+                ?: ($left->eventKey <=> $right->eventKey)
+        );
+
+        return $suggestions;
+    }
+
+    /**
+     * @param array<string, int> $counts
+     * @return array<int, array{event_key: string, count: int}>
+     */
+    private function topEventCounts(array $counts): array
+    {
+        arsort($counts);
+
+        return array_map(
+            static fn (string $eventKey, int $count): array => ['event_key' => $eventKey, 'count' => $count],
+            array_keys($counts),
+            array_values($counts)
+        );
     }
 
     /**

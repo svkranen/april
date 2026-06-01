@@ -4,6 +4,7 @@ namespace App\Intelligence\Application;
 
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateStep;
+use App\Intelligence\Domain\ProcessTemplateSuggestionNote;
 use App\Intelligence\Domain\ProcessTemplateSuggestionResult;
 use App\Intelligence\Domain\ProcessTemplateTransition;
 
@@ -65,6 +66,10 @@ final class ProcessTemplateSuggestionService
                 transitions: $this->transitions($stepKeys),
                 contextProfileRequiredFields: []
             ),
+            [],
+            [],
+            [],
+            $this->repeatedEventSuggestions($documentUuid, $events)
         );
     }
 
@@ -109,4 +114,49 @@ final class ProcessTemplateSuggestionService
         return ucwords(str_replace(['_', '-'], ' ', $key));
     }
 
+    /**
+     * @param array<int, DocumentTimelineEventRow> $events
+     * @return array<int, ProcessTemplateSuggestionNote>
+     */
+    private function repeatedEventSuggestions(string $documentUuid, array $events): array
+    {
+        $rawSequence = array_map(
+            static fn (DocumentTimelineEventRow $event): array => [
+                'key' => $event->stepKey,
+                'normalized' => StepKeyNormalizer::normalize($event->stepKey),
+            ],
+            $events
+        );
+        $suggestions = [];
+
+        for ($index = 0, $count = count($rawSequence); $index < $count; ++$index) {
+            $runStart = $index;
+            $normalized = $rawSequence[$index]['normalized'];
+            while ($index + 1 < $count && $rawSequence[$index + 1]['normalized'] === $normalized) {
+                ++$index;
+            }
+
+            $runLength = $index - $runStart + 1;
+            if ($runLength < 2) {
+                continue;
+            }
+
+            $previous = $rawSequence[$runStart - 1]['key'] ?? null;
+            $following = $rawSequence[$index + 1]['key'] ?? null;
+            $suggestions[] = new ProcessTemplateSuggestionNote(
+                'possible_multi_approval',
+                'Möglicher dynamischer Mehrpersonenfreigabe-Prozess. Bitte prüfen, ob hierfür ein contextbasierter signCheck definiert werden soll.',
+                documentUuids: [$documentUuid],
+                eventKey: $rawSequence[$runStart]['key'],
+                affectedDocuments: 1,
+                minRepetitions: $runLength,
+                maxRepetitions: $runLength,
+                avgRepetitions: (float) $runLength,
+                previousEvents: $previous === null ? [] : [['event_key' => $previous, 'count' => 1]],
+                followingEvents: $following === null ? [] : [['event_key' => $following, 'count' => 1]]
+            );
+        }
+
+        return $suggestions;
+    }
 }

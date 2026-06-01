@@ -4,6 +4,8 @@ namespace App\Tests\Command;
 
 use App\Command\IntelligenceTemplateCheckDocumentCommand;
 use App\Intelligence\Application\ProcessTemplateCheckService;
+use App\Intelligence\Domain\ContextSnapshot;
+use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use DateTimeImmutable;
@@ -304,6 +306,40 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
         $this->removeTemplate($path);
     }
 
+    public function testSignChecksArePrintedWithoutPersonDetails(): void
+    {
+        $path = $this->templatePathWithSignCheck();
+        $event = $this->event(1, 'approval', 1, 0);
+        $tester = new CommandTester(new IntelligenceTemplateCheckDocumentCommand(
+            new ProcessTemplateCheckService(
+                new InMemoryDocumentTimelineProvider(
+                    [],
+                    [$event],
+                    [$this->snapshot('evt-1', ['ToBeSignedBy' => ['Alice', 'Bob', 'Chris'], 'SignedBy' => ['Alice', 'Chris']])]
+                )
+            )
+        ));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--template' => $path,
+            '--document-version' => '1',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('SignChecks:', $tester->getDisplay());
+        self::assertStringContainsString('bauleiter_freigabe: PARTIAL', $tester->getDisplay());
+        self::assertStringContainsString('Erwartet: 3', $tester->getDisplay());
+        self::assertStringContainsString('Vorhanden: 2', $tester->getDisplay());
+        self::assertStringContainsString('Fehlend: 1', $tester->getDisplay());
+        self::assertStringNotContainsString('Alice', $tester->getDisplay());
+        self::assertStringNotContainsString('Bob', $tester->getDisplay());
+        self::assertStringNotContainsString('Chris', $tester->getDisplay());
+
+        $this->removeTemplate($path);
+    }
+
 
     /**
      * @param array<int, array{0: string, 1: int}> $steps
@@ -391,6 +427,50 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
         ));
 
         return $path;
+    }
+
+    private function templatePathWithSignCheck(): string
+    {
+        $directory = sys_get_temp_dir() . '/amagno-template-check-' . bin2hex(random_bytes(6));
+        mkdir($directory, 0775, true);
+        $path = $directory . '/eingangsrechnung.yaml';
+
+        file_put_contents($path, <<<YAML
+key: eingangsrechnung
+name: Eingangsrechnung
+version: draft
+steps:
+  - key: approval
+transitions: []
+context_profile:
+  required:
+    - ToBeSignedBy
+    - SignedBy
+sign_checks:
+  - key: bauleiter_freigabe
+    label: "Freigabe durch alle vorgesehenen Bauleiter"
+    required_set: ToBeSignedBy
+    actual_set: SignedBy
+    operator: required_subset_of_actual
+YAML);
+
+        return $path;
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    private function snapshot(string $externalEventKey, array $attributes): ContextSnapshot
+    {
+        return new ContextSnapshot(
+            new DocumentRef('amagno', 'doc-1', 'uuid-1', 1),
+            new DateTimeImmutable('2026-05-29T09:00:00+00:00'),
+            $attributes,
+            [],
+            'eingangsrechnung',
+            $externalEventKey,
+            1
+        );
     }
 
     private function removeTemplate(string $path): void

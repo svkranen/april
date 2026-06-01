@@ -36,6 +36,7 @@ final class ProcessTemplateArrayFactory
             contextProfileRequiredFields: self::contextProfileRequiredFields($data['context_profile'] ?? []),
             fieldMappings: self::fieldMappings($data['field_mapping'] ?? []),
             decisionPoints: self::decisionPoints($data['decision_points'] ?? [], $steps, $parallelGroups),
+            signChecks: self::signChecks($data['sign_checks'] ?? [], $data['checks'] ?? []),
             requiredStepKeys: self::stringList($data['required_steps'] ?? []),
             connector: self::connector($data['connector'] ?? null),
             contextPolicy: self::contextPolicy($data['context_policy'] ?? null)
@@ -446,6 +447,72 @@ final class ProcessTemplateArrayFactory
         }
 
         return null;
+    }
+
+    /**
+     * @return array<int, ProcessTemplateSignCheck>
+     */
+    private static function signChecks(mixed $signChecks, mixed $checks): array
+    {
+        $result = [];
+        foreach ([$signChecks, self::typedSignChecks($checks)] as $definitions) {
+            if (!is_array($definitions)) {
+                continue;
+            }
+
+            foreach ($definitions as $definition) {
+                if (!is_array($definition)) {
+                    continue;
+                }
+
+                $key = self::nullableString($definition['key'] ?? null);
+                $requiredSetField = self::contextField($definition['required_set'] ?? null);
+                $actualSetField = self::contextField($definition['actual_set'] ?? null);
+                $operator = self::stringValue($definition['operator'] ?? ProcessTemplateSignCheck::OPERATOR_REQUIRED_SUBSET_OF_ACTUAL, ProcessTemplateSignCheck::OPERATOR_REQUIRED_SUBSET_OF_ACTUAL);
+
+                if ($key === null || $requiredSetField === null || $actualSetField === null) {
+                    continue;
+                }
+
+                if ($operator !== ProcessTemplateSignCheck::OPERATOR_REQUIRED_SUBSET_OF_ACTUAL) {
+                    throw new InvalidArgumentException(sprintf('Unsupported sign_check operator "%s".', $operator));
+                }
+
+                $result[$key] = new ProcessTemplateSignCheck(
+                    $key,
+                    $requiredSetField,
+                    $actualSetField,
+                    $operator,
+                    self::nullableString($definition['label'] ?? null)
+                );
+            }
+        }
+
+        return array_values($result);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private static function typedSignChecks(mixed $checks): array
+    {
+        if (!is_array($checks)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $checks,
+            static fn (mixed $check): bool => is_array($check) && ($check['type'] ?? null) === 'sign_check'
+        ));
+    }
+
+    private static function contextField(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            return self::nullableString($value['from_context'] ?? null);
+        }
+
+        return self::nullableString($value);
     }
 
     private static function nullableString(mixed $value): ?string

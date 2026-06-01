@@ -16,6 +16,7 @@ use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
 use App\Intelligence\Domain\ProcessTemplateDecisionRule;
 use App\Intelligence\Domain\ProcessTemplateFieldMapping;
 use App\Intelligence\Domain\ProcessTemplateParallelGroup;
+use App\Intelligence\Domain\ProcessTemplateSignCheck;
 use App\Intelligence\Domain\ProcessTemplateStep;
 use App\Intelligence\Domain\ProcessTemplateRuleCondition;
 use App\Intelligence\Domain\ProcessTemplateTransition;
@@ -1213,6 +1214,139 @@ class ProcessTemplateCheckServiceTest extends TestCase
         self::assertSame([], $result->deviations);
     }
 
+    public function testSignCheckUsesContextSnapshotOnlyAndIgnoresRepeatedEvents(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'approval', 0),
+                    $this->event(2, 'approval', 1),
+                    $this->event(3, 'approval', 2),
+                ],
+                [
+                    $this->snapshot('evt-1', ['ToBeSignedBy' => ['A', 'B', 'C'], 'SignedBy' => ['A', 'C']]),
+                    $this->snapshot('evt-2', ['ToBeSignedBy' => ['A', 'B', 'C'], 'SignedBy' => ['A', 'C']]),
+                    $this->snapshot('evt-3', ['ToBeSignedBy' => ['A', 'B', 'C'], 'SignedBy' => ['A', 'C']]),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument('uuid-1', 'invoice', $this->templateWithSignCheck(), 1);
+
+        self::assertSame('DEVIATION', $result->status());
+        self::assertCount(1, $result->signCheckResults);
+        self::assertSame('partial', $result->signCheckResults[0]->status);
+        self::assertSame(3, $result->signCheckResults[0]->requiredCount);
+        self::assertSame(2, $result->signCheckResults[0]->actualCount);
+        self::assertSame(1, $result->signCheckResults[0]->missingCount);
+    }
+
+    public function testSatisfiedSignCheckIsOk(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [$this->event(1, 'approval', 0)],
+                [$this->snapshot('evt-1', ['ToBeSignedBy' => ['A', 'B'], 'SignedBy' => ['A', 'B']])]
+            )
+        );
+
+        $result = $service->checkDocument('uuid-1', 'invoice', $this->templateWithSignCheck(), 1);
+
+        self::assertSame('OK', $result->status());
+        self::assertSame('satisfied', $result->signCheckResults[0]->status);
+    }
+
+    public function testSignCheckMissingContextIsDeviation(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [$this->event(1, 'approval', 0)],
+                [$this->snapshot('evt-1', ['ToBeSignedBy' => ['A', 'B']])]
+            )
+        );
+
+        $result = $service->checkDocument('uuid-1', 'invoice', $this->templateWithSignCheck(), 1);
+
+        self::assertSame('DEVIATION', $result->status());
+        self::assertSame('missing_context', $result->signCheckResults[0]->status);
+    }
+
+    public function testSignCheckUsesLatestSnapshotRequiredSetWithoutHistoricalAggregation(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'assign', 0),
+                    $this->event(2, 'approval', 1),
+                ],
+                [
+                    $this->snapshot('evt-1', ['ToBeSignedBy' => ['Mueller', 'Schneider'], 'SignedBy' => ['Schneider']]),
+                    $this->snapshot('evt-2', ['ToBeSignedBy' => ['Schulze', 'Schneider'], 'SignedBy' => ['Schneider', 'Schulze']]),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument('uuid-1', 'invoice', $this->templateWithSignCheck(['assign', 'approval']), 1);
+
+        self::assertSame('OK', $result->status());
+        self::assertSame('satisfied', $result->signCheckResults[0]->status);
+        self::assertSame(2, $result->signCheckResults[0]->requiredCount);
+        self::assertSame(0, $result->signCheckResults[0]->missingCount);
+        self::assertSame([], $result->signCheckResults[0]->missingValues);
+    }
+
+    public function testPreviouslySatisfiedSignCheckCanBecomePartialWhenLatestSnapshotExpandsRequiredSet(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'approval', 0),
+                    $this->event(2, 'assign_more', 1),
+                ],
+                [
+                    $this->snapshot('evt-1', ['ToBeSignedBy' => ['A', 'B'], 'SignedBy' => ['A', 'B']]),
+                    $this->snapshot('evt-2', ['ToBeSignedBy' => ['A', 'B', 'C'], 'SignedBy' => ['A', 'B']]),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument('uuid-1', 'invoice', $this->templateWithSignCheck(['approval', 'assign_more']), 1);
+
+        self::assertSame('DEVIATION', $result->status());
+        self::assertSame('partial', $result->signCheckResults[0]->status);
+        self::assertSame(3, $result->signCheckResults[0]->requiredCount);
+        self::assertSame(1, $result->signCheckResults[0]->missingCount);
+        self::assertSame(['C'], $result->signCheckResults[0]->missingValues);
+    }
+
+    public function testLatestIncompleteSnapshotDoesNotReuseEarlierRequiredSet(): void
+    {
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'assign', 0),
+                    $this->event(2, 'approval', 1),
+                ],
+                [
+                    $this->snapshot('evt-1', ['ToBeSignedBy' => ['A', 'B'], 'SignedBy' => ['A']]),
+                    $this->snapshot('evt-2', ['SignedBy' => ['A', 'B']]),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument('uuid-1', 'invoice', $this->templateWithSignCheck(['assign', 'approval']), 1);
+
+        self::assertSame('DEVIATION', $result->status());
+        self::assertSame('missing_context', $result->signCheckResults[0]->status);
+        self::assertSame(['ToBeSignedBy'], $result->signCheckResults[0]->missingContextFields);
+    }
+
     public function testImmutableDecisionFieldMayUseLateSnapshot(): void
     {
         $service = new ProcessTemplateCheckService(
@@ -1271,6 +1405,23 @@ class ProcessTemplateCheckServiceTest extends TestCase
                         ),
                     ]
                 ),
+            ]
+        );
+    }
+
+    /**
+     * @param array<int, string> $steps
+     */
+    private function templateWithSignCheck(array $steps = ['approval']): ProcessTemplate
+    {
+        return new ProcessTemplate(
+            'invoice',
+            steps: array_map(
+                static fn (string $step): ProcessTemplateStep => new ProcessTemplateStep($step),
+                $steps
+            ),
+            signChecks: [
+                new ProcessTemplateSignCheck('bauleiter_freigabe', 'ToBeSignedBy', 'SignedBy'),
             ]
         );
     }

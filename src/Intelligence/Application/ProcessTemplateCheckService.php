@@ -9,7 +9,10 @@ use App\Intelligence\Domain\ProcessTemplateDecisionRule;
 use App\Intelligence\Domain\ProcessTemplateDecisionRuleEvaluator;
 use App\Intelligence\Domain\ProcessTemplateFieldMapping;
 use App\Intelligence\Domain\ProcessTemplateParallelGroup;
+use App\Intelligence\Domain\ProcessTemplateSignCheck;
 use App\Intelligence\Domain\ProcessTemplateStep;
+use App\Intelligence\Domain\SignCheckEvaluator;
+use App\Intelligence\Domain\SignCheckResult;
 use DateTimeImmutable;
 use InvalidArgumentException;
 
@@ -17,7 +20,8 @@ final class ProcessTemplateCheckService
 {
     public function __construct(
         private readonly DocumentTimelineProvider $timelineProvider,
-        private readonly ProcessTemplateDecisionRuleEvaluator $decisionRuleEvaluator = new ProcessTemplateDecisionRuleEvaluator()
+        private readonly ProcessTemplateDecisionRuleEvaluator $decisionRuleEvaluator = new ProcessTemplateDecisionRuleEvaluator(),
+        private readonly SignCheckEvaluator $signCheckEvaluator = new SignCheckEvaluator()
     ) {
     }
 
@@ -80,7 +84,8 @@ final class ProcessTemplateCheckService
             $deviations,
             $parallelGroupMessages,
             $decisionCheck['context_issues'],
-            $decisionCheck['context_status']
+            $decisionCheck['context_status'],
+            $this->signCheckResults($template, $actualStepEntries)
         );
     }
 
@@ -682,6 +687,48 @@ final class ProcessTemplateCheckService
         }
 
         return !is_array($value) || $value !== [];
+    }
+
+    /**
+     * @param array<int, array{step: string, context: array<string, mixed>|null, context_summary: array<string, mixed>|null, occurred_at: DateTimeImmutable}> $actualStepEntries
+     * @return array<int, SignCheckResult>
+     */
+    private function signCheckResults(ProcessTemplate $template, array $actualStepEntries): array
+    {
+        $results = [];
+        foreach ($template->signChecks as $signCheck) {
+            $results[] = $this->signCheckEvaluator->evaluate(
+                $signCheck,
+                $this->contextForSignCheck($signCheck, $actualStepEntries)
+            );
+        }
+
+        return $results;
+    }
+
+    /**
+     * @param array<int, array{step: string, context: array<string, mixed>|null, context_summary: array<string, mixed>|null, occurred_at: DateTimeImmutable}> $actualStepEntries
+     * @return array<string, mixed>|null
+     */
+    private function contextForSignCheck(ProcessTemplateSignCheck $signCheck, array $actualStepEntries): ?array
+    {
+        for ($index = count($actualStepEntries) - 1; $index >= 0; --$index) {
+            $contextSummary = $actualStepEntries[$index]['context_summary'] ?? null;
+            $attributes = is_array($contextSummary) && is_array($contextSummary['attributes'] ?? null)
+                ? $contextSummary['attributes']
+                : null;
+
+            if ($attributes === null) {
+                continue;
+            }
+
+            if (array_key_exists($signCheck->requiredSetField, $attributes)
+                || array_key_exists($signCheck->actualSetField, $attributes)) {
+                return $attributes;
+            }
+        }
+
+        return null;
     }
 
     /**

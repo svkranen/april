@@ -105,6 +105,18 @@ final class IntelligenceTemplateCheckDocumentCommand extends Command
             }
         }
 
+        $output->writeln('<info>SignChecks:</info>');
+        if ($result->signCheckResults === []) {
+            $output->writeln('  - none');
+        } else {
+            foreach ($result->signCheckResults as $signCheckResult) {
+                $output->writeln(sprintf('  - %s: %s', $signCheckResult->key, strtoupper($signCheckResult->status)));
+                $output->writeln(sprintf('    Erwartet: %d', $signCheckResult->requiredCount));
+                $output->writeln(sprintf('    Vorhanden: %d', $signCheckResult->actualCount));
+                $output->writeln(sprintf('    Fehlend: %d', $signCheckResult->missingCount));
+            }
+        }
+
         return Command::SUCCESS;
     }
 

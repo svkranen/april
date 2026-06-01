@@ -14,7 +14,14 @@ final readonly class ProcessTemplateSuggestionNote
         public array $documentUuids = [],
         public ?float $confidence = null,
         public ?string $afterStepKey = null,
-        public array $observedNextSteps = []
+        public array $observedNextSteps = [],
+        public ?string $eventKey = null,
+        public ?int $affectedDocuments = null,
+        public ?int $minRepetitions = null,
+        public ?int $maxRepetitions = null,
+        public ?float $avgRepetitions = null,
+        public array $previousEvents = [],
+        public array $followingEvents = []
     ) {
     }
 }
