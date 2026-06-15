@@ -1,0 +1,122 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.documentUuid }} · Dokument · APRIL{% endblock %}
+
+{% block body %}
+    {% import _self as h %}
+    {# 1. Kopfbereich #}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_documents', { key: view.processKey }) }}">← Zurück zur Dokumentliste</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_show', { key: view.processKey }) }}">Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Dokument {{ view.documentUuid }}</h1>
+        <p class="meta-line">Template: <code>{{ view.processKey }}</code></p>
+        <p class="meta-line">Version: <strong>{{ view.version }}</strong></p>
+        <p class="meta-line">Document UUID: <code>{{ view.documentUuid }}</code></p>
+
+        {% if view.instances is not empty and is_expert_view() %}
+            {% for instance in view.instances %}
+                <p class="meta-line">Prozessinstanz {{ instance.id ?? '—' }}: Status <code>{{ instance.status }}</code>,
+                aktueller Schritt <code>{{ instance.currentStepKey }}</code>, Version {{ instance.documentVersion }}</p>
+            {% endfor %}
+        {% endif %}
+
+        {# 2. Hinweis #}
+        <p class="muted">Diese Ansicht zeigt die in APRIL gespeicherten Events und Prüfergebnisse für dieses Dokument.</p>
+    </div>
+
+    {# 3. Fachliche Timeline / Step-Accordion #}
+    <div class="card">
+        <h2>Timeline</h2>
+        {% if not view.hasTimeline %}
+            <p class="muted">APRIL kennt für dieses Dokument noch keine Events.</p>
+        {% else %}
+            <p class="muted"><code>before</code>/<code>after</code> sind Prüfphasen innerhalb eines Schritts –
+            keine eigenen Prozessschritte. ({{ view.eventCount }} Event(s) gesamt)</p>
+
+            {% for step in view.steps %}
+                <h3 class="step-head">{{ step.stepKey != '' ? step.stepKey : '(kein Schritt)' }}
+                    <span class="badge is-muted">{{ step.eventCount }} Event(s)</span></h3>
+
+                {% for phase in ['before', 'after'] %}
+                    {% if step.phases[phase] is not empty %}
+                        <div class="phase-block">
+                            <div class="phase-label">{{ phase }}</div>
+                            {{ h.events(step.phases[phase], is_expert_view()) }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+
+                {% if is_expert_view() and step.phases.unknown is not empty %}
+                    <div class="phase-block">
+                        <div class="phase-label">unknown (technisch)</div>
+                        {{ h.events(step.phases.unknown, true) }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    {# 4. Access-/Visibility-Ergebnisse #}
+    <div class="card">
+        <h2>Access-/Visibility-CheckResults</h2>
+        {% if not view.hasVisibilityResults %}
+            <p class="muted">Für dieses Dokument sind noch keine gespeicherten Access-/Visibility-CheckResults vorhanden.</p>
+        {% else %}
+            {% for group in view.visibilityGroups %}
+                <h3 class="step-head">{{ group.stepKey }} · <span class="badge">{{ group.eventPhase }}</span> · <code>{{ group.checkKey }}</code></h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>checkedAt</th>
+                            <th>probeKey</th>
+                            {% if is_expert_view() %}<th>sourceSystem</th><th>probeRef</th>{% endif %}
+                            <th>expected</th>
+                            <th>actual</th>
+                            <th>status</th>
+                            <th>reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in group.records %}
+                            <tr>
+                                <td>{{ record.checkedAt|date('Y-m-d H:i') }}</td>
+                                <td><code>{{ record.probeKey }}</code></td>
+                                {% if is_expert_view() %}
+                                    <td><code>{{ record.sourceSystem }}</code></td>
+                                    <td>{{ record.probeRef ?? '—' }}</td>
+                                {% endif %}
+                                <td>{{ record.expected }}</td>
+                                <td>{{ record.actual }}</td>
+                                <td><span class="status-badge vs-{{ record.status }}">{{ record.status }}</span></td>
+                                <td>{{ record.reason ?? '—' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% macro events(events, expert) %}
+    <ul class="notes">
+        {% for event in events %}
+            <li>
+                <code>{{ event.eventKey }}</code>
+                <span class="muted">· {{ event.occurredAt|date('Y-m-d H:i') }}</span>
+                {% if event.duplicate %}<span class="badge is-muted">duplikat</span>{% endif %}
+                {% if expert %}
+                    <span class="muted">· phase=<code>{{ event.eventPhase }}</code>
+                    · externalEventKey=<code>{{ event.externalEventKey }}</code>
+                    {% if event.processEventId %}· eventId={{ event.processEventId }}{% endif %}
+                    · v{{ event.documentVersion }}</span>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endmacro %}

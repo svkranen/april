@@ -45,7 +45,7 @@
                             {% endif %}
                             <td>{{ row.eventCount }}</td>
                             <td>{{ row.lastEventAt ? row.lastEventAt|date('Y-m-d H:i') : '—' }}</td>
-                            <td><span class="pill-link is-disabled" title="Dokument-Detailseite folgt">Details (folgt)</span></td>
+                            <td><a class="pill-link" href="{{ path('app_template_document_show', { key: key, documentUuid: row.documentUuid }) }}">Details</a></td>
                         </tr>
                     {% endfor %}
                 </tbody>

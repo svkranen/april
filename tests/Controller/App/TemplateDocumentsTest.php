@@ -36,6 +36,8 @@ class TemplateDocumentsTest extends WebTestCase
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('uuid-known-123', $html);
         self::assertStringContainsString('APRIL bereits Events', $html);
+        // Active details link to the per-document detail page.
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/documents/uuid-known-123"]');
     }
 
     public function testUnknownTemplateReturns404(): void

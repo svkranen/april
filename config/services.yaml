@@ -214,6 +214,10 @@ services:
         arguments:
             $processTemplateDirectory: '%april.process_template_dir%'
 
+    App\Controller\App\TemplateDocumentController:
+        arguments:
+            $processTemplateDirectory: '%april.process_template_dir%'
+
     App\Command\IntelligenceAccessCheckDocumentCommand:
         arguments:
             $accessProbeProviders: !tagged_iterator app.access_probe_provider
