@@ -2,6 +2,7 @@
 
 namespace App\Controller\App;
 
+use App\Intelligence\Application\DocumentCheckResultProvider;
 use App\Intelligence\Application\DocumentDetailView;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\ProcessTemplateProvider;
@@ -22,6 +23,7 @@ final class TemplateDocumentController
         private readonly ProcessTemplateProvider $templateProvider,
         private readonly DocumentTimelineProvider $timelineProvider,
         private readonly VisibilityCheckResultProvider $visibilityResultProvider,
+        private readonly DocumentCheckResultProvider $checkResultProvider,
         private readonly Environment $twig,
         private readonly string $processTemplateDirectory
     ) {
@@ -52,6 +54,7 @@ final class TemplateDocumentController
         return new Response($this->twig->render('document/show.html.twig', [
             'active_nav' => 'templates',
             'view' => DocumentDetailView::fromData($template, $documentUuid, $timeline, $visibilityRecords),
+            'check' => $this->checkResultProvider->forDocument($template, $documentUuid),
         ]));
     }
 }

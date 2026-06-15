@@ -164,6 +164,9 @@ services:
     App\Intelligence\Application\DocumentListProvider:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineDocumentListProvider
 
+    App\Intelligence\Application\DocumentCheckResultProvider:
+        alias: App\Intelligence\Application\ProcessTemplateCheckResultProvider
+
     App\Intelligence\Application\EventListProvider:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineEventListProvider
 

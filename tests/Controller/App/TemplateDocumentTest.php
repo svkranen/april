@@ -2,12 +2,16 @@
 
 namespace App\Tests\Controller\App;
 
+use App\Intelligence\Application\DocumentCheckResultProvider;
+use App\Intelligence\Application\DocumentCheckResultView;
 use App\Intelligence\Application\DocumentTimelineEventRow;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\DocumentTimelineReport;
 use App\Intelligence\Application\EventTimelineOrder;
+use App\Intelligence\Application\ProcessTemplateCheckResult;
 use App\Intelligence\Application\VisibilityCheckResultProvider;
 use App\Intelligence\Application\VisibilityCheckResultRecord;
+use App\Intelligence\Domain\ProcessTemplate;
 use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -128,9 +132,23 @@ class TemplateDocumentTest extends WebTestCase
             }
         };
 
+        // Benign on-demand check result keeps these tests focused on timeline/visibility.
+        $checkView = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult([], [], []));
+        $check = new class($checkView) implements DocumentCheckResultProvider {
+            public function __construct(private readonly DocumentCheckResultView $view)
+            {
+            }
+
+            public function forDocument(ProcessTemplate $template, string $documentUuid): DocumentCheckResultView
+            {
+                return $this->view;
+            }
+        };
+
         $container = static::getContainer();
         $container->set(DocumentTimelineProvider::class, $timeline);
         $container->set(VisibilityCheckResultProvider::class, $visibility);
+        $container->set(DocumentCheckResultProvider::class, $check);
     }
 
     private function event(string $stepKey, string $phase, string $eventKey, string $time): DocumentTimelineEventRow

@@ -29,6 +29,78 @@
         <p class="muted">Diese Ansicht zeigt die in APRIL gespeicherten Events und Prüfergebnisse für dieses Dokument.</p>
     </div>
 
+    {# Soll-/Ist-Pruefung (on-demand, nicht persistiert) #}
+    <div class="card">
+        <h2>Soll-/Ist-Prüfung</h2>
+        <p class="muted">Dieses Ergebnis wird on-demand aus den aktuell gespeicherten Events und
+        Context-Snapshots berechnet und in diesem MVP nicht als Finding persistiert.</p>
+
+        {% if not check.available %}
+            <p class="muted">Die Soll-/Ist-Prüfung ist für dieses Dokument derzeit nicht berechenbar.
+            {% if is_expert_view() and check.error %}<br><span class="muted">Grund: {{ check.error }}</span>{% endif %}</p>
+        {% else %}
+            <p class="meta-line">Status:
+                <span class="status-badge {{ check.statusCssClass }}">{{ check.status }}</span>
+                {% if is_expert_view() and check.contextStatus %}<span class="muted">· contextStatus=<code>{{ check.contextStatus }}</code></span>{% endif %}
+            </p>
+
+            <div class="grid-2">
+                <div>
+                    <h3>Pflichtschritte (Soll)</h3>
+                    {% if check.expectedSteps is empty %}<p class="muted">—</p>
+                    {% else %}<ol class="notes">{% for step in check.expectedSteps %}<li><code>{{ step }}</code></li>{% endfor %}</ol>{% endif %}
+                </div>
+                <div>
+                    <h3>Ist-Schrittfolge</h3>
+                    {% if not check.hasActualSteps %}<p class="muted">Noch keine Ist-Schrittfolge erfasst.</p>
+                    {% else %}<ol class="notes">{% for step in check.actualSteps %}<li><code>{{ step }}</code></li>{% endfor %}</ol>{% endif %}
+                </div>
+            </div>
+
+            {% if check.deviations is not empty %}
+                <h3>Abweichungen</h3>
+                <ul class="notes">{% for d in check.deviations %}<li>{{ d }}</li>{% endfor %}</ul>
+                {% if is_expert_view() %}<p class="muted">Hinweis: Missing-Step-, Transition- und Decision-Rule-Verletzungen werden vom Check-Service als eine Abweichungsliste geliefert.</p>{% endif %}
+            {% endif %}
+
+            {% if check.warnings is not empty %}
+                <h3>Warnungen</h3>
+                <ul class="notes">{% for w in check.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+            {% endif %}
+
+            {% if check.parallelGroupMessages is not empty %}
+                <h3>Parallelgruppen</h3>
+                <ul class="notes">{% for m in check.parallelGroupMessages %}<li>{{ m }}</li>{% endfor %}</ul>
+            {% endif %}
+
+            {% if check.signChecks is not empty %}
+                <h3>SignChecks</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Key</th><th>Bezeichnung</th><th>Status</th><th>Erfüllt</th>
+                            {% if is_expert_view() %}<th>fehlende Werte</th><th>unerwartete Werte</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sc in check.signChecks %}
+                            <tr>
+                                <td><code>{{ sc.key }}</code></td>
+                                <td>{{ sc.label ?? '—' }}</td>
+                                <td>{{ sc.status }}</td>
+                                <td>{{ sc.satisfied ? 'ja' : 'nein' }}</td>
+                                {% if is_expert_view() %}
+                                    <td>{{ sc.missingValues is empty ? '—' : sc.missingValues|join(', ') }}</td>
+                                    <td>{{ sc.unexpectedValues is empty ? '—' : sc.unexpectedValues|join(', ') }}</td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        {% endif %}
+    </div>
+
     {# 3. Fachliche Timeline / Step-Accordion #}
     <div class="card">
         <h2>Timeline</h2>
