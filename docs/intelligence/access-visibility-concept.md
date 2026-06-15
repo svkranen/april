@@ -175,7 +175,7 @@ Vorgeschlagene Objekte im Domain-Layer:
 - `ProcessTemplateVisibilityProfileResolver`
   - `key`, `field`, `map`
 - `ProcessTemplateVisibilityRetryPolicy`
-  - `key`, `attemptsAfterSeconds`, `forbiddenFound`, `expectedMissingAfterLastAttempt`, `magnetTooLarge`
+  - `key`, `attemptsAfterSeconds`, `forbiddenFound`, `expectedMissingAfterLastAttempt`, `probeTooLarge`
 - `ProcessTemplateVisibilityCheck`
   - `key`, `phase`, `expectedProfile`, `expectedProfileResolver`, `retryPolicy`
 - `ProcessTemplateManualAccessTest`

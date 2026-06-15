@@ -13,6 +13,11 @@ final readonly class ProcessTemplate
      * @param array<int, ProcessTemplateDecisionPoint> $decisionPoints
      * @param array<int, string> $requiredStepKeys
      * @param array<int, ProcessTemplateSignCheck> $signChecks
+     * @param array<string, ProcessTemplateAccessProbe> $accessProbes
+     * @param array<string, ProcessTemplateVisibilityProfile> $visibilityProfiles
+     * @param array<string, ProcessTemplateVisibilityProfileResolver> $visibilityProfileResolvers
+     * @param array<string, ProcessTemplateVisibilityRetryPolicy> $visibilityRetryPolicies
+     * @param array<int, ProcessTemplateManualAccessTest> $manualAccessTests
      */
     public function __construct(
         public string $key,
@@ -28,7 +33,13 @@ final readonly class ProcessTemplate
         public array $requiredStepKeys = [],
         public ?ProcessTemplateConnector $connector = null,
         public ?ProcessTemplateContextPolicy $contextPolicy = null,
-        public array $signChecks = []
+        public array $signChecks = [],
+        public array $accessProbes = [],
+        public array $visibilityProfiles = [],
+        public array $visibilityProfileResolvers = [],
+        public array $visibilityRetryPolicies = [],
+        public array $manualAccessTests = [],
+        public string $sourceSystem = 'amagno'
     ) {
     }
 }

@@ -38,13 +38,19 @@
 
         a {
             color: var(--accent);
+            overflow-wrap: anywhere;
         }
 
         code {
             font-family: Consolas, "Liberation Mono", monospace;
+            font-size: 0.92em;
             background: var(--code);
+            color: var(--ink);
             padding: 0.12rem 0.35rem;
             border-radius: 0.3rem;
+            word-break: break-word;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
         }
 
         pre {
@@ -54,10 +60,22 @@
             background: #15211b;
             color: #eef7f1;
             border-radius: 0.75rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Code inside a pre must not keep the light inline-code background,
+           otherwise the light text of the dark code block becomes unreadable. */
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            border-radius: 0;
+            font-size: inherit;
+            word-break: normal;
         }
 
         .page {
-            width: min(1180px, calc(100% - 2rem));
+            width: min(1360px, calc(100% - 2rem));
             margin: 2rem auto 4rem;
         }
 
@@ -317,6 +335,21 @@ bin/console intelligence:template:bpmn-view &lt;processKey&gt; \
 bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
   --view=combined --debug-metrics</code></pre>
                             <p>Der Mermaid-Export nutzt fuer Metrik-Views ohne <code>--metrics</code> live dieselbe Timeline-/ProcessEvent-Basis wie <code>check-process</code>. Mit <code>--sample-only</code> werden nur die Dev/Test-Dokumente <code>900001</code> bis <code>900008</code> ausgewertet.</p>
+                        </div>
+                        <div class="mini">
+                            <h3>Timeline, Kontext und Versionen</h3>
+                            <pre><code>bin/console intelligence:document:timeline &lt;documentUuid&gt; &lt;processKey&gt; \
+  --with-context --with-diff
+bin/console intelligence:document:context-history &lt;documentUuid&gt; &lt;processKey&gt; --diff
+bin/console intelligence:process:status &lt;processKey&gt;
+bin/console intelligence:process-version:list &lt;processKey&gt;</code></pre>
+                            <p>Diese Befehle helfen bei der Fehleranalyse: <code>timeline</code> und <code>context-history</code> zeigen den zeitlichen Verlauf eines Dokuments samt Kontextaenderungen, <code>process:status</code> den aktuellen Stand der Prozessinstanzen. Prozessversionen halten die jeweils gueltige Soll-Baseline fest.</p>
+                        </div>
+                        <div class="mini">
+                            <h3>Access-Control-Coverage</h3>
+                            <pre><code>bin/console intelligence:template:access-coverage &lt;processKey&gt; \
+  --format=text</code></pre>
+                            <p>Zeigt, welche Berechtigungs- und Sichtbarkeitsaussagen das Template deklariert und wie sie abgedeckt sind. Aktuell rein statisch &ndash; es werden noch keine Amagno-Probes abgefragt; manuelle Access-Tests bleiben dokumentierte Kontrollpunkte.</p>
                         </div>
                     </div>
                     <h3>Status und Priorisierung</h3>

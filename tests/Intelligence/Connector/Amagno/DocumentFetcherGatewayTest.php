@@ -9,6 +9,23 @@ use PHPUnit\Framework\TestCase;
 
 class DocumentFetcherGatewayTest extends TestCase
 {
+    public function testDelegatesDocumentsToDocumentFetcher(): void
+    {
+        $fetcher = $this->createMock(DocumentFetcher::class);
+        $fetcher
+            ->expects(self::once())
+            ->method('fetchDocuments')
+            ->with('1001', 50, null, null, null, null, 100)
+            ->willReturn([['documentUuid' => 'doc-1']]);
+
+        $gateway = new DocumentFetcherGateway($fetcher);
+
+        self::assertSame(
+            [['documentUuid' => 'doc-1']],
+            $gateway->fetchDocuments('1001', 50, 100)
+        );
+    }
+
     public function testDelegatesDocumentTagsToDocumentFetcher(): void
     {
         $fetcher = $this->createMock(DocumentFetcher::class);

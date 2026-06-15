@@ -22,6 +22,7 @@ final class ProcessTemplateArrayFactory
      */
     public static function fromArray(array $data): ProcessTemplate
     {
+        $sourceSystem = self::sourceSystem($data, 'amagno');
         $steps = self::steps($data['steps'] ?? []);
         $parallelGroups = self::parallelGroups($data['parallel_groups'] ?? []);
 
@@ -39,8 +40,22 @@ final class ProcessTemplateArrayFactory
             signChecks: self::signChecks($data['sign_checks'] ?? [], $data['checks'] ?? []),
             requiredStepKeys: self::stringList($data['required_steps'] ?? []),
             connector: self::connector($data['connector'] ?? null),
-            contextPolicy: self::contextPolicy($data['context_policy'] ?? null)
+            contextPolicy: self::contextPolicy($data['context_policy'] ?? null),
+            accessProbes: self::accessProbes($data['access_probes'] ?? [], $sourceSystem),
+            visibilityProfiles: self::visibilityProfiles($data['visibility_check_profiles'] ?? []),
+            visibilityProfileResolvers: self::visibilityProfileResolvers($data['visibility_profile_resolvers'] ?? []),
+            visibilityRetryPolicies: self::visibilityRetryPolicies($data['visibility_retry_policies'] ?? []),
+            manualAccessTests: self::manualAccessTests($data['manual_access_tests'] ?? []),
+            sourceSystem: $sourceSystem
         );
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private static function sourceSystem(array $data, string $default): string
+    {
+        return self::stringValue($data['source_system'] ?? $data['sourceSystem'] ?? null, $default);
     }
 
     private static function contextPolicy(mixed $contextPolicy): ?ProcessTemplateContextPolicy
@@ -105,7 +120,229 @@ final class ProcessTemplateArrayFactory
             $result[] = new ProcessTemplateStep(
                 $key,
                 self::nullableString($step['name'] ?? null),
-                self::stringValue($step['type'] ?? 'normal', 'normal')
+                self::stringValue($step['type'] ?? 'normal', 'normal'),
+                self::visibilityChecksForPhase($step['before'] ?? null, 'before'),
+                self::visibilityChecksForPhase($step['after'] ?? null, 'after')
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, ProcessTemplateAccessProbe>
+     */
+    private static function accessProbes(mixed $probes, string $templateSourceSystem): array
+    {
+        if (!is_array($probes)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($probes as $probeKey => $probe) {
+            if (!is_scalar($probeKey) || !is_array($probe)) {
+                continue;
+            }
+
+            $key = trim((string) $probeKey);
+            $type = self::nullableString($probe['type'] ?? null);
+            if ($key === '' || $type === null) {
+                continue;
+            }
+
+            $sourceSystem = self::sourceSystem($probe, $templateSourceSystem);
+            $maxDocuments = null;
+            if (isset($probe['max_documents']) && is_numeric($probe['max_documents'])) {
+                $maxDocuments = max(0, (int) $probe['max_documents']);
+            }
+
+            $options = $probe;
+            unset(
+                $options['source_system'],
+                $options['sourceSystem'],
+                $options['type'],
+                $options['max_documents'],
+                $options['description']
+            );
+
+            $result[$key] = new ProcessTemplateAccessProbe(
+                $key,
+                $sourceSystem,
+                $type,
+                $options,
+                $maxDocuments,
+                self::nullableString($probe['description'] ?? null)
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, ProcessTemplateVisibilityProfile>
+     */
+    private static function visibilityProfiles(mixed $profiles): array
+    {
+        if (!is_array($profiles)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($profiles as $profileKey => $profile) {
+            if (!is_scalar($profileKey) || !is_array($profile)) {
+                continue;
+            }
+
+            $key = trim((string) $profileKey);
+            if ($key === '') {
+                continue;
+            }
+
+            $result[$key] = new ProcessTemplateVisibilityProfile(
+                $key,
+                self::stringList($profile['expected_visible_in_probes'] ?? $profile['expected_visible_in'] ?? []),
+                self::stringList($profile['expected_not_visible_in_probes'] ?? $profile['expected_not_visible_in'] ?? [])
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, ProcessTemplateVisibilityProfileResolver>
+     */
+    private static function visibilityProfileResolvers(mixed $resolvers): array
+    {
+        if (!is_array($resolvers)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($resolvers as $resolverKey => $resolver) {
+            if (!is_scalar($resolverKey) || !is_array($resolver)) {
+                continue;
+            }
+
+            $key = trim((string) $resolverKey);
+            $field = self::nullableString($resolver['field'] ?? null);
+            if ($key === '' || $field === null) {
+                continue;
+            }
+
+            $map = [];
+            if (is_array($resolver['map'] ?? null)) {
+                foreach ($resolver['map'] as $contextValue => $profileKey) {
+                    if (!is_scalar($contextValue) || !is_scalar($profileKey)) {
+                        continue;
+                    }
+
+                    $contextValue = trim((string) $contextValue);
+                    $profileKey = trim((string) $profileKey);
+                    if ($contextValue !== '' && $profileKey !== '') {
+                        $map[$contextValue] = $profileKey;
+                    }
+                }
+            }
+
+            $result[$key] = new ProcessTemplateVisibilityProfileResolver($key, $field, $map);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, ProcessTemplateVisibilityRetryPolicy>
+     */
+    private static function visibilityRetryPolicies(mixed $policies): array
+    {
+        if (!is_array($policies)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($policies as $policyKey => $policy) {
+            if (!is_scalar($policyKey) || !is_array($policy)) {
+                continue;
+            }
+
+            $key = trim((string) $policyKey);
+            if ($key === '') {
+                continue;
+            }
+
+            $result[$key] = new ProcessTemplateVisibilityRetryPolicy(
+                $key,
+                self::intList($policy['attempts_after_seconds'] ?? []),
+                self::stringValue($policy['forbidden_found'] ?? 'violation', 'violation'),
+                self::stringValue($policy['expected_missing_after_last_attempt'] ?? 'warning', 'warning'),
+                self::stringValue($policy['probe_too_large'] ?? $policy['magnet_too_large'] ?? 'technical_warning', 'technical_warning')
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<int, ProcessTemplateManualAccessTest>
+     */
+    private static function manualAccessTests(mixed $tests): array
+    {
+        if (!is_array($tests)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($tests as $test) {
+            if (!is_array($test)) {
+                continue;
+            }
+
+            $key = self::nullableString($test['key'] ?? null);
+            if ($key === null) {
+                continue;
+            }
+
+            $result[] = new ProcessTemplateManualAccessTest(
+                $key,
+                self::nullableString($test['title'] ?? null),
+                self::nullableString($test['description'] ?? null),
+                self::stringList($test['test_procedure'] ?? []),
+                self::stringList($test['expected_result'] ?? []),
+                self::nullableString($test['frequency'] ?? null),
+                self::nullableString($test['evidence_required'] ?? $test['evidenceRequired'] ?? null)
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<int, ProcessTemplateVisibilityCheck>
+     */
+    private static function visibilityChecksForPhase(mixed $phaseConfig, string $phase): array
+    {
+        if (!is_array($phaseConfig) || !is_array($phaseConfig['visibility_checks'] ?? null)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($phaseConfig['visibility_checks'] as $check) {
+            if (!is_array($check)) {
+                continue;
+            }
+
+            $key = self::nullableString($check['key'] ?? null);
+            if ($key === null) {
+                continue;
+            }
+
+            $result[] = new ProcessTemplateVisibilityCheck(
+                $key,
+                $phase,
+                self::nullableString($check['expected_profile'] ?? null),
+                self::nullableString($check['expected_profile_resolver'] ?? null),
+                self::nullableString($check['retry_policy'] ?? null),
+                self::nullableString($check['source_system'] ?? $check['sourceSystem'] ?? null)
             );
         }
 
@@ -556,6 +793,27 @@ final class ProcessTemplateArrayFactory
             if ($value !== '') {
                 $result[] = $value;
             }
+        }
+
+        return array_values(array_unique($result));
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private static function intList(mixed $values): array
+    {
+        if (!is_array($values)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($values as $value) {
+            if (!is_numeric($value)) {
+                continue;
+            }
+
+            $result[] = max(0, (int) $value);
         }
 
         return array_values(array_unique($result));

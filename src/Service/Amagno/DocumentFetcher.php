@@ -25,10 +25,12 @@ class DocumentFetcher
         ?\DateTimeInterface $modifiedSince = null,
         ?string $tokenOverride = null,
         ?string $baseUriOverride = null,
-        ?int $credentialIdOverride = null
+        ?int $credentialIdOverride = null,
+        int $offset = 0
     ): array {
         $query = [
             'count' => max(1, min($limit, 500)),
+            'offset' => max(0, $offset),
         ];
 
         if ($modifiedSince !== null) {

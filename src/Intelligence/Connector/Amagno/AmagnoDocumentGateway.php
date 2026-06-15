@@ -5,6 +5,11 @@ namespace App\Intelligence\Connector\Amagno;
 interface AmagnoDocumentGateway
 {
     /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function fetchDocuments(string $magnetId, int $limit = 50, int $offset = 0): array;
+
+    /**
      * @return array<string, mixed>
      */
     public function fetchDocumentTags(string $documentId, ?string $tokenOverride = null, ?string $baseUriOverride = null, ?int $credentialIdOverride = null): array;

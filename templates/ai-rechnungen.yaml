@@ -1,5 +1,6 @@
 key: ai-rechnungen
 version: 1.1
+source_system: amagno
 
 required_steps:
   - "01 Rechnungen pruefen"
@@ -9,6 +10,11 @@ required_steps:
 
 steps:
   - key: "01 Rechnungen pruefen"
+    after:
+      visibility_checks:
+        - key: route_to_location_approval
+          expected_profile_resolver: approval_location_by_context
+          retry_policy: amagno_today_magnets
   - key: "02 Versenden"
   - key: "03 Freigabe_klein"
   - key: "04 Freigabe_gross"
@@ -19,6 +25,77 @@ steps:
 connector:
   type: amagno
   connection: default
+
+access_probes:
+  approval_location_a_today:
+    type: amagno_magnet_documents
+    magnet_id: 1001
+    max_documents: 500
+    page_size: 50
+    description: "Heute bearbeitete Rechnungen im Freigabe-Scope Standort A"
+
+  approval_location_b_today:
+    type: amagno_magnet_documents
+    magnet_id: 1002
+    max_documents: 500
+    page_size: 50
+    description: "Heute bearbeitete Rechnungen im Freigabe-Scope Standort B"
+
+  external_today:
+    type: amagno_magnet_documents
+    magnet_id: 1009
+    max_documents: 200
+    page_size: 50
+    description: "Heute bearbeitete Rechnungen, die fuer externe Benutzer sichtbar waeren"
+
+visibility_check_profiles:
+  approval_location_a:
+    expected_visible_in_probes:
+      - approval_location_a_today
+    expected_not_visible_in_probes:
+      - approval_location_b_today
+      - external_today
+
+  approval_location_b:
+    expected_visible_in_probes:
+      - approval_location_b_today
+    expected_not_visible_in_probes:
+      - approval_location_a_today
+      - external_today
+
+visibility_profile_resolvers:
+  approval_location_by_context:
+    # Im aktuellen Template gibt es noch kein produktiv gemapptes Standortfeld.
+    # cost_center ist hier ein plausibles Routingfeld; vor produktiver Nutzung
+    # muss dafuer ein echtes Amagno-Tag-Mapping im field_mapping ergaenzt werden.
+    field: cost_center
+    map:
+      A: approval_location_a
+      KST-A: approval_location_a
+      B: approval_location_b
+      KST-B: approval_location_b
+
+visibility_retry_policies:
+  amagno_today_magnets:
+    attempts_after_seconds: [10, 30, 60, 120]
+    forbidden_found: violation
+    expected_missing_after_last_attempt: warning
+    probe_too_large: technical_warning
+
+manual_access_tests:
+  - key: approver_scope_test
+    title: "Freigeberbezogene Sichtbarkeit"
+    description: "Freigeber duerfen nur Dokumente sehen, bei denen sie als Freigeber eingetragen sind."
+    test_procedure:
+      - "Testrechnung mit Benutzer A als Freigeber anlegen."
+      - "Mit Benutzer A anmelden und pruefen, ob die Rechnung sichtbar ist."
+      - "Mit Benutzer B anmelden und pruefen, ob die Rechnung nicht sichtbar ist."
+      - "Nachweis als Screenshot oder Pruefvermerk ablegen."
+    expected_result:
+      - "Benutzer A sieht die Rechnung."
+      - "Benutzer B sieht die Rechnung nicht."
+    evidence_required: "Screenshot oder Pruefvermerk"
+    frequency: "bei Berechtigungsaenderungen und quartalsweise"
 
 context_profile:
   required:
