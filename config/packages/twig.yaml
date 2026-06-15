@@ -1,0 +1,9 @@
+twig:
+    # Web views live under templates/web so they never collide with the process
+    # template YAMLs in templates/*.yaml (consumed by YamlProcessTemplateProvider).
+    default_path: '%kernel.project_dir%/templates/web'
+    file_name_pattern: '*.twig'
+
+when@test:
+    twig:
+        strict_variables: true

@@ -190,6 +190,10 @@ services:
         arguments:
             $templateDirectory: '%kernel.project_dir%/templates'
 
+    App\Intelligence\Application\ProcessTemplateCatalog:
+        arguments:
+            $templateDirectory: '%kernel.project_dir%/templates'
+
     App\Command\IntelligenceTemplateListCommand:
         arguments:
             $templateDirectory: '%kernel.project_dir%/templates'

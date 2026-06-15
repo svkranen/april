@@ -1,0 +1,188 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.key }} · Template · APRIL{% endblock %}
+
+{% block body %}
+    <div class="card">
+        <p class="crumbs"><a href="{{ path('app_templates_index') }}">← Zurück zur Template-Liste</a></p>
+
+        {# 1. Kopfbereich #}
+        <h1>{{ view.name ?? view.key }}</h1>
+        <p class="meta-line">Key: <code>{{ view.key }}</code></p>
+        <p class="meta-line">Version: <strong>{{ view.version }}</strong></p>
+        <p class="meta-line">Source-System: <code>{{ view.sourceSystem }}</code></p>
+        {% if view.initialStepKey %}
+            <p class="meta-line">Startschritt: <code>{{ view.initialStepKey }}</code></p>
+        {% endif %}
+
+        <div class="header-actions">
+            <a class="pill-link" href="{{ path('app_templates_index') }}">Template-Liste</a>
+            <span class="pill-link is-disabled" title="Folgt in einem späteren Schritt">Access &amp; Visibility (folgt)</span>
+            <span class="pill-link is-disabled" title="Folgt in einem späteren Schritt">Dokumentation (folgt)</span>
+        </div>
+    </div>
+
+    {# 2. Required Steps #}
+    <div class="card">
+        <h2>Pflichtschritte (Required Steps)</h2>
+        <p class="muted">Global geforderte Schritte – nicht zwingend der vollständige Ablauf.</p>
+        {% if view.requiredStepKeys is empty %}
+            <p class="muted">Keine Pflichtschritte definiert.</p>
+        {% else %}
+            <ul>
+                {% for stepKey in view.requiredStepKeys %}
+                    <li><code>{{ stepKey }}</code></li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+
+    {# 3. Steps #}
+    <div class="card">
+        <h2>Schritte</h2>
+        <p class="muted"><code>before</code>/<code>after</code> sind Prüfphasen innerhalb eines Schritts – keine eigenen Prozessschritte.</p>
+        {% if view.steps is empty %}
+            <p class="muted">Keine Schritte definiert.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr><th>Schritt</th><th>Name</th><th>Typ</th><th>Sichtbarkeitsprüfungen</th></tr>
+                </thead>
+                <tbody>
+                    {% for step in view.steps %}
+                        <tr>
+                            <td><code>{{ step.key }}</code></td>
+                            <td>{{ step.name ?? '—' }}</td>
+                            <td>{{ step.type }}</td>
+                            <td class="tags">
+                                {% if step.beforeChecks > 0 %}<span class="badge">before: {{ step.beforeChecks }}</span>{% endif %}
+                                {% if step.afterChecks > 0 %}<span class="badge">after: {{ step.afterChecks }}</span>{% endif %}
+                                {% if step.beforeChecks == 0 and step.afterChecks == 0 %}<span class="badge is-muted">keine</span>{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+
+    {# 4. Transitions #}
+    <div class="card">
+        <h2>Übergänge (Transitions)</h2>
+        {% if view.transitions is empty %}
+            <p class="muted">Keine Übergänge definiert.</p>
+        {% else %}
+            <table>
+                <thead><tr><th>Von</th><th>Nach</th></tr></thead>
+                <tbody>
+                    {% for transition in view.transitions %}
+                        <tr>
+                            <td><code>{{ transition.from }}</code></td>
+                            <td>
+                                {% if transition.to %}<code>{{ transition.to }}</code>{% endif %}
+                                {% if transition.parallelGroup %}<span class="badge">Parallelgruppe: {{ transition.parallelGroup }}</span>{% endif %}
+                                {% if not transition.to and not transition.parallelGroup %}—{% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+
+    {# 5. Decision Points #}
+    <div class="card">
+        <h2>Entscheidungspunkte (Decision Points)</h2>
+        {% if view.decisionPoints is empty %}
+            <p class="muted">Keine Entscheidungspunkte definiert.</p>
+        {% else %}
+            <table>
+                <thead><tr><th>Key</th><th>Nach Schritt</th><th>Benötigte Felder</th><th>Regeln</th><th>Zielschritte</th></tr></thead>
+                <tbody>
+                    {% for dp in view.decisionPoints %}
+                        <tr>
+                            <td><code>{{ dp.key }}</code></td>
+                            <td>{% if dp.after %}<code>{{ dp.after }}</code>{% else %}—{% endif %}</td>
+                            <td>{{ dp.requiredFields is empty ? '—' : dp.requiredFields|join(', ') }}</td>
+                            <td>{{ dp.ruleCount }}</td>
+                            <td>{{ dp.outcomes is empty ? '—' : dp.outcomes|join(', ') }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+
+    {# 6. Context Profile / Field Mapping #}
+    <div class="card">
+        <h2>Kontextprofil &amp; Feld-Mapping</h2>
+        <h3>Benötigte Kontextfelder</h3>
+        {% if view.contextProfileRequiredFields is empty %}
+            <p class="muted">Keine benötigten Kontextfelder definiert.</p>
+        {% else %}
+            <ul>
+                {% for field in view.contextProfileRequiredFields %}
+                    <li><code>{{ field }}</code></li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <h3>Feld-Mapping</h3>
+        {% if view.fieldMappings is empty %}
+            <p class="muted">Kein Feld-Mapping definiert.</p>
+        {% else %}
+            <table>
+                <thead><tr><th>Fachliches Feld</th><th>Quelle</th><th>Tag-Name</th><th>Tag-ID</th><th>Werttyp</th><th>Stabilität</th></tr></thead>
+                <tbody>
+                    {% for mapping in view.fieldMappings %}
+                        <tr>
+                            <td><code>{{ mapping.fieldKey }}</code></td>
+                            <td>{{ mapping.source }}</td>
+                            <td>{{ mapping.tagName ?? '—' }}</td>
+                            <td>{{ mapping.tagId ?? '—' }}</td>
+                            <td>{{ mapping.valueType ?? '—' }}</td>
+                            <td>{{ mapping.stability ?? '—' }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+
+    {# 7. SignChecks #}
+    <div class="card">
+        <h2>Signatur-/Freigabeprüfungen (SignChecks)</h2>
+        {% if view.signChecks is empty %}
+            <p class="muted">Keine SignChecks definiert.</p>
+        {% else %}
+            <table>
+                <thead><tr><th>Key</th><th>Bezeichnung</th><th>Erwartete Menge</th><th>Bestätigte Menge</th><th>Regel</th></tr></thead>
+                <tbody>
+                    {% for sc in view.signChecks %}
+                        <tr>
+                            <td><code>{{ sc.key }}</code></td>
+                            <td>{{ sc.label ?? '—' }}</td>
+                            <td><code>{{ sc.requiredSetField }}</code></td>
+                            <td><code>{{ sc.actualSetField }}</code></td>
+                            <td>{{ sc.operator }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+
+    {# 8. Access-Kurzfassung #}
+    <div class="card">
+        <h2>Access &amp; Visibility – Kurzfassung</h2>
+        <p class="muted">Nur Zusammenfassung. Die vollständige Coverage-Matrix folgt in einem späteren Schritt.</p>
+        <div class="summary-grid">
+            <div class="metric"><div class="n">{{ view.accessSummary.accessProbes }}</div><div class="l">Access Probes</div></div>
+            <div class="metric"><div class="n">{{ view.accessSummary.visibilityProfiles }}</div><div class="l">Visibility Check Profiles</div></div>
+            <div class="metric"><div class="n">{{ view.accessSummary.visibilityProfileResolvers }}</div><div class="l">Profile Resolvers</div></div>
+            <div class="metric"><div class="n">{{ view.accessSummary.manualAccessTests }}</div><div class="l">Manual Access Tests</div></div>
+            <div class="metric"><div class="n">{{ view.accessSummary.beforeVisibilityChecks }}</div><div class="l">before Visibility-Checks</div></div>
+            <div class="metric"><div class="n">{{ view.accessSummary.afterVisibilityChecks }}</div><div class="l">after Visibility-Checks</div></div>
+        </div>
+    </div>
+{% endblock %}
