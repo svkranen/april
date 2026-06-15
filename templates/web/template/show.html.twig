@@ -17,8 +17,8 @@
 
         <div class="header-actions">
             <a class="pill-link" href="{{ path('app_templates_index') }}">Template-Liste</a>
-            <span class="pill-link is-disabled" title="Folgt in einem späteren Schritt">Access &amp; Visibility (folgt)</span>
-            <span class="pill-link is-disabled" title="Folgt in einem späteren Schritt">Dokumentation (folgt)</span>
+            <a class="pill-link" href="{{ path('app_templates_access', { key: view.key }) }}">Access &amp; Visibility</a>
+            <a class="pill-link" href="{{ path('app_templates_docs', { key: view.key }) }}">Dokumentation</a>
         </div>
     </div>
 

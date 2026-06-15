@@ -1,0 +1,31 @@
+{# `probes` = array of probe rows from TemplateAccessView. #}
+{% if probes is empty %}
+    <p class="muted">Keine Access-Probes definiert.</p>
+{% else %}
+    <table>
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Source-System</th>
+                <th>Typ</th>
+                <th>Beschreibung</th>
+                <th>max_documents</th>
+                <th>page_size</th>
+                <th>Referenz (magnet_id)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for probe in probes %}
+                <tr>
+                    <td><code>{{ probe.key }}</code></td>
+                    <td><code>{{ probe.sourceSystem }}</code></td>
+                    <td>{{ probe.type }}</td>
+                    <td>{{ probe.description ?? '—' }}</td>
+                    <td>{{ probe.maxDocuments ?? '—' }}</td>
+                    <td>{{ probe.pageSize ?? '—' }}</td>
+                    <td>{{ probe.probeRef ?? '—' }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

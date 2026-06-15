@@ -66,4 +66,134 @@ class TemplateControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(404);
     }
+
+    public function testTemplateDetailHasActiveAccessLink(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen');
+
+        self::assertResponseIsSuccessful();
+        // Active (non-disabled) link to the access page.
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/access"]');
+    }
+
+    public function testAccessPageReturns200AndShowsSections(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/access');
+
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+        // Compliance notice (not dismissible).
+        self::assertStringContainsString('Amagno-ACL', $html);
+        // Coverage summary.
+        self::assertStringContainsString('Coverage-Zusammenfassung', $html);
+        self::assertStringContainsString('automatic', $html);
+        // Probe, resolver and manual test from the real template.
+        self::assertStringContainsString('approval_location_a_today', $html);
+        self::assertStringContainsString('approval_location_by_context', $html);
+        self::assertStringContainsString('approver_scope_test', $html);
+    }
+
+    public function testAccessPageUnknownKeyReturns404(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/does-not-exist-xyz/access');
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testDocsPageReturns200WithIframeAndDownloads(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/docs');
+
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Amagno-ACL', $html); // compliance notice
+        self::assertStringContainsString('on-demand', $html);  // generation note
+        self::assertSelectorExists('iframe[src="/app/templates/ai-rechnungen/docs/preview"]');
+        self::assertSelectorExists('a[href="/app/templates/ai-rechnungen/docs/download?format=md"]');
+        self::assertSelectorExists('a[href="/app/templates/ai-rechnungen/docs/download?format=html"]');
+    }
+
+    public function testDocsPreviewReturnsStandaloneHtml(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/docs/preview');
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'text/html; charset=utf-8');
+        self::assertStringContainsStringIgnoringCase('<!doctype html>', (string) $client->getResponse()->getContent());
+    }
+
+    public function testDocsDownloadMarkdown(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/docs/download?format=md');
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'text/markdown; charset=utf-8');
+        self::assertStringContainsString(
+            'attachment; filename=ai-rechnungen-access.md',
+            (string) $client->getResponse()->headers->get('Content-Disposition')
+        );
+        self::assertStringContainsString('Access-/Visibility-Dokumentation', (string) $client->getResponse()->getContent());
+    }
+
+    public function testDocsDownloadHtml(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/docs/download?format=html');
+
+        self::assertResponseIsSuccessful();
+        self::assertResponseHeaderSame('Content-Type', 'text/html; charset=utf-8');
+        self::assertStringContainsString(
+            'attachment; filename=ai-rechnungen-access.html',
+            (string) $client->getResponse()->headers->get('Content-Disposition')
+        );
+        self::assertStringContainsStringIgnoringCase('<!doctype html>', (string) $client->getResponse()->getContent());
+    }
+
+    public function testDocsDownloadInvalidFormatReturns400(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/docs/download?format=pdf');
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    public function testDocsRoutesUnknownKeyReturn404(): void
+    {
+        $client = static::createClient();
+
+        $client->request('GET', '/app/templates/does-not-exist-xyz/docs');
+        self::assertResponseStatusCodeSame(404);
+
+        $client->request('GET', '/app/templates/does-not-exist-xyz/docs/preview');
+        self::assertResponseStatusCodeSame(404);
+
+        $client->request('GET', '/app/templates/does-not-exist-xyz/docs/download?format=md');
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testDetailPageHasActiveDocsLink(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/docs"]');
+    }
+
+    public function testAccessPageHasDocsLink(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/access');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('a[href="/app/templates/ai-rechnungen/docs"]');
+    }
 }

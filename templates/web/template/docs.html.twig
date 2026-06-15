@@ -1,0 +1,46 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ key }} · Access-Dokumentation · APRIL{% endblock %}
+
+{% block body %}
+    {# 1. Kopfbereich #}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_show', { key: key }) }}">← Zurück zur Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_access', { key: key }) }}">Access-Coverage</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Access-Dokumentation – {{ key }}</h1>
+        <p class="meta-line">Key: <code>{{ key }}</code></p>
+        <p class="meta-line">Version: <strong>{{ version }}</strong></p>
+        <p class="meta-line">Source-System: <code>{{ sourceSystem }}</code></p>
+
+        {# 2. Compliance-Hinweis #}
+        {{ include('_partials/_compliance_notice.html.twig') }}
+
+        {# 3. Hinweis zur Generierung #}
+        <p class="muted">
+            Diese Dokumentation wird on-demand aus dem aktuellen YAML-Template erzeugt
+            und in diesem MVP nicht gespeichert.
+        </p>
+
+        {# 5. Download-Buttons #}
+        <div class="header-actions">
+            <a class="pill-link" href="{{ path('app_templates_docs_download', { key: key, format: 'md' }) }}">Download Markdown</a>
+            <a class="pill-link" href="{{ path('app_templates_docs_download', { key: key, format: 'html' }) }}">Download HTML</a>
+        </div>
+    </div>
+
+    {# 4. iframe-Vorschau (vollständiges Standalone-Dokument, daher isoliert) #}
+    <div class="card">
+        <h2>Vorschau</h2>
+        <iframe
+            title="Access-/Visibility-Dokumentation {{ key }}"
+            src="{{ path('app_templates_docs_preview', { key: key }) }}"
+            sandbox=""
+            style="width: 100%; height: 800px; border: 1px solid var(--line); border-radius: 0.6rem; background: #fff;"
+        ></iframe>
+    </div>
+{% endblock %}

@@ -2,8 +2,10 @@
 
 namespace App\Controller\App;
 
+use App\Intelligence\Application\AccessCoverageReportBuilder;
 use App\Intelligence\Application\ProcessTemplateCatalog;
 use App\Intelligence\Application\ProcessTemplateProvider;
+use App\Intelligence\Application\TemplateAccessView;
 use App\Intelligence\Application\TemplateDetailView;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -20,6 +22,7 @@ final class TemplateController
     public function __construct(
         private readonly ProcessTemplateCatalog $catalog,
         private readonly ProcessTemplateProvider $templateProvider,
+        private readonly AccessCoverageReportBuilder $coverageBuilder,
         private readonly Environment $twig
     ) {
     }
@@ -53,6 +56,22 @@ final class TemplateController
         return new Response($this->twig->render('template/show.html.twig', [
             'active_nav' => 'templates',
             'view' => TemplateDetailView::fromTemplate($template),
+        ]));
+    }
+
+    #[Route('/app/templates/{key}/access', name: 'app_templates_access', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
+    public function access(string $key): Response
+    {
+        $template = $this->templateProvider->findByProcessKey($key);
+        if ($template === null) {
+            throw new NotFoundHttpException(sprintf('Template "%s" not found.', $key));
+        }
+
+        $report = $this->coverageBuilder->build($template);
+
+        return new Response($this->twig->render('template/access.html.twig', [
+            'active_nav' => 'templates',
+            'view' => TemplateAccessView::fromTemplate($template, $report),
         ]));
     }
 }
