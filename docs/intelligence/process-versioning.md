@@ -59,6 +59,15 @@ kpi_eligibility:
     no_process_version_defined: 1
 ```
 
+Der Diagramm-Export kann auf eine konkrete Prozessversion begrenzt werden. `latest` meint die zuletzt definierte Baseline fuer den `process_key`:
+
+```bash
+bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml --view=combined --process-version=latest
+bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml --view=combined --process-version=latest --include-ok
+```
+
+Damit werden aeltere, aber fuer fruehere Baselines gueltige Timelines nicht in die aktuelle Version gemischt.
+
 ## CLI-Beispiele
 
 ```bash

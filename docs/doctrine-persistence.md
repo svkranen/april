@@ -24,6 +24,9 @@ The current process intelligence timeline is based on these entities:
 - `ContextSnapshotEntity` / `intelligence_context_snapshot`: loaded context attributes for historical rule evaluation.
 - `IncomingEventEntity` / `intelligence_incoming_event`: asynchronous webhook intake queue.
 
+The HTTP intake parameters for `POST /api/intelligence/events` are documented
+in `docs/intelligence/event-api.md`.
+
 Most analysis commands use `ProcessEventEntity` as their timeline source. In
 particular, `intelligence:template:check-process` and live metric rendering in
 `intelligence:template:export-diagram --view=flow|dwell|deviations|combined`

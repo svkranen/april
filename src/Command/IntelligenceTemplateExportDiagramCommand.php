@@ -9,6 +9,8 @@ use App\Intelligence\Application\KpiRelevantTimelineFilter;
 use App\Intelligence\Application\MermaidProcessGraphRenderer;
 use App\Intelligence\Application\MermaidProcessGraphRenderOptions;
 use App\Intelligence\Application\ObservedTransitionProjection;
+use App\Intelligence\Application\ProcessDiagramContextChangeAnnotation;
+use App\Intelligence\Application\ProcessDiagramContextChangeAnnotationBuilder;
 use App\Intelligence\Application\ProcessGraphMetricsFactory;
 use App\Intelligence\Application\ProcessGraphObservationProjector;
 use App\Intelligence\Application\ProcessDocumentRef;
@@ -43,7 +45,8 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
         private readonly ?DocumentTimelineProvider $timelineProvider = null,
         private readonly ?KpiRelevantTimelineFilter $timelineFilter = null,
         private readonly ?ProcessTemplateCheckService $checkService = null,
-        private readonly ProcessGraphObservationProjector $observationProjector = new ProcessGraphObservationProjector()
+        private readonly ProcessGraphObservationProjector $observationProjector = new ProcessGraphObservationProjector(),
+        private readonly ProcessDiagramContextChangeAnnotationBuilder $contextChangeAnnotationBuilder = new ProcessDiagramContextChangeAnnotationBuilder()
     ) {
         $this->metricsFactory = $metricsFactory ?? new ProcessGraphMetricsFactory();
         parent::__construct();
@@ -55,9 +58,12 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
             ->addArgument('template', InputArgument::REQUIRED, 'Path to the YAML process template')
             ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format: mermaid', 'mermaid')
             ->addOption('view', null, InputOption::VALUE_REQUIRED, 'Diagram view: structure, flow, dwell, deviations or combined', MermaidProcessGraphRenderOptions::VIEW_STRUCTURE)
+            ->addOption('diagram-mode', null, InputOption::VALUE_REQUIRED, 'Diagram mode: standard or audit', 'standard')
+            ->addOption('with-context-changes', null, InputOption::VALUE_NONE, 'Audit mode: annotate relevant context changes for decision deviations')
             ->addOption('metrics', null, InputOption::VALUE_REQUIRED, 'Optional JSON or YAML metrics/heatmap report path')
             ->addOption('heatmap', null, InputOption::VALUE_REQUIRED, 'Alias for --metrics')
             ->addOption('process-key', null, InputOption::VALUE_REQUIRED, 'Process key for live metrics. Defaults to the template key')
+            ->addOption('process-version', null, InputOption::VALUE_REQUIRED, 'Restrict live metrics to a process version, or "latest" for the latest baseline')
             ->addOption('from', null, InputOption::VALUE_REQUIRED, 'Only include timeline events at or after this datetime')
             ->addOption('to', null, InputOption::VALUE_REQUIRED, 'Only include timeline events at or before this datetime')
             ->addOption('document-id', null, InputOption::VALUE_REQUIRED, 'Restrict live metrics to one document external ID or UUID')
@@ -99,6 +105,13 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
 
             return Command::INVALID;
         }
+        $diagramMode = strtolower((string) $input->getOption('diagram-mode'));
+        if (!in_array($diagramMode, ['standard', 'audit'], true)) {
+            $output->writeln('<error>Invalid --diagram-mode. Use standard or audit.</error>');
+
+            return Command::INVALID;
+        }
+        $withContextChangeAnnotations = $diagramMode === 'audit' || $input->getOption('with-context-changes') === true;
         $compatibility = strtolower((string) $input->getOption('compat'));
         if (!in_array($compatibility, [MermaidProcessGraphRenderOptions::COMPAT_DEFAULT, MermaidProcessGraphRenderOptions::COMPAT_OBSIDIAN], true)) {
             $output->writeln('<error>Invalid --compat. Use default or obsidian.</error>');
@@ -149,7 +162,7 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
             $metricsDebug = null;
             if ($metricsPath !== null && $metricsPath !== '') {
                 $metricsReport = $this->metricsReport($metricsPath);
-            } elseif ($view === MermaidProcessGraphRenderOptions::VIEW_STRUCTURE) {
+            } elseif ($view === MermaidProcessGraphRenderOptions::VIEW_STRUCTURE && !$withContextChangeAnnotations) {
                 $metricsReport = null;
             } else {
                 [$metricsReport, $metricsDebug] = $this->liveMetricsReport($input, $template, $graph);
@@ -171,6 +184,9 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
             $input->getOption('show-node-metrics') === true
         );
         $diagram = $this->mermaidRenderer->render($enrichedGraph, $renderOptions);
+        if ($withContextChangeAnnotations) {
+            $diagram = $this->appendContextChangeAnnotations($diagram, $metricsReport['context_change_annotations'] ?? []);
+        }
         $dwellLegend = $input->getOption('show-dwell-legend') === true
             ? $this->dwellLegend($enrichedGraph->metrics, $renderOptions)
             : null;
@@ -206,6 +222,40 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
         $output->write($diagram);
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $annotations
+     */
+    private function appendContextChangeAnnotations(string $diagram, array $annotations): string
+    {
+        if ($annotations === []) {
+            return $diagram;
+        }
+
+        $lines = [rtrim($diagram, "\n")];
+        foreach ($annotations as $index => $annotation) {
+            $annotationId = sprintf('context_change:%d:%s:%s', $index + 1, (string) ($annotation['target_node_id'] ?? ''), (string) ($annotation['field'] ?? ''));
+            $lines[] = sprintf(
+                '  %s["%s"]:::context-change',
+                $this->mermaidId($annotationId),
+                $this->mermaidLabel(sprintf(
+                    "Context changed\n%s: %s -> %s\naffected decisions: %s",
+                    (string) ($annotation['field'] ?? ''),
+                    $this->formatValue($annotation['from'] ?? null),
+                    $this->formatValue($annotation['to'] ?? null),
+                    implode(', ', $annotation['affected_decisions'] ?? [])
+                ))
+            );
+            $lines[] = sprintf(
+                '  %s -.-> %s',
+                $this->mermaidId((string) ($annotation['target_node_id'] ?? '')),
+                $this->mermaidId($annotationId)
+            );
+        }
+        $lines[] = '  classDef context-change fill:#fef9c3,stroke:#ca8a04,stroke-dasharray: 4 4;';
+
+        return implode("\n", $lines)."\n";
     }
 
     /**
@@ -294,6 +344,7 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
         }
 
         $processKey = (string) ($input->getOption('process-key') ?: $template->key);
+        $processVersion = $this->processVersionOption($input->getOption('process-version'));
         $order = EventTimelineOrder::fromOption((string) $input->getOption('order-by'));
         if ($order === null) {
             throw new \InvalidArgumentException(sprintf('Invalid --order-by. Use one of: %s.', implode(', ', EventTimelineOrder::values())));
@@ -379,7 +430,8 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
             $template,
             $processKey,
             $documentsForMetrics,
-            $input->getOption('include-excluded') === true
+            $input->getOption('include-excluded') === true,
+            $processVersion
         );
         $documentTimelines = array_map(
             static fn (array $document): array => [
@@ -405,9 +457,11 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
         $report['flow_heatmap'] = $this->flowHeatmapFromEvents($documentTimelineEvents);
         $report['virtual_node_durations'] = $this->virtualNodeDurationsFromEvents($documentTimelineEvents, $template, $graph);
         $report['node_flow'] = $this->nodeFlowFromEvents($documentTimelineEvents, $template, $graph);
+        $report['context_change_annotations'] = $this->contextChangeAnnotations($documentTimelineEvents, $template);
         $debug = [
             'source' => 'live_process_timeline',
             'process_key' => $processKey,
+            'process_version_filter' => $processVersion,
             'documents_seen' => count($documentRefs),
             'documents_projected' => count($documentTimelines),
             'documents_skipped' => array_sum(array_map('count', $skipReasons))
@@ -422,10 +476,41 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
                 static fn (array $node): int => count($node['durations_seconds'] ?? []),
                 $report['virtual_node_durations']['nodes'] ?? []
             )),
+            'context_change_annotation_count' => count($report['context_change_annotations']),
             'documents' => $debugDocuments,
         ];
 
         return [$report, $debug];
+    }
+
+    /**
+     * @param array<int, array<int, DocumentTimelineEventRow>> $documentTimelineEvents
+     * @return array<int, array<string, mixed>>
+     */
+    private function contextChangeAnnotations(array $documentTimelineEvents, \App\Intelligence\Domain\ProcessTemplate $template): array
+    {
+        $annotations = [];
+        foreach ($documentTimelineEvents as $events) {
+            foreach ($this->contextChangeAnnotationBuilder->build($template, $events) as $annotation) {
+                $annotations[$annotation->key()] = $this->contextChangeAnnotationArray($annotation);
+            }
+        }
+
+        return array_values($annotations);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function contextChangeAnnotationArray(ProcessDiagramContextChangeAnnotation $annotation): array
+    {
+        return [
+            'field' => $annotation->field,
+            'from' => $annotation->from,
+            'to' => $annotation->to,
+            'affected_decisions' => $annotation->affectedDecisions,
+            'target_node_id' => $annotation->targetNodeId,
+        ];
     }
 
     /**
@@ -802,6 +887,15 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
         }
     }
 
+    private function processVersionOption(mixed $value): ?string
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        return trim((string) $value);
+    }
+
     /**
      * @return array<string, mixed>|null
      */
@@ -825,5 +919,38 @@ final class IntelligenceTemplateExportDiagramCommand extends Command
         $parsed = Yaml::parse($content);
 
         return is_array($parsed) ? $parsed : null;
+    }
+
+    private function mermaidId(string $id): string
+    {
+        $normalized = preg_replace('/[^A-Za-z0-9_]+/', '_', $id) ?? '';
+        $normalized = trim($normalized, '_');
+        if ($normalized === '') {
+            $normalized = substr(sha1($id), 0, 12);
+        }
+
+        return 'n_'.$normalized;
+    }
+
+    private function mermaidLabel(string $label): string
+    {
+        $label = str_replace(["\r\n", "\r", "\n"], '<br/>', $label);
+
+        return str_replace('"', '&quot;', $label);
+    }
+
+    private function formatValue(mixed $value): string
+    {
+        if ($value === null) {
+            return 'null';
+        }
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+        if (is_scalar($value)) {
+            return (string) $value;
+        }
+
+        return json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 }

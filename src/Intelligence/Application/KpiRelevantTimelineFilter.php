@@ -22,14 +22,16 @@ final readonly class KpiRelevantTimelineFilter
         ProcessTemplate $template,
         string $processKey,
         array $documentTimelines,
-        bool $includeExcluded = false
+        bool $includeExcluded = false,
+        ?string $processVersion = null
     ): KpiTimelineFilterResult {
         return $this->filter(
             $template,
             $processKey,
             $documentTimelines,
             static fn (array $documentTimeline): array => self::entriesFromTimeline($documentTimeline['timeline'] ?? []),
-            $includeExcluded
+            $includeExcluded,
+            $processVersion
         );
     }
 
@@ -40,7 +42,8 @@ final readonly class KpiRelevantTimelineFilter
         ProcessTemplate $template,
         string $processKey,
         array $eventGroups,
-        bool $includeExcluded = false
+        bool $includeExcluded = false,
+        ?string $processVersion = null
     ): KpiTimelineFilterResult {
         return $this->filter(
             $template,
@@ -50,7 +53,8 @@ final readonly class KpiRelevantTimelineFilter
                 static fn (DocumentTimelineEventRow $event): KpiTimelineEntry => new KpiTimelineEntry($event->stepKey, $event->occurredAt),
                 $events
             ),
-            $includeExcluded
+            $includeExcluded,
+            $processVersion
         );
     }
 
@@ -63,9 +67,10 @@ final readonly class KpiRelevantTimelineFilter
         string $processKey,
         array $items,
         callable $timelineFactory,
-        bool $includeExcluded = false
+        bool $includeExcluded = false,
+        ?string $processVersion = null
     ): KpiTimelineFilterResult {
-        $versions = $this->processVersionRepository->findByProcessKey($processKey);
+        $versions = $this->versionsForFilter($processKey, $processVersion);
         $startStep = $this->startStep($template);
         $included = [];
         $excluded = [];
@@ -103,8 +108,26 @@ final readonly class KpiRelevantTimelineFilter
                 'excluded_instances' => count($excluded),
                 'exclusion_reasons' => $reasonCounts,
                 'include_excluded' => $includeExcluded,
+                'process_version_filter' => $processVersion,
             ]
         );
+    }
+
+    /**
+     * @return array<int, \App\Intelligence\Domain\ProcessVersion>
+     */
+    private function versionsForFilter(string $processKey, ?string $processVersion): array
+    {
+        if ($processVersion === null || trim($processVersion) === '') {
+            return $this->processVersionRepository->findByProcessKey($processKey);
+        }
+
+        $processVersion = trim($processVersion);
+        $version = $processVersion === 'latest'
+            ? $this->processVersionRepository->latestForProcess($processKey)
+            : $this->processVersionRepository->findOneByProcessKeyAndVersion($processKey, $processVersion);
+
+        return $version === null ? [] : [$version];
     }
 
     private function startStep(ProcessTemplate $template): ?string

@@ -298,6 +298,8 @@ Heatmaps veraendern keine Templates. Sie sind Auswertungen ueber beobachtete Tim
 
 Der direkte Mermaid-Export baut zuerst einen neutralen `ProcessGraph` aus dem Template. Dadurch kann derselbe Graph spaeter auch fuer andere Renderer genutzt werden.
 
+Eine kompakte Uebersicht sinnvoller Diagramme und Standard-Kommandos steht in `docs/intelligence/chart-recipes.md`.
+
 Struktur:
 
 ```bash
@@ -378,9 +380,26 @@ bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
 
 Wenn `--metrics` gesetzt ist, wird bewusst genau diese Datei verwendet. Eine veraltete Datei kann deshalb andere Counts zeigen als Live-Checks.
 
+Audit-Annotationen fuer relevante Context-Aenderungen:
+
+```bash
+bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+  --diagram-mode=audit
+```
+
+Alternativ kann nur die Annotation aktiviert werden:
+
+```bash
+bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+  --with-context-changes
+```
+
+Die Standardausgabe bleibt schlank. Im Audit-Modus werden keine vollstaendigen Context-Snapshots in Prozessknoten geschrieben. APRIL erzeugt nur gelbe Annotation-Knoten fuer Context-Aenderungen, wenn eine Decision Rule Violation vorliegt und danach ein Feld geaendert wurde, das in der betroffenen Decision verwendet wird. Die Annotation wird gestrichelt mit dem Decision-Knoten verbunden und enthaelt Feldname, alten Wert, neuen Wert und betroffene Decisions.
+
 Live-Metrik-Filter:
 
 - `--process-key=<key>`
+- `--process-version=<version>|latest`
 - `--from=<datetime>`
 - `--to=<datetime>`
 - `--document-id=<externalId-or-uuid>`

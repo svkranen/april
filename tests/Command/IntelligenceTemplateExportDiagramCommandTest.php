@@ -194,6 +194,93 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         self::assertStringContainsString('n_01_Rechnungen_pruefen["01 Rechnungen pruefen<br/>docs: 1"]', $tester->getDisplay());
     }
 
+    public function testLiveMetricsCanRestrictToLatestProcessVersion(): void
+    {
+        $events = [
+            $this->event('900101', '00000000-0000-4000-8000-000000900101', 1, '01 Rechnungen pruefen', '2026-05-20T08:00:00+00:00'),
+            $this->event('900101', '00000000-0000-4000-8000-000000900101', 2, '02 Versenden', '2026-05-20T08:05:00+00:00'),
+            $this->event('900102', '00000000-0000-4000-8000-000000900102', 1, '01 Rechnungen pruefen', '2026-06-02T08:00:00+00:00'),
+            $this->event('900102', '00000000-0000-4000-8000-000000900102', 2, '02 Versenden', '2026-06-02T08:05:00+00:00'),
+        ];
+        $snapshots = [
+            $this->snapshot($events[0], ['invoice_direction' => 'RE - Ausgang', 'amount_net' => 400.0]),
+            $this->snapshot($events[2], ['invoice_direction' => 'RE - Ausgang', 'amount_net' => 400.0]),
+        ];
+        $tester = new CommandTester($this->command(
+            new InMemoryProcessDocumentUuidProvider($events),
+            new InMemoryDocumentTimelineProvider([], $events, $snapshots),
+            new KpiRelevantTimelineFilter(new InMemoryProcessVersionRepository([
+                new ProcessVersion(null, 'ai-rechnungen', '1.0', new DateTimeImmutable('2026-05-01T00:00:00+00:00')),
+                new ProcessVersion(null, 'ai-rechnungen', '1.1', new DateTimeImmutable('2026-06-01T00:00:00+00:00')),
+            ]))
+        ));
+
+        $exitCode = $tester->execute([
+            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            '--view' => 'flow',
+            '--process-version' => 'latest',
+            '--debug-metrics' => true,
+            '--show-node-metrics' => true,
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('"process_version_filter": "latest"', $tester->getDisplay());
+        self::assertStringContainsString('"included_instances": 1', $tester->getDisplay());
+        self::assertStringContainsString('"before_first_baseline": 1', $tester->getDisplay());
+        self::assertStringContainsString('n_01_Rechnungen_pruefen["01 Rechnungen pruefen<br/>docs: 1"]', $tester->getDisplay());
+    }
+
+    public function testStandardDiagramDoesNotShowContextChangeAnnotations(): void
+    {
+        $events = [
+            $this->event('900010', '00000000-0000-4000-8000-000000900010', 1, '01 Rechnungen pruefen', '2026-05-31T08:00:00+00:00'),
+            $this->event('900010', '00000000-0000-4000-8000-000000900010', 2, '02 Versenden', '2026-05-31T08:05:00+00:00'),
+        ];
+        $snapshots = [
+            $this->snapshot($events[0], ['invoice_direction' => 'RE - Eingang', 'amount_net' => 4149788]),
+            $this->snapshot($events[1], ['invoice_direction' => 'RE - Eingang', 'amount_net' => 41.49]),
+        ];
+        $tester = new CommandTester($this->command(
+            new InMemoryProcessDocumentUuidProvider($events),
+            new InMemoryDocumentTimelineProvider([], $events, $snapshots)
+        ));
+
+        $exitCode = $tester->execute([
+            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringNotContainsString('Context changed', $tester->getDisplay());
+        self::assertStringNotContainsString('classDef context-change', $tester->getDisplay());
+    }
+
+    public function testAuditDiagramShowsRelevantContextChangeAnnotationsForDecisionViolations(): void
+    {
+        $events = [
+            $this->event('900010', '00000000-0000-4000-8000-000000900010', 1, '01 Rechnungen pruefen', '2026-05-31T08:00:00+00:00'),
+            $this->event('900010', '00000000-0000-4000-8000-000000900010', 2, '02 Versenden', '2026-05-31T08:05:00+00:00'),
+        ];
+        $snapshots = [
+            $this->snapshot($events[0], ['invoice_direction' => 'RE - Eingang', 'amount_net' => 4149788]),
+            $this->snapshot($events[1], ['invoice_direction' => 'RE - Eingang', 'amount_net' => 41.49]),
+        ];
+        $tester = new CommandTester($this->command(
+            new InMemoryProcessDocumentUuidProvider($events),
+            new InMemoryDocumentTimelineProvider([], $events, $snapshots)
+        ));
+
+        $exitCode = $tester->execute([
+            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            '--diagram-mode' => 'audit',
+        ]);
+        $display = $tester->getDisplay();
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Context changed<br/>amount_net: 4149788 -> 41.49<br/>affected decisions: route_after_pruefung', $display);
+        self::assertStringContainsString('n_decision_route_after_pruefung -.-> n_context_change_1_decision_route_after_pruefung_amount_net', $display);
+        self::assertStringContainsString('classDef context-change fill:#fef9c3,stroke:#ca8a04,stroke-dasharray: 4 4;', $display);
+    }
+
 
     public function testExportsFlowViewWithNodeFlowMetrics(): void
     {

@@ -3,10 +3,15 @@
 namespace App\Tests\Command;
 
 use App\Command\IntelligenceDocumentTimelineCommand;
+use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Domain\ContextSnapshot;
 use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Domain\ProcessInstance;
+use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
+use App\Intelligence\Domain\ProcessTemplateDecisionRule;
+use App\Intelligence\Domain\ProcessTemplateRuleCondition;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -356,6 +361,139 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
 
         self::assertSame(Command::INVALID, $exitCode);
         self::assertStringContainsString('Invalid --format', $tester->getDisplay());
+    }
+
+    public function testTimelineJsonCanIncludeContextDiffsAndDecisionRelevantChanges(): void
+    {
+        $firstAt = new DateTimeImmutable('2026-06-01T09:00:00+00:00');
+        $secondAt = new DateTimeImmutable('2026-06-01T09:10:00+00:00');
+        $provider = new InMemoryDocumentTimelineProvider(
+            [],
+            [
+                new ProcessEventRecord(1, 'evt-1', 'amagno', 'invoice-process', 'checked', 'checked', 'doc-1', 'uuid-context', 1, 'user-1', $firstAt, $firstAt, '{}', '{}'),
+                new ProcessEventRecord(2, 'evt-2', 'amagno', 'invoice-process', 'approved', 'approved', 'doc-1', 'uuid-context', 1, 'user-1', $secondAt, $secondAt, '{}', '{}'),
+            ],
+            [
+                new ContextSnapshot(
+                    new DocumentRef('amagno', 'doc-1', 'uuid-context', 1),
+                    $firstAt,
+                    [
+                        'amount_net' => 4149788,
+                        'invoice_direction' => 'in',
+                    ],
+                    [],
+                    'invoice-process',
+                    'evt-1'
+                ),
+                new ContextSnapshot(
+                    new DocumentRef('amagno', 'doc-1', 'uuid-context', 1),
+                    $secondAt,
+                    [
+                        'amount_net' => 41.49,
+                        'invoice_direction' => 'in',
+                        'cost_center' => null,
+                    ],
+                    [],
+                    'invoice-process',
+                    'evt-2'
+                ),
+            ]
+        );
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($provider, $this->templateProvider()));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-context',
+            'processKey' => 'invoice-process',
+            '--format' => 'json',
+            '--with-context' => true,
+            '--with-diff' => true,
+            '--with-decisions' => true,
+        ]);
+        $data = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(4149788, $data['events'][0]['context']['amount_net']);
+        self::assertSame([], $data['events'][0]['contextDiff']);
+        self::assertSame('changed', $data['events'][1]['contextDiff'][0]['type']);
+        self::assertSame('amount_net', $data['events'][1]['contextDiff'][0]['field']);
+        self::assertSame(4149788, $data['events'][1]['contextDiff'][0]['from']);
+        self::assertSame(41.49, $data['events'][1]['contextDiff'][0]['to']);
+        self::assertSame('added', $data['events'][1]['contextDiff'][1]['type']);
+        self::assertSame('cost_center', $data['events'][1]['contextDiff'][1]['field']);
+        self::assertSame(['route_after_pruefung', 'freigabe_ab_1000'], $data['events'][1]['ruleRelevantContextChanges'][0]['affected_decisions']);
+    }
+
+    public function testTimelineTextShowsContextDiffsAndDecisionRelevantChanges(): void
+    {
+        $firstAt = new DateTimeImmutable('2026-06-01T09:00:00+00:00');
+        $secondAt = new DateTimeImmutable('2026-06-01T09:10:00+00:00');
+        $provider = new InMemoryDocumentTimelineProvider(
+            [],
+            [
+                new ProcessEventRecord(1, 'evt-1', 'amagno', 'invoice-process', 'checked', 'checked', 'doc-1', 'uuid-context-text', 1, 'user-1', $firstAt, $firstAt, '{}', '{}'),
+                new ProcessEventRecord(2, 'evt-2', 'amagno', 'invoice-process', 'approved', 'approved', 'doc-1', 'uuid-context-text', 1, 'user-1', $secondAt, $secondAt, '{}', '{}'),
+            ],
+            [
+                new ContextSnapshot(new DocumentRef('amagno', 'doc-1', 'uuid-context-text', 1), $firstAt, ['amount_net' => 4149788], [], 'invoice-process', 'evt-1'),
+                new ContextSnapshot(new DocumentRef('amagno', 'doc-1', 'uuid-context-text', 1), $secondAt, ['amount_net' => 41.49], [], 'invoice-process', 'evt-2'),
+            ]
+        );
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($provider, $this->templateProvider()));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-context-text',
+            'processKey' => 'invoice-process',
+            '--with-context' => true,
+            '--with-diff' => true,
+            '--with-decisions' => true,
+        ]);
+        $display = $tester->getDisplay();
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Context Timeline', $display);
+        self::assertStringContainsString('amount_net: 4149788 -> 41.49 (changed)', $display);
+        self::assertStringContainsString('Rule-relevant context change:', $display);
+        self::assertStringContainsString('affected decisions: route_after_pruefung, freigabe_ab_1000', $display);
+    }
+
+    private function templateProvider(): ProcessTemplateProvider
+    {
+        return new class implements ProcessTemplateProvider {
+            public function findByProcessKey(string $processKey): ?ProcessTemplate
+            {
+                if ($processKey !== 'invoice-process') {
+                    return null;
+                }
+
+                return new ProcessTemplate(
+                    'invoice-process',
+                    decisionPoints: [
+                        new ProcessTemplateDecisionPoint(
+                            'route_after_pruefung',
+                            'checked',
+                            ['invoice_direction', 'amount_net'],
+                            [
+                                new ProcessTemplateDecisionRule(
+                                    new ProcessTemplateRuleCondition('invoice_direction', 'eq', 'in'),
+                                    'approved'
+                                ),
+                            ]
+                        ),
+                        new ProcessTemplateDecisionPoint(
+                            'freigabe_ab_1000',
+                            'checked',
+                            ['amount_net'],
+                            [
+                                new ProcessTemplateDecisionRule(
+                                    new ProcessTemplateRuleCondition('amount_net', 'gt', 1000),
+                                    'approved'
+                                ),
+                            ]
+                        ),
+                    ]
+                );
+            }
+        };
     }
 
     private function provider(): InMemoryDocumentTimelineProvider

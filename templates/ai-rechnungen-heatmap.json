@@ -1,0 +1,274 @@
+{
+    "template_key": "ai-rechnungen",
+    "documents_used": 24,
+    "generated_at": "2026-05-31T07:47:16+00:00",
+    "flow_heatmap": {
+        "transitions": [
+            {
+                "from": "01 Rechnungen pruefen",
+                "to": "03 Freigabe_klein",
+                "count": 12,
+                "percentage": 50,
+                "intensity": 1,
+                "is_allowed": false
+            },
+            {
+                "from": "07 Zahlungseingang erwartet",
+                "to": "09 Rechnungen Abschluss",
+                "count": 12,
+                "percentage": 50,
+                "intensity": 1,
+                "is_allowed": false
+            },
+            {
+                "from": "05 Ausgangsrechnung buchen",
+                "to": "07 Zahlungseingang erwartet",
+                "count": 11,
+                "percentage": 45.83,
+                "intensity": 0.9167,
+                "is_allowed": false
+            },
+            {
+                "from": "05 Ausgangsrechnung buchen",
+                "to": "09 Rechnungen Abschluss",
+                "count": 10,
+                "percentage": 41.67,
+                "intensity": 0.8333,
+                "is_allowed": false
+            },
+            {
+                "from": "07 Zahlungseingang erwartet",
+                "to": "05 Ausgangsrechnung buchen",
+                "count": 10,
+                "percentage": 41.67,
+                "intensity": 0.8333,
+                "is_allowed": false
+            },
+            {
+                "from": "01 Rechnungen pruefen",
+                "to": "02 Versenden",
+                "count": 9,
+                "percentage": 37.5,
+                "intensity": 0.75,
+                "is_allowed": false
+            },
+            {
+                "from": "03 Freigabe_klein",
+                "to": "04 Freigabe_gross",
+                "count": 6,
+                "percentage": 25,
+                "intensity": 0.5,
+                "is_allowed": false
+            },
+            {
+                "from": "02 Versenden",
+                "to": "07 Zahlungseingang erwartet",
+                "count": 4,
+                "percentage": 16.67,
+                "intensity": 0.3333,
+                "is_allowed": false
+            },
+            {
+                "from": "03 Freigabe_klein",
+                "to": "07 Zahlungseingang erwartet",
+                "count": 4,
+                "percentage": 16.67,
+                "intensity": 0.3333,
+                "is_allowed": false
+            },
+            {
+                "from": "04 Freigabe_gross",
+                "to": "05 Ausgangsrechnung buchen",
+                "count": 4,
+                "percentage": 16.67,
+                "intensity": 0.3333,
+                "is_allowed": false
+            },
+            {
+                "from": "01 Rechnungen pruefen",
+                "to": "07 Zahlungseingang erwartet",
+                "count": 3,
+                "percentage": 12.5,
+                "intensity": 0.25,
+                "is_allowed": false
+            },
+            {
+                "from": "02 Versenden",
+                "to": "01 Rechnungen pruefen",
+                "count": 3,
+                "percentage": 12.5,
+                "intensity": 0.25,
+                "is_allowed": false
+            },
+            {
+                "from": "02 Versenden",
+                "to": "05 Ausgangsrechnung buchen",
+                "count": 3,
+                "percentage": 12.5,
+                "intensity": 0.25,
+                "is_allowed": false
+            },
+            {
+                "from": "01 Rechnungen pruefen",
+                "to": "05 Ausgangsrechnung buchen",
+                "count": 2,
+                "percentage": 8.33,
+                "intensity": 0.1667,
+                "is_allowed": false
+            },
+            {
+                "from": "03 Freigabe_klein",
+                "to": "05 Ausgangsrechnung buchen",
+                "count": 2,
+                "percentage": 8.33,
+                "intensity": 0.1667,
+                "is_allowed": false
+            },
+            {
+                "from": "04 Freigabe_gross",
+                "to": "07 Zahlungseingang erwartet",
+                "count": 2,
+                "percentage": 8.33,
+                "intensity": 0.1667,
+                "is_allowed": false
+            }
+        ]
+    },
+    "duration_heatmap": {
+        "steps": [
+            {
+                "step": "09 Rechnungen Abschluss",
+                "historical": {
+                    "completed_documents": 0,
+                    "avg_duration_minutes": 0,
+                    "median_duration_minutes": 0,
+                    "max_duration_minutes": 0
+                },
+                "current": {
+                    "open_documents": 22,
+                    "avg_open_age_minutes": 72.41,
+                    "max_open_age_minutes": 665.2666666666667
+                },
+                "intensity": {
+                    "historical_duration": 0,
+                    "current_backlog_age": 1,
+                    "current_backlog_count": 1
+                }
+            },
+            {
+                "step": "03 Freigabe_klein",
+                "historical": {
+                    "completed_documents": 12,
+                    "avg_duration_minutes": 83.31,
+                    "median_duration_minutes": 32.5,
+                    "max_duration_minutes": 666.6666666666666
+                },
+                "current": {
+                    "open_documents": 0,
+                    "avg_open_age_minutes": 0,
+                    "max_open_age_minutes": 0
+                },
+                "intensity": {
+                    "historical_duration": 1,
+                    "current_backlog_age": 0,
+                    "current_backlog_count": 0
+                }
+            },
+            {
+                "step": "05 Ausgangsrechnung buchen",
+                "historical": {
+                    "completed_documents": 21,
+                    "avg_duration_minutes": 82.37,
+                    "median_duration_minutes": 20,
+                    "max_duration_minutes": 666.6666666666666
+                },
+                "current": {
+                    "open_documents": 0,
+                    "avg_open_age_minutes": 0,
+                    "max_open_age_minutes": 0
+                },
+                "intensity": {
+                    "historical_duration": 0.9887,
+                    "current_backlog_age": 0,
+                    "current_backlog_count": 0
+                }
+            },
+            {
+                "step": "07 Zahlungseingang erwartet",
+                "historical": {
+                    "completed_documents": 22,
+                    "avg_duration_minutes": 81.58,
+                    "median_duration_minutes": 10,
+                    "max_duration_minutes": 666.6666666666666
+                },
+                "current": {
+                    "open_documents": 2,
+                    "avg_open_age_minutes": 0,
+                    "max_open_age_minutes": 0
+                },
+                "intensity": {
+                    "historical_duration": 0.9792,
+                    "current_backlog_age": 0,
+                    "current_backlog_count": 0.0909
+                }
+            },
+            {
+                "step": "01 Rechnungen pruefen",
+                "historical": {
+                    "completed_documents": 26,
+                    "avg_duration_minutes": 59.06,
+                    "median_duration_minutes": 7.5,
+                    "max_duration_minutes": 666.6666666666666
+                },
+                "current": {
+                    "open_documents": 0,
+                    "avg_open_age_minutes": 0,
+                    "max_open_age_minutes": 0
+                },
+                "intensity": {
+                    "historical_duration": 0.7089,
+                    "current_backlog_age": 0,
+                    "current_backlog_count": 0
+                }
+            },
+            {
+                "step": "02 Versenden",
+                "historical": {
+                    "completed_documents": 10,
+                    "avg_duration_minutes": 57.2,
+                    "median_duration_minutes": 15,
+                    "max_duration_minutes": 360
+                },
+                "current": {
+                    "open_documents": 0,
+                    "avg_open_age_minutes": 0,
+                    "max_open_age_minutes": 0
+                },
+                "intensity": {
+                    "historical_duration": 0.6866,
+                    "current_backlog_age": 0,
+                    "current_backlog_count": 0
+                }
+            },
+            {
+                "step": "04 Freigabe_gross",
+                "historical": {
+                    "completed_documents": 6,
+                    "avg_duration_minutes": 47.83,
+                    "median_duration_minutes": 22.5,
+                    "max_duration_minutes": 180
+                },
+                "current": {
+                    "open_documents": 0,
+                    "avg_open_age_minutes": 0,
+                    "max_open_age_minutes": 0
+                },
+                "intensity": {
+                    "historical_duration": 0.5741,
+                    "current_backlog_age": 0,
+                    "current_backlog_count": 0
+                }
+            }
+        ]
+    }
+}

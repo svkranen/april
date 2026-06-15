@@ -28,4 +28,13 @@ Der Diff zeigt hinzugefuegte, entfernte, geaenderte und unveraenderte Felder. JS
 
 ## Timeline
 
-Die bestehende Dokument-Timeline wird in diesem Schritt nicht um `--with-context` oder `--with-context-diff` erweitert. Die Context-History ist bewusst ein eigener Command, damit Audit-/Debug-Auswertung und Event-Timeline nicht staerker gekoppelt werden. Die History loest Event-/Step-Informationen trotzdem ueber die vorhandene Timeline auf, sofern ein Snapshot per `external_event_key` zugeordnet werden kann.
+Die Dokument-Timeline kann Context-Snapshots optional direkt neben den Events anzeigen:
+
+```bash
+bin/console intelligence:document:timeline <documentUuid> <processKey> --with-context --with-diff --with-decisions
+bin/console intelligence:document:timeline <documentUuid> <processKey> --format=json --with-context --with-diff --with-decisions
+```
+
+`--with-context` gibt den vollstaendigen Snapshot aus, sofern dem Event ein Snapshot zugeordnet ist. `--with-diff` zeigt Aenderungen gegenueber dem vorherigen verfuegbaren Snapshot desselben Timeline-Auszugs. Events ohne Snapshot werden angezeigt, setzen den vorherigen Snapshot aber nicht zurueck.
+
+`--with-decisions` markiert Context-Aenderungen, deren Feld in `required_fields` oder einer Rule-Condition eines Decision Points verwendet wird. Das ist nur ein Analysehinweis. Die Template-Check-Logik wird dadurch nicht veraendert, und eine DEVIATION wird nicht automatisch zu einer WARNING herabgestuft.
