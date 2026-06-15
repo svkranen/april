@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Amagno Intelligence Tool – Prozesse sichtbar machen</title>
+    <meta name="description" content="Process Intelligence fuer dokumentenbasierte Prozesse: Sehen, wie Ablaeufe wirklich laufen, Abweichungen und Engpaesse fruehzeitig erkennen, Konformitaet und Berechtigungen nachweisbar pruefen.">
+    <style>
+        :root {
+            --bg: #f4f1ea;
+            --paper: #fffdf8;
+            --ink: #1f2933;
+            --muted: #56646f;
+            --line: #e0d8ca;
+            --accent: #005f73;
+            --accent-2: #0a9396;
+            --accent-deep: #0a2342;
+            --soft: #e3f0f2;
+            --ok: #2a8a5d;
+            --warn: #b5651d;
+            --dev: #9b2226;
+            --shadow: 0 18px 44px rgba(10, 35, 66, 0.10);
+            --shadow-sm: 0 8px 20px rgba(10, 35, 66, 0.07);
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+            color: var(--ink);
+            line-height: 1.6;
+            background:
+                radial-gradient(circle at 85% -5%, rgba(10, 147, 150, 0.16), transparent 32rem),
+                linear-gradient(180deg, #eef4f3 0%, var(--bg) 22rem, #f8f5ee 100%);
+        }
+
+        a { color: var(--accent); overflow-wrap: anywhere; }
+
+        .wrap { width: min(1180px, calc(100% - 2.5rem)); margin: 0 auto; }
+
+        /* ---------- Top bar ---------- */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.1rem 0;
+            flex-wrap: wrap;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-weight: 700;
+            font-size: 1.08rem;
+            letter-spacing: 0.01em;
+            color: var(--accent-deep);
+        }
+        .brand .logo {
+            width: 2.3rem; height: 2.3rem;
+            border-radius: 0.7rem;
+            background: linear-gradient(135deg, var(--accent-2), var(--accent-deep));
+            display: grid; place-items: center;
+            color: #fff; font-weight: 800;
+            box-shadow: var(--shadow-sm);
+        }
+        .navlinks { display: flex; gap: 1.4rem; flex-wrap: wrap; }
+        .navlinks a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 0.95rem; }
+        .navlinks a:hover { color: var(--accent); }
+
+        /* ---------- Buttons ---------- */
+        .btn {
+            display: inline-block;
+            padding: 0.8rem 1.4rem;
+            border-radius: 0.7rem;
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid transparent;
+            transition: transform .08s ease, box-shadow .15s ease;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-2), var(--accent));
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(0, 95, 115, 0.35);
+        }
+        .btn-ghost {
+            background: rgba(255, 255, 255, 0.10);
+            color: #eaf6f7;
+            border-color: rgba(255, 255, 255, 0.30);
+        }
+        .btn-outline {
+            background: #fff;
+            color: var(--accent);
+            border-color: var(--line);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* ---------- Hero ---------- */
+        .hero {
+            margin-top: 0.5rem;
+            border-radius: 1.6rem;
+            padding: clamp(2.2rem, 5vw, 4rem);
+            color: #eef9fa;
+            background:
+                radial-gradient(circle at 90% 10%, rgba(10, 147, 150, 0.55), transparent 60%),
+                linear-gradient(135deg, #073b4c 0%, #0a2342 55%, #041425 100%);
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+        .eyebrow {
+            display: inline-block;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: #7fe0e3;
+            border: 1px solid rgba(127, 224, 227, 0.4);
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+            margin-bottom: 1.1rem;
+        }
+        .hero h1 {
+            margin: 0 0 1rem;
+            font-size: clamp(2.1rem, 5vw, 3.6rem);
+            line-height: 1.06;
+            letter-spacing: -0.01em;
+            max-width: 22ch;
+        }
+        .hero h1 .hl { color: #94f0e6; }
+        .hero .sub {
+            font-size: clamp(1.05rem, 2vw, 1.3rem);
+            color: rgba(238, 249, 250, 0.86);
+            max-width: 58ch;
+            margin: 0 0 1.8rem;
+        }
+        .hero-cta { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; }
+        .hero-note { margin-top: 1.3rem; color: rgba(238,249,250,0.62); font-size: 0.92rem; }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+            margin-top: 2.4rem;
+            padding-top: 1.8rem;
+            border-top: 1px solid rgba(255,255,255,0.14);
+        }
+        .hero-stats .n { font-size: 1.7rem; font-weight: 800; color: #fff; }
+        .hero-stats .l { color: rgba(238,249,250,0.72); font-size: 0.9rem; }
+
+        /* ---------- Sections ---------- */
+        section.block { margin: clamp(3rem, 7vw, 5rem) 0; }
+        .section-head { max-width: 60ch; margin-bottom: 2rem; }
+        .section-head .kicker {
+            text-transform: uppercase; letter-spacing: 0.14em;
+            font-size: 0.78rem; font-weight: 700; color: var(--accent);
+        }
+        .section-head h2 {
+            font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+            margin: 0.4rem 0 0.6rem;
+            line-height: 1.15;
+            color: var(--accent-deep);
+        }
+        .section-head p { color: var(--muted); font-size: 1.06rem; margin: 0; }
+
+        /* ---------- Cards ---------- */
+        .grid { display: grid; gap: 1.1rem; }
+        .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+        .card {
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 1.1rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+        .card h3 { margin: 0.2rem 0 0.5rem; font-size: 1.18rem; color: var(--accent-deep); }
+        .card p { margin: 0; color: var(--muted); }
+
+        .ico {
+            width: 2.7rem; height: 2.7rem;
+            border-radius: 0.8rem;
+            display: grid; place-items: center;
+            background: var(--soft);
+            color: var(--accent);
+            margin-bottom: 0.9rem;
+        }
+        .ico svg { width: 1.4rem; height: 1.4rem; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+        /* Problem cards */
+        .pain {
+            border-left: 4px solid var(--dev);
+            background: #fff;
+        }
+        .pain .quote { font-weight: 700; color: var(--ink); font-size: 1.05rem; margin: 0 0 0.4rem; }
+        .pain .quote::before { content: "\201E"; color: var(--dev); font-size: 1.3rem; }
+        .pain .quote::after { content: "\201C"; color: var(--dev); }
+
+        /* Problem -> solution rows */
+        .pas { display: grid; gap: 0.9rem; }
+        .pas-row {
+            display: grid;
+            grid-template-columns: 1fr auto 1.4fr;
+            gap: 1rem;
+            align-items: center;
+            background: var(--paper);
+            border: 1px solid var(--line);
+            border-radius: 1rem;
+            padding: 1.1rem 1.3rem;
+            box-shadow: var(--shadow-sm);
+        }
+        .pas-row .p { color: var(--ink); font-weight: 600; }
+        .pas-row .arrow { color: var(--accent-2); font-weight: 800; font-size: 1.3rem; }
+        .pas-row .s { color: var(--muted); }
+        .pas-row .s strong { color: var(--accent); }
+
+        /* Steps */
+        .steps { counter-reset: step; }
+        .step { position: relative; padding-left: 3.4rem; }
+        .step .num {
+            position: absolute; left: 0; top: 0.1rem;
+            width: 2.4rem; height: 2.4rem; border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-2), var(--accent-deep));
+            color: #fff; font-weight: 800;
+            display: grid; place-items: center;
+            box-shadow: var(--shadow-sm);
+        }
+        .step h3 { margin: 0.2rem 0 0.4rem; color: var(--accent-deep); }
+        .step p { margin: 0; color: var(--muted); }
+
+        /* Benefit checklist */
+        .checks { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.7rem; }
+        .checks li { display: grid; grid-template-columns: 1.6rem 1fr; gap: 0.7rem; align-items: start; }
+        .checks .tick {
+            width: 1.5rem; height: 1.5rem; border-radius: 50%;
+            background: var(--ok); color: #fff;
+            display: grid; place-items: center; font-size: 0.85rem; font-weight: 800;
+            margin-top: 0.15rem;
+        }
+        .checks b { color: var(--ink); }
+
+        /* Status demo */
+        .demo {
+            background: linear-gradient(180deg, #0a2342, #061a30);
+            color: #dfeef0;
+            border-radius: 1.2rem;
+            padding: 1.6rem;
+            box-shadow: var(--shadow);
+            font-family: Consolas, "Liberation Mono", monospace;
+            font-size: 0.92rem;
+            overflow-x: auto;
+        }
+        .demo .line { display: flex; align-items: center; gap: 0.7rem; padding: 0.28rem 0; white-space: nowrap; }
+        .demo .node { color: #9fb6c4; }
+        .demo .doc { color: #eaf6f7; font-weight: 600; }
+        .badge {
+            display: inline-block; padding: 0.12rem 0.6rem; border-radius: 999px;
+            font-size: 0.78rem; font-weight: 800; letter-spacing: 0.03em;
+        }
+        .b-ok { background: rgba(42,138,93,0.22); color: #7ee0a8; border: 1px solid rgba(126,224,168,0.4); }
+        .b-warn { background: rgba(181,101,29,0.22); color: #f0b97a; border: 1px solid rgba(240,185,122,0.4); }
+        .b-dev { background: rgba(155,34,38,0.24); color: #f1908f; border: 1px solid rgba(241,144,143,0.4); }
+
+        .legend { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 1.1rem; }
+
+        /* Audience */
+        .aud .ico { background: linear-gradient(135deg, var(--soft), #d4ebec); }
+
+        /* Final CTA */
+        .cta {
+            border-radius: 1.6rem;
+            padding: clamp(2.2rem, 5vw, 3.4rem);
+            text-align: center;
+            color: #eef9fa;
+            background:
+                radial-gradient(circle at 15% 20%, rgba(10,147,150,0.5), transparent 55%),
+                linear-gradient(135deg, #0a2342, #073b4c);
+            box-shadow: var(--shadow);
+        }
+        .cta h2 { font-size: clamp(1.7rem, 4vw, 2.6rem); margin: 0 0 0.7rem; }
+        .cta p { color: rgba(238,249,250,0.85); max-width: 56ch; margin: 0 auto 1.6rem; font-size: 1.08rem; }
+        .cta-row { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
+
+        footer { color: var(--muted); font-size: 0.9rem; padding: 2.5rem 0 3rem; text-align: center; }
+
+        @media (max-width: 900px) {
+            .grid-3, .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .pas-row { grid-template-columns: 1fr; text-align: left; }
+            .pas-row .arrow { transform: rotate(90deg); width: max-content; }
+            .navlinks { display: none; }
+        }
+        @media (max-width: 560px) {
+            .grid-2, .grid-3, .grid-4, .hero-stats { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <!-- Top bar -->
+        <header class="topbar">
+            <div class="brand">
+                <span class="logo">AI</span>
+                Amagno&nbsp;Intelligence&nbsp;Tool
+            </div>
+            <nav class="navlinks">
+                <a href="#problem">Herausforderung</a>
+                <a href="#loesung">Loesung</a>
+                <a href="#ablauf">So funktioniert es</a>
+                <a href="#features">Funktionen</a>
+                <a href="#start">Loslegen</a>
+            </nav>
+        </header>
+
+        <!-- Hero -->
+        <section class="hero">
+            <span class="eyebrow">Process Intelligence fuer Dokumentenprozesse</span>
+            <h1>Sehen Sie, wie Ihre Prozesse <span class="hl">wirklich</span> laufen.</h1>
+            <p class="sub">
+                Das Amagno Intelligence Tool macht aus Prozessereignissen belastbare Erkenntnisse:
+                Es vergleicht den tatsaechlichen Dokumentenlauf mit Ihrem Soll-Prozess, deckt Abweichungen
+                und Engpaesse fruehzeitig auf und macht Konformitaet, Signaturen und Berechtigungen nachweisbar.
+            </p>
+            <div class="hero-cta">
+                <a class="btn btn-primary" href="#loesung">Vorteile entdecken</a>
+                <a class="btn btn-ghost" href="/docs/index.html">Technische Doku ansehen</a>
+            </div>
+            <p class="hero-note">DMS-unabhaengiger Kern &middot; Amagno als erster Connector &middot; kein schwergewichtiges Plattform-Projekt</p>
+
+            <div class="hero-stats">
+                <div>
+                    <div class="n">Soll&nbsp;/&nbsp;Ist</div>
+                    <div class="l">Tatsaechlicher Ablauf gegen versioniertes Template</div>
+                </div>
+                <div>
+                    <div class="n">4&nbsp;Status</div>
+                    <div class="l">OK, Warnung, Abweichung, Fehler &ndash; automatisch priorisiert</div>
+                </div>
+                <div>
+                    <div class="n">0&nbsp;Blindflug</div>
+                    <div class="l">Heatmaps, Timelines und BPMN-Sicht statt Bauchgefuehl</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Wofuer -->
+        <section class="block" id="wofuer">
+            <div class="section-head">
+                <span class="kicker">Wofuer die Software da ist</span>
+                <h2>Ihre Dokumentenprozesse verstehen, pruefen und belegen &ndash; ohne Ratespiel.</h2>
+                <p>
+                    Rechnungseingang, Freigaben, Signaturlaeufe, Ausgangsrechnungen: In jedem dokumentenbasierten
+                    Prozess entstehen laufend Ereignisse. Das Intelligence Tool beobachtet diese Ereignisse, verdichtet
+                    sie zu fachlichen Timelines und bewertet jeden Durchlauf gegen einen klar definierten Soll-Prozess.
+                    Das Ergebnis: Transparenz, Fruehwarnung und prueffaehige Nachweise.
+                </p>
+            </div>
+        </section>
+
+        <!-- Problem -->
+        <section class="block" id="problem">
+            <div class="section-head">
+                <span class="kicker">Die Herausforderung</span>
+                <h2>Kennen Sie das?</h2>
+                <p>Dokumentenprozesse laufen verteilt, halb-automatisiert und ueber viele Haende. Genau dort entstehen blinde Flecken.</p>
+            </div>
+            <div class="grid grid-3">
+                <div class="card pain">
+                    <p class="quote">Wir wissen gar nicht, ob unsere Prozesse so laufen, wie sie sollen.</p>
+                    <p>Der dokumentierte Ablauf steckt in Koepfen oder veralteten Diagrammen &ndash; nicht in den echten Daten.</p>
+                </div>
+                <div class="card pain">
+                    <p class="quote">Dokumente bleiben haengen, aber wir merken es viel zu spaet.</p>
+                    <p>Engpaesse und liegengebliebene Vorgaenge fallen erst auf, wenn jemand nachfragt.</p>
+                </div>
+                <div class="card pain">
+                    <p class="quote">Bei jedem Audit suchen wir tagelang Belege zusammen.</p>
+                    <p>Wer hat wann freigegeben? War die Signatur vollstaendig? Nachweise sind muehsam zu rekonstruieren.</p>
+                </div>
+                <div class="card pain">
+                    <p class="quote">Berechtigungen und Sichtbarkeit kann niemand wirklich nachpruefen.</p>
+                    <p>Ob ein Dokument nur fuer die richtige Stelle sichtbar ist, bleibt eine Vertrauensfrage.</p>
+                </div>
+                <div class="card pain">
+                    <p class="quote">Unsere Prozesse aendern sich &ndash; alte Auswertungen werden dadurch falsch.</p>
+                    <p>Ohne Versionierung vergleicht man neue Laeufe gegen ein laengst ueberholtes Soll-Bild.</p>
+                </div>
+                <div class="card pain">
+                    <p class="quote">Wir ertrinken in Einzelfaellen statt die wichtigen Probleme zuerst zu sehen.</p>
+                    <p>Ohne Priorisierung ist jede Abweichung gleich laut &ndash; und nichts wird wirklich angegangen.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Loesung: Problem -> Loesung -->
+        <section class="block" id="loesung">
+            <div class="section-head">
+                <span class="kicker">Die Loesung</span>
+                <h2>Aus Ereignissen werden Antworten.</h2>
+                <p>Fuer jede dieser Schwierigkeiten gibt es eine konkrete Funktion &ndash; belastbar, nachvollziehbar und automatisierbar.</p>
+            </div>
+            <div class="pas">
+                <div class="pas-row">
+                    <div class="p">Niemand kennt den echten Ablauf</div>
+                    <div class="arrow">&rarr;</div>
+                    <div class="s"><strong>Template-Vorschlag aus echten Timelines:</strong> Das Tool leitet ein Soll-Template direkt aus tatsaechlichen Dokumentenlaeufen ab.</div>
+                </div>
+                <div class="pas-row">
+                    <div class="p">Laeuft der Prozess wie geplant?</div>
+                    <div class="arrow">&rarr;</div>
+                    <div class="s"><strong>Konformitaetspruefung &amp; Soll/Ist-Abgleich:</strong> Jeder Durchlauf wird gegen das Template geprueft und in OK, Warnung, Abweichung oder Fehler eingestuft.</div>
+                </div>
+                <div class="pas-row">
+                    <div class="p">Wo sind die Engpaesse?</div>
+                    <div class="arrow">&rarr;</div>
+                    <div class="s"><strong>Flow- und Duration-Heatmaps:</strong> Bottlenecks, Liegezeiten und kritische Pfade werden sichtbar &ndash; als JSON, Mermaid oder BPMN-aehnliche SVG-Sicht.</div>
+                </div>
+                <div class="pas-row">
+                    <div class="p">Audit &amp; Nachweis kosten zu viel Zeit</div>
+                    <div class="arrow">&rarr;</div>
+                    <div class="s"><strong>Historisierte Ergebnisse &amp; Signaturpruefung:</strong> Pruefergebnisse und vollstaendige Timelines bleiben nachvollziehbar gespeichert.</div>
+                </div>
+                <div class="pas-row">
+                    <div class="p">Sind Berechtigungen korrekt?</div>
+                    <div class="arrow">&rarr;</div>
+                    <div class="s"><strong>Access- und Visibility-Checks:</strong> Sichtbarkeitsregeln werden im Template dokumentiert, geprueft und als Pruefdoku ausgegeben.</div>
+                </div>
+                <div class="pas-row">
+                    <div class="p">Prozesse veraendern sich</div>
+                    <div class="arrow">&rarr;</div>
+                    <div class="s"><strong>Prozessversionen:</strong> Jeder Lauf wird gegen die zum Zeitpunkt gueltige Soll-Baseline bewertet &ndash; keine falschen Vergleiche.</div>
+                </div>
+                <div class="pas-row">
+                    <div class="p">Zu viele Einzelfaelle</div>
+                    <div class="arrow">&rarr;</div>
+                    <div class="s"><strong>Problem-Score &amp; Top-Problem-Dokumente:</strong> Abweichungen werden nach Schwere priorisiert, sodass Sie das Wichtigste zuerst sehen.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Ablauf -->
+        <section class="block" id="ablauf">
+            <div class="section-head">
+                <span class="kicker">So funktioniert es</span>
+                <h2>In vier Schritten von Rohereignissen zur Entscheidung.</h2>
+            </div>
+            <div class="grid grid-4 steps">
+                <div class="step">
+                    <div class="num">1</div>
+                    <h3>Beobachten</h3>
+                    <p>Prozessereignisse werden erfasst und zu Prozessinstanzen verdichtet &ndash; inkl. Phase, Akteur und Zeitpunkt.</p>
+                </div>
+                <div class="step">
+                    <div class="num">2</div>
+                    <h3>Anreichern</h3>
+                    <p>Dokumentkontext und Merkmale werden bei Bedarf aus Amagno nachgeladen und als Snapshot historisiert.</p>
+                </div>
+                <div class="step">
+                    <div class="num">3</div>
+                    <h3>Bewerten</h3>
+                    <p>Der Lauf wird gegen das versionierte Soll-Template geprueft: Pflichtschritte, Entscheidungen, Parallelgruppen.</p>
+                </div>
+                <div class="step">
+                    <div class="num">4</div>
+                    <h3>Sichtbar machen</h3>
+                    <p>Ergebnisse erscheinen als Reports, Heatmaps, Timelines und BPMN-Views &ndash; bereit fuer Betrieb und Audit.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Status-Demo -->
+        <section class="block">
+            <div class="grid grid-2" style="align-items:center; gap:2rem;">
+                <div class="section-head" style="margin-bottom:0;">
+                    <span class="kicker">Ergebnis auf einen Blick</span>
+                    <h2>Klarer Status statt Tabellenfriedhof.</h2>
+                    <p>
+                        Jeder Schritt eines Dokuments bekommt einen eindeutigen Status. Abweichungen sind farblich
+                        sofort erkennbar, und ein Problem-Score sortiert die wirklich kritischen Faelle nach oben &ndash;
+                        ideal fuer das taegliche Monitoring genauso wie fuer den Pruefer.
+                    </p>
+                    <div class="legend">
+                        <span class="badge b-ok">OK</span>
+                        <span class="badge b-warn">WARNUNG</span>
+                        <span class="badge b-dev">ABWEICHUNG</span>
+                    </div>
+                </div>
+                <div class="demo" aria-label="Beispielhafte Dokument-Timeline mit Status">
+                    <div class="line"><span class="doc">Rechnung&nbsp;2026-0481</span><span class="node">&middot; ai-rechnungen</span></div>
+                    <div class="line"><span class="node">01 Rechnungen pruefen</span><span class="badge b-ok">OK</span></div>
+                    <div class="line"><span class="node">&nbsp;&nbsp;&nbsp;Sichtbarkeit Standort&nbsp;A</span><span class="badge b-ok">OK</span></div>
+                    <div class="line"><span class="node">&nbsp;&nbsp;&nbsp;Sichtbarkeit Extern</span><span class="badge b-dev">VIOLATION</span></div>
+                    <div class="line"><span class="node">03 Freigabe klein</span><span class="badge b-warn">KONTEXT FEHLT</span></div>
+                    <div class="line"><span class="node">05 Ausgangsrechnung buchen</span><span class="badge b-ok">OK</span></div>
+                    <div class="line"><span class="node">Signaturpruefung</span><span class="badge b-dev">UNVOLLSTAENDIG</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section class="block" id="features">
+            <div class="section-head">
+                <span class="kicker">Funktionen</span>
+                <h2>Ein Werkzeugkasten fuer den gesamten Prozess-Lebenszyklus.</h2>
+            </div>
+            <div class="grid grid-3">
+                <div class="card">
+                    <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></div>
+                    <h3>Template-Vorschlag</h3>
+                    <p>Soll-Prozesse aus einzelnen oder vielen Dokument-Timelines automatisch ableiten.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div>
+                    <h3>Konformitaetspruefung</h3>
+                    <p>Einzel- und Batch-Checks mit Statusklassen OK, Warnung, Abweichung und Fehler.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><svg viewBox="0 0 24 24"><path d="M4 19V5m5 14V9m5 10V7m5 12V11"/></svg></div>
+                    <h3>Heatmaps &amp; KPIs</h3>
+                    <p>Flow- und Duration-Heatmaps zeigen Engpaesse, Liegezeiten und kritische Pfade.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/><path d="M10 7h4a2 2 0 0 1 2 2v5"/></svg></div>
+                    <h3>BPMN- &amp; Mermaid-Views</h3>
+                    <p>Neutrale Prozessgrafiken als JSON, Mermaid oder SVG &ndash; optional mit Live-Metriken.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 4.5-3.2 7.3-8 9-4.8-1.7-8-4.5-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg></div>
+                    <h3>Signaturpruefung</h3>
+                    <p>Erwartete gegen bestaetigte Freigaben pruefen und Vollstaendigkeit nachweisen.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg></div>
+                    <h3>Access- &amp; Visibility-Checks</h3>
+                    <p>Sichtbarkeitsregeln dokumentieren, pruefen und als Pruefdokumentation ausgeben.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M8.5 6H14a2 2 0 0 1 2 2v2M8.5 18H14a2 2 0 0 0 2-2v-2"/></svg></div>
+                    <h3>Prozessversionen</h3>
+                    <p>Jeder Lauf wird gegen die zum Ereigniszeitpunkt gueltige Baseline bewertet.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></div>
+                    <h3>Kontext-Historie</h3>
+                    <p>Snapshots zeigen, wie sich Dokumentkontext ueber die Zeit veraendert hat.</p>
+                </div>
+                <div class="card">
+                    <div class="ico"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M19 5l-3 3M8 16l-3 3"/></svg></div>
+                    <h3>Problem-Priorisierung</h3>
+                    <p>Problem-Score und Top-Problem-Dokumente lenken den Blick auf das Wesentliche.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Vorteile -->
+        <section class="block">
+            <div class="grid grid-2" style="gap:2rem;">
+                <div>
+                    <div class="section-head">
+                        <span class="kicker">Ihre Vorteile</span>
+                        <h2>Weniger Blindflug. Mehr belegbare Sicherheit.</h2>
+                    </div>
+                    <ul class="checks">
+                        <li><span class="tick">&#10003;</span><span><b>Transparenz:</b> der tatsaechliche Ablauf wird sichtbar &ndash; datenbasiert statt vermutet.</span></li>
+                        <li><span class="tick">&#10003;</span><span><b>Fruehwarnung:</b> Abweichungen und Engpaesse fallen auf, bevor sie teuer werden.</span></li>
+                        <li><span class="tick">&#10003;</span><span><b>Audit-Sicherheit:</b> Pruefergebnisse, Signaturen und Timelines sind nachvollziehbar dokumentiert.</span></li>
+                        <li><span class="tick">&#10003;</span><span><b>Priorisierung:</b> kritische Faelle zuerst, statt in Einzelmeldungen unterzugehen.</span></li>
+                        <li><span class="tick">&#10003;</span><span><b>Zukunftssicher:</b> DMS-unabhaengiger Kern, Amagno als erster Connector &ndash; weitere folgen.</span></li>
+                        <li><span class="tick">&#10003;</span><span><b>Schlank integrierbar:</b> Reports und CLI-Kommandos statt schwergewichtiger Plattform.</span></li>
+                    </ul>
+                </div>
+                <div class="grid aud" style="gap:1.1rem;">
+                    <div class="card">
+                        <div class="ico"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></div>
+                        <h3>Fuer Prozessverantwortliche</h3>
+                        <p>Den eigenen Prozess endlich faktenbasiert steuern und kontinuierlich verbessern.</p>
+                    </div>
+                    <div class="card">
+                        <div class="ico"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M21 12v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg></div>
+                        <h3>Fuer Qualitaet &amp; Audit</h3>
+                        <p>Konformitaet, Signaturen und Berechtigungen jederzeit prueffaehig belegen.</p>
+                    </div>
+                    <div class="card">
+                        <div class="ico"><svg viewBox="0 0 24 24"><path d="M8 9l-4 3 4 3M16 9l4 3-4 3M13 5l-2 14"/></svg></div>
+                        <h3>Fuer IT &amp; Integration</h3>
+                        <p>Sauber getrennte Architektur, JSON-Ausgaben und automatisierbare Kommandos.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Final CTA -->
+        <section class="block" id="start">
+            <div class="cta">
+                <h2>Machen Sie Ihre Prozesse sichtbar.</h2>
+                <p>
+                    Starten Sie mit einem bestehenden Template, lassen Sie Ihre Dokumentenlaeufe pruefen
+                    und sehen Sie in Minuten, wo Ihr Prozess vom Soll abweicht.
+                </p>
+                <div class="cta-row">
+                    <a class="btn btn-primary" href="/docs/index.html">Zur Entwicklerdoku</a>
+                    <a class="btn btn-outline" href="/docs/admin-guide.html">Administrator-Guide</a>
+                    <a class="btn btn-outline" href="/docs/process-analysis-guide.md">Analyse-Guide</a>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            Amagno Intelligence Tool &middot; Process Intelligence fuer dokumentenbasierte Prozesse &middot;
+            DMS-unabhaengiger Kern, Amagno als erster Connector.
+        </footer>
+    </div>
+</body>
+</html>
