@@ -286,7 +286,7 @@ Zeitpunkte werden fachlich als UTC gespeichert. Amagno-Zeitwerte ohne Offset wer
 bin/console intelligence:template:heatmap <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
   --format=json \
-  --output=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --output=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --force
 ```
 
@@ -378,7 +378,7 @@ Eine gespeicherte Heatmap kann explizit genutzt werden:
 ```bash
 bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
-  --metrics=var/intelligence/heatmaps/ai-rechnungen-heatmap.json
+  --metrics=var/april/generated/heatmaps/ai-rechnungen-heatmap.json
 ```
 
 Wenn `--metrics` gesetzt ist, wird bewusst genau diese Datei verwendet. Eine veraltete Datei kann deshalb andere Counts zeigen als Live-Checks.
@@ -450,7 +450,7 @@ JSON:
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
-  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --heatmap=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --format=json
 ```
 
@@ -459,7 +459,7 @@ Mermaid:
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
-  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --heatmap=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --format=mermaid \
   --view=summary
 ```
@@ -469,7 +469,7 @@ SVG Summary:
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
-  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --heatmap=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --format=svg \
   --view=summary \
   --layout=process
@@ -480,7 +480,7 @@ SVG Bottleneck:
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
-  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --heatmap=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --format=svg \
   --view=bottleneck \
   --layout=process

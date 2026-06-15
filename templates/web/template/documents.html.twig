@@ -1,0 +1,60 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ key }} · Dokumente · APRIL{% endblock %}
+
+{% block body %}
+    {# 1. Kopfbereich #}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_show', { key: key }) }}">← Zurück zur Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Dokumente – {{ key }}</h1>
+        <p class="meta-line">Key: <code>{{ key }}</code></p>
+        <p class="meta-line">Version: <strong>{{ version }}</strong></p>
+
+        {# 2. Hinweis #}
+        <p class="muted">Diese Liste zeigt Dokumente, zu denen APRIL bereits Events/Prozessdaten kennt.</p>
+    </div>
+
+    {# 3. Tabelle / 4. Leerzustand #}
+    <div class="card">
+        <h2>Bekannte Dokumente</h2>
+        {% if rows is empty %}
+            <p class="muted">Für dieses Template sind APRIL aktuell keine Dokumente bekannt
+            (noch keine Events erfasst).</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Document UUID</th>
+                        {% if is_expert_view() %}<th>Externe ID</th><th>Version</th>{% endif %}
+                        <th>Events</th>
+                        <th>Letztes Event</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                        <tr>
+                            <td><code>{{ row.documentUuid }}</code></td>
+                            {% if is_expert_view() %}
+                                <td>{{ row.documentExternalId ?? '—' }}</td>
+                                <td>{{ row.documentVersion ?? '—' }}</td>
+                            {% endif %}
+                            <td>{{ row.eventCount }}</td>
+                            <td>{{ row.lastEventAt ? row.lastEventAt|date('Y-m-d H:i') : '—' }}</td>
+                            <td><span class="pill-link is-disabled" title="Dokument-Detailseite folgt">Details (folgt)</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if is_expert_view() %}
+                <p class="muted">Technische Sicht: <code>documentUuid</code> ist die rohe Dokument-UUID;
+                externe ID und Version stammen aus den jüngsten Events ({{ rows|length }} Dokument(e)).</p>
+            {% endif %}
+        {% endif %}
+    </div>
+{% endblock %}

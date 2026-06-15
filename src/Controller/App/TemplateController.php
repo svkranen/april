@@ -3,6 +3,7 @@
 namespace App\Controller\App;
 
 use App\Intelligence\Application\AccessCoverageReportBuilder;
+use App\Intelligence\Application\DocumentListProvider;
 use App\Intelligence\Application\ProcessTemplateCatalog;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\TemplateAccessView;
@@ -23,6 +24,7 @@ final class TemplateController
         private readonly ProcessTemplateCatalog $catalog,
         private readonly ProcessTemplateProvider $templateProvider,
         private readonly AccessCoverageReportBuilder $coverageBuilder,
+        private readonly DocumentListProvider $documentListProvider,
         private readonly Environment $twig
     ) {
     }
@@ -72,6 +74,22 @@ final class TemplateController
         return new Response($this->twig->render('template/access.html.twig', [
             'active_nav' => 'templates',
             'view' => TemplateAccessView::fromTemplate($template, $report),
+        ]));
+    }
+
+    #[Route('/app/templates/{key}/documents', name: 'app_templates_documents', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
+    public function documents(string $key): Response
+    {
+        $template = $this->templateProvider->findByProcessKey($key);
+        if ($template === null) {
+            throw new NotFoundHttpException(sprintf('Template "%s" not found.', $key));
+        }
+
+        return new Response($this->twig->render('template/documents.html.twig', [
+            'active_nav' => 'templates',
+            'key' => $template->key,
+            'version' => $template->version,
+            'rows' => $this->documentListProvider->documentsForProcess($template->key, 200),
         ]));
     }
 }

@@ -345,10 +345,10 @@ bin/console intelligence:template:check-process &lt;processKey&gt; \
                             <h3>Heatmap und BPMN-View</h3>
                             <pre><code>bin/console intelligence:template:heatmap &lt;processKey&gt; \
   --template=config/april/process-templates/&lt;processKey&gt;.yaml \
-  --format=json --output=var/intelligence/heatmaps/&lt;processKey&gt;-heatmap.json --force
+  --format=json --output=var/april/generated/heatmaps/&lt;processKey&gt;-heatmap.json --force
 bin/console intelligence:template:bpmn-view &lt;processKey&gt; \
   --template=config/april/process-templates/&lt;processKey&gt;.yaml \
-  --heatmap=var/intelligence/heatmaps/&lt;processKey&gt;-heatmap.json \
+  --heatmap=var/april/generated/heatmaps/&lt;processKey&gt;-heatmap.json \
   --format=svg --view=summary --layout=process</code></pre>
                             <p>SVG-Views unterstuetzen <code>summary</code>, <code>bottleneck</code>, <code>deviations</code>, <code>observed</code> und <code>combined</code>. Das Layout <code>process</code> ist fuer fachliche Prozessansichten gedacht, <code>graph</code> fuer Detailanalyse.</p>
                         </div>

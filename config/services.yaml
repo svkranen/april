@@ -22,6 +22,9 @@ parameters:
     intelligence.event_secret: ''
     intelligence.context_profiles: []
     april.process_template_dir: '%kernel.project_dir%/config/april/process-templates'
+    april.generated_dir: '%kernel.project_dir%/var/april/generated'
+    april.heatmap_output_dir: '%kernel.project_dir%/var/april/generated/heatmaps'
+    april.diagram_output_dir: '%kernel.project_dir%/var/april/generated/diagrams'
 
 services:
     # default configuration for services in *this* file
@@ -158,6 +161,9 @@ services:
     App\Intelligence\Application\ProcessDocumentUuidProvider:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessDocumentUuidProvider
 
+    App\Intelligence\Application\DocumentListProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineDocumentListProvider
+
     App\Intelligence\Application\EventListProvider:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineEventListProvider
 
@@ -202,6 +208,7 @@ services:
     App\Command\IntelligenceTemplateHeatmapCommand:
         arguments:
             $processTemplateDirectory: '%april.process_template_dir%'
+            $heatmapOutputDirectory: '%april.heatmap_output_dir%'
 
     App\Command\IntelligenceAccessCheckDocumentCommand:
         arguments:

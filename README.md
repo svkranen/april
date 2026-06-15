@@ -259,7 +259,7 @@ Heatmap erzeugen:
 bin/console intelligence:template:heatmap <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
   --format=json \
-  --output=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --output=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --force
 ```
 
@@ -345,7 +345,7 @@ Eine vorhandene Heatmap-Datei kann explizit genutzt werden:
 ```bash
 bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
-  --metrics=var/intelligence/heatmaps/ai-rechnungen-heatmap.json
+  --metrics=var/april/generated/heatmaps/ai-rechnungen-heatmap.json
 ```
 
 Wichtig: Wenn `--metrics` gesetzt ist, wird genau diese Datei verwendet. Ohne `--metrics` ist die Live-Datenbasis der aktuelle `processKey`.
@@ -380,7 +380,7 @@ View Model als JSON:
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
-  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --heatmap=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --format=json
 ```
 
@@ -389,7 +389,7 @@ Mermaid fuer Doku:
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
-  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --heatmap=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --format=mermaid \
   --view=summary
 ```
@@ -399,7 +399,7 @@ SVG Summary, gut lesbar als Prozessansicht:
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
-  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --heatmap=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --format=svg \
   --view=summary \
   --layout=process
@@ -410,7 +410,7 @@ Bottleneck-Fokus:
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
   --template=config/april/process-templates/<processKey>.yaml \
-  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
+  --heatmap=var/april/generated/heatmaps/<processKey>-heatmap.json \
   --format=svg \
   --view=bottleneck \
   --layout=process

@@ -31,7 +31,8 @@ final class IntelligenceTemplateHeatmapCommand extends Command
         private readonly ProcessDocumentUuidProvider $documentUuidProvider,
         private readonly DocumentTimelineProvider $timelineProvider,
         private readonly KpiRelevantTimelineFilter $timelineFilter,
-        private readonly string $processTemplateDirectory
+        private readonly string $processTemplateDirectory,
+        private readonly string $heatmapOutputDirectory
     ) {
         parent::__construct();
     }
@@ -148,14 +149,7 @@ final class IntelligenceTemplateHeatmapCommand extends Command
             return Command::FAILURE;
         }
 
-        $outputPath = $input->getOption('output');
-        if ($outputPath === null) {
-            $output->write($contents);
-
-            return Command::SUCCESS;
-        }
-
-        $outputPath = (string) $outputPath;
+        $outputPath = $this->outputPath($processKey, $format, $input->getOption('output'));
         if (file_exists($outputPath) && $input->getOption('force') !== true) {
             $output->writeln(sprintf('<error>Output file already exists: %s. Use --force to overwrite.</error>', $outputPath));
 
@@ -175,6 +169,17 @@ final class IntelligenceTemplateHeatmapCommand extends Command
         }
 
         return rtrim($this->processTemplateDirectory, '/') . '/' . $processKey . '.yaml';
+    }
+
+    private function outputPath(string $processKey, string $format, mixed $outputOption): string
+    {
+        if ($outputOption !== null && $outputOption !== '') {
+            return (string) $outputOption;
+        }
+
+        $extension = $format === 'json' ? 'json' : 'yaml';
+
+        return rtrim($this->heatmapOutputDirectory, '/') . '/' . $processKey . '-heatmap.' . $extension;
     }
 
     private function sinceOption(mixed $value, OutputInterface $output): DateTimeImmutable|false|null

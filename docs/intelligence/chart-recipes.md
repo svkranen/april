@@ -311,12 +311,12 @@ Zweck: Ein reproduzierbares Diagramm aus einer vorher erzeugten Heatmap rendern.
 bin/console intelligence:template:heatmap ai-rechnungen \
   --template=config/april/process-templates/ai-rechnungen.yaml \
   --format=json \
-  --output=var/intelligence/heatmaps/ai-rechnungen-heatmap.json \
+  --output=var/april/generated/heatmaps/ai-rechnungen-heatmap.json \
   --force
 
 bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
-  --metrics=var/intelligence/heatmaps/ai-rechnungen-heatmap.json
+  --metrics=var/april/generated/heatmaps/ai-rechnungen-heatmap.json
 ```
 
 Wichtig: Mit `--metrics` wird bewusst diese Datei verwendet. Sie kann andere Counts zeigen als Live-Auswertungen, wenn sie veraltet ist.
