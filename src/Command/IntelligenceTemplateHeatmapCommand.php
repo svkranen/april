@@ -18,7 +18,6 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Yaml\Yaml;
 
 #[AsCommand(
@@ -32,7 +31,7 @@ final class IntelligenceTemplateHeatmapCommand extends Command
         private readonly ProcessDocumentUuidProvider $documentUuidProvider,
         private readonly DocumentTimelineProvider $timelineProvider,
         private readonly KpiRelevantTimelineFilter $timelineFilter,
-        private readonly KernelInterface $kernel
+        private readonly string $processTemplateDirectory
     ) {
         parent::__construct();
     }
@@ -175,7 +174,7 @@ final class IntelligenceTemplateHeatmapCommand extends Command
             return (string) $templateOption;
         }
 
-        return $this->kernel->getProjectDir() . '/templates/' . $processKey . '.yaml';
+        return rtrim($this->processTemplateDirectory, '/') . '/' . $processKey . '.yaml';
     }
 
     private function sinceOption(mixed $value, OutputInterface $output): DateTimeImmutable|false|null

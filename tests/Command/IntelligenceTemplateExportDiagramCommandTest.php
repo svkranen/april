@@ -28,7 +28,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         $tester = new CommandTester($this->command());
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
         ]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -45,7 +45,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         $tester = new CommandTester($this->command());
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--show-default-order' => true,
         ]);
 
@@ -61,7 +61,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         $tester = new CommandTester($this->command());
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--compat' => 'obsidian',
         ]);
 
@@ -78,7 +78,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         $tester = new CommandTester($this->command());
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--output' => $outputPath,
         ]);
 
@@ -105,7 +105,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         $tester = new CommandTester($this->command());
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--view' => 'flow',
             '--metrics' => $metricsPath,
         ]);
@@ -134,7 +134,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ));
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--view' => 'combined',
             '--debug-metrics' => true,
         ]);
@@ -159,7 +159,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ));
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--view' => 'flow',
             '--debug-metrics' => true,
             '--include-excluded' => true,
@@ -182,7 +182,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ));
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--view' => 'flow',
             '--debug-metrics' => true,
             '--show-node-metrics' => true,
@@ -216,7 +216,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ));
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--view' => 'flow',
             '--process-version' => 'latest',
             '--debug-metrics' => true,
@@ -246,7 +246,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ));
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
         ]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
@@ -270,7 +270,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ));
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--diagram-mode' => 'audit',
         ]);
         $display = $tester->getDisplay();
@@ -304,7 +304,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ));
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--view' => 'flow',
             '--show-flow-legend' => true,
             '--show-node-metrics' => true,
@@ -336,7 +336,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ));
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--view' => 'dwell',
             '--show-dwell-legend' => true,
             '--dwell-metric' => 'median',
@@ -380,7 +380,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ));
 
         $exitCode = $tester->execute([
-            'template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            'template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--view' => 'dwell',
             '--debug-metrics' => true,
         ]);

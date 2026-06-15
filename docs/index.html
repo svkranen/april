@@ -330,30 +330,31 @@
                 <section class="card" id="analyse">
                     <h2>2. Prozessanalyse</h2>
                     <p class="lead">Der aktuelle Hauptpfad ist die template-basierte Prozessanalyse. Details und Beispiele stehen im <a href="./process-analysis-guide.md">Process Analysis Guide</a>; die wichtigsten Einstiege sind hier zusammengefasst.</p>
+                    <p>APRIL-Prozess-Templates liegen unter <code>config/april/process-templates/</code>. Das Projektverzeichnis <code>templates/</code> ist fuer Symfony/Twig- und Frontend-Templates reserviert.</p>
                     <div class="grid-2">
                         <div class="mini">
                             <h3>Template und Check</h3>
                             <pre><code>bin/console intelligence:template:list
 bin/console intelligence:template:check-document &lt;documentUuid&gt; &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml
 bin/console intelligence:template:check-process &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml</code></pre>
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml</code></pre>
                             <p>Der Batch-Check liefert Statusklassen <code>OK</code>, <code>WARNING</code>, <code>DEVIATION</code> und <code>ERROR</code>, Problem-Statistiken und priorisierte Top-Problem-Dokumente.</p>
                         </div>
                         <div class="mini">
                             <h3>Heatmap und BPMN-View</h3>
                             <pre><code>bin/console intelligence:template:heatmap &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml \
-  --format=json --output=templates/&lt;processKey&gt;-heatmap.json --force
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml \
+  --format=json --output=var/intelligence/heatmaps/&lt;processKey&gt;-heatmap.json --force
 bin/console intelligence:template:bpmn-view &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml \
-  --heatmap=templates/&lt;processKey&gt;-heatmap.json \
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml \
+  --heatmap=var/intelligence/heatmaps/&lt;processKey&gt;-heatmap.json \
   --format=svg --view=summary --layout=process</code></pre>
                             <p>SVG-Views unterstuetzen <code>summary</code>, <code>bottleneck</code>, <code>deviations</code>, <code>observed</code> und <code>combined</code>. Das Layout <code>process</code> ist fuer fachliche Prozessansichten gedacht, <code>graph</code> fuer Detailanalyse.</p>
                         </div>
                         <div class="mini">
                             <h3>Mermaid ProcessGraph</h3>
-                            <pre><code>bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+                            <pre><code>bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined --debug-metrics
 bin/console intelligence:sample-data:load-ai-rechnungen --purge</code></pre>
                             <p>Der Export nutzt fuer Metrik-Views ohne <code>--metrics</code> dieselbe ProcessEvent-/Timeline-Basis wie <code>check-process</code>. Direkte beobachtete Step-Uebergaenge werden auf virtuelle Soll-Knoten wie Decision Gateways und Parallel-Join projiziert.</p>

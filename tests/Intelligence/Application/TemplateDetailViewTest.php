@@ -36,6 +36,11 @@ class TemplateDetailViewTest extends TestCase
         self::assertSame(2, $view->steps[0]['afterChecks']);
         self::assertSame(0, $view->steps[1]['beforeChecks']);
         self::assertSame(0, $view->steps[1]['afterChecks']);
+        // Per-step visibility check keys (used by the expert view).
+        self::assertSame(['init'], $view->steps[0]['beforeCheckKeys']);
+        self::assertSame(['route', 'external'], $view->steps[0]['afterCheckKeys']);
+        self::assertSame([], $view->steps[1]['beforeCheckKeys']);
+        self::assertSame([], $view->steps[1]['afterCheckKeys']);
 
         // Transitions (including parallel group target).
         self::assertCount(2, $view->transitions);

@@ -62,7 +62,7 @@ class ProcessTemplateCatalogTest extends TestCase
 
     public function testFindsRealAiRechnungenTemplate(): void
     {
-        $directory = dirname(__DIR__, 3).'/templates';
+        $directory = dirname(__DIR__, 3).'/config/april/process-templates';
 
         $result = (new ProcessTemplateCatalog($directory))->list();
 

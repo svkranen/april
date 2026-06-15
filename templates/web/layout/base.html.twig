@@ -44,6 +44,13 @@
         nav.app-nav { display: flex; gap: 1.2rem; flex-wrap: wrap; }
         nav.app-nav a { color: #cfe9ea; text-decoration: none; font-weight: 600; }
         nav.app-nav a.is-active, nav.app-nav a:hover { color: #fff; }
+        .bar-right { display: flex; align-items: center; gap: 1.4rem; flex-wrap: wrap; }
+        .view-toggle { display: inline-flex; border: 1px solid rgba(255,255,255,0.25); border-radius: 999px; overflow: hidden; }
+        .view-toggle a {
+            color: #cfe9ea; text-decoration: none; font-size: 0.82rem; font-weight: 700;
+            padding: 0.28rem 0.7rem;
+        }
+        .view-toggle a.is-active { background: rgba(255,255,255,0.92); color: #0a2342; }
         main.app-main {
             width: min(1180px, calc(100% - 2.5rem));
             margin: 2rem auto 4rem;
@@ -112,13 +119,16 @@
     </style>
     {% block head '' %}
 </head>
-<body>
+<body class="view-{{ view_mode() }}">
     <header class="app-header">
         <div class="bar">
             <div class="brand"><span class="logo">AI</span> APRIL · Amagno Intelligence Tool</div>
-            <nav class="app-nav">
-                <a href="{{ path('app_templates_index') }}" class="{{ active_nav|default('') == 'templates' ? 'is-active' : '' }}">Templates</a>
-            </nav>
+            <div class="bar-right">
+                <nav class="app-nav">
+                    <a href="{{ path('app_templates_index') }}" class="{{ active_nav|default('') == 'templates' ? 'is-active' : '' }}">Templates</a>
+                </nav>
+                {{ include('_partials/_view_mode_toggle.html.twig') }}
+            </div>
         </div>
     </header>
 
@@ -127,7 +137,10 @@
     </main>
 
     <footer class="app-footer">
-        APRIL · Prozessmonitoring &amp; Audit für dokumentenbasierte Prozesse
+        <p>APRIL · Prozessmonitoring &amp; Audit für dokumentenbasierte Prozesse</p>
+        {% if is_expert_view() %}
+            <p class="muted">Die Technische Sicht zeigt interne Keys und Provider-Details. Sie ersetzt keine Berechtigungsprüfung.</p>
+        {% endif %}
     </footer>
 </body>
 </html>

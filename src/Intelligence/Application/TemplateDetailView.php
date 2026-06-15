@@ -18,7 +18,7 @@ final readonly class TemplateDetailView
 {
     /**
      * @param array<int, string> $requiredStepKeys
-     * @param array<int, array{key: string, name: ?string, type: string, beforeChecks: int, afterChecks: int}> $steps
+     * @param array<int, array{key: string, name: ?string, type: string, beforeChecks: int, afterChecks: int, beforeCheckKeys: array<int, string>, afterCheckKeys: array<int, string>}> $steps
      * @param array<int, array{from: string, to: ?string, parallelGroup: ?string}> $transitions
      * @param array<int, array{key: string, after: ?string, requiredFields: array<int, string>, ruleCount: int, outcomes: array<int, string>}> $decisionPoints
      * @param array<int, string> $contextProfileRequiredFields
@@ -60,6 +60,8 @@ final readonly class TemplateDetailView
                 'type' => $step->type,
                 'beforeChecks' => $before,
                 'afterChecks' => $after,
+                'beforeCheckKeys' => array_map(static fn ($check): string => $check->key, $step->beforeVisibilityChecks),
+                'afterCheckKeys' => array_map(static fn ($check): string => $check->key, $step->afterVisibilityChecks),
             ];
         }
 

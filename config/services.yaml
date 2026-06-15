@@ -21,6 +21,7 @@ parameters:
     intelligence.event_store_file: '%kernel.project_dir%/var/intelligence/process_events.jsonl'
     intelligence.event_secret: ''
     intelligence.context_profiles: []
+    april.process_template_dir: '%kernel.project_dir%/config/april/process-templates'
 
 services:
     # default configuration for services in *this* file
@@ -188,15 +189,19 @@ services:
 
     App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider:
         arguments:
-            $templateDirectory: '%kernel.project_dir%/templates'
+            $templateDirectory: '%april.process_template_dir%'
 
     App\Intelligence\Application\ProcessTemplateCatalog:
         arguments:
-            $templateDirectory: '%kernel.project_dir%/templates'
+            $templateDirectory: '%april.process_template_dir%'
 
     App\Command\IntelligenceTemplateListCommand:
         arguments:
-            $templateDirectory: '%kernel.project_dir%/templates'
+            $templateDirectory: '%april.process_template_dir%'
+
+    App\Command\IntelligenceTemplateHeatmapCommand:
+        arguments:
+            $processTemplateDirectory: '%april.process_template_dir%'
 
     App\Command\IntelligenceAccessCheckDocumentCommand:
         arguments:

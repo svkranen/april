@@ -61,6 +61,11 @@ Der fachliche Kern bleibt DMS-unabhaengig. Amagno bleibt Adapter.
 
 ## Template-Erweiterung
 
+APRIL-Prozess-Templates liegen standardmaessig unter
+`config/april/process-templates/*.yaml`. Das Projektverzeichnis `templates/`
+ist fuer Symfony/Twig- und Frontend-Templates reserviert und darf nicht fuer
+APRIL-Prozess-YAMLs verwendet werden.
+
 Vorgeschlagene Top-Level-Keys:
 
 ```yaml

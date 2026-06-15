@@ -1,0 +1,9 @@
+{# UI-only view mode switch (business vs. expert). No security effect.
+   Keeps existing query parameters and overrides only `view`. #}
+{% set current_query = app.request.query.all %}
+<div class="view-toggle" role="group" aria-label="Sicht umschalten">
+    <a href="{{ app.request.pathInfo }}?{{ current_query|merge({ view: 'business' })|url_encode }}"
+       class="{{ is_expert_view() ? '' : 'is-active' }}">Fachsicht</a>
+    <a href="{{ app.request.pathInfo }}?{{ current_query|merge({ view: 'expert' })|url_encode }}"
+       class="{{ is_expert_view() ? 'is-active' : '' }}">Technische Sicht</a>
+</div>

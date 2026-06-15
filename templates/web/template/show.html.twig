@@ -46,7 +46,10 @@
         {% else %}
             <table>
                 <thead>
-                    <tr><th>Schritt</th><th>Name</th><th>Typ</th><th>Sichtbarkeitsprüfungen</th></tr>
+                    <tr>
+                        <th>Schritt</th><th>Name</th><th>Typ</th><th>Sichtbarkeitsprüfungen</th>
+                        {% if is_expert_view() %}<th>Check-Keys (technisch)</th>{% endif %}
+                    </tr>
                 </thead>
                 <tbody>
                     {% for step in view.steps %}
@@ -59,6 +62,13 @@
                                 {% if step.afterChecks > 0 %}<span class="badge">after: {{ step.afterChecks }}</span>{% endif %}
                                 {% if step.beforeChecks == 0 and step.afterChecks == 0 %}<span class="badge is-muted">keine</span>{% endif %}
                             </td>
+                            {% if is_expert_view() %}
+                                <td>
+                                    {% for k in step.beforeCheckKeys %}<code>before:{{ k }}</code> {% endfor %}
+                                    {% for k in step.afterCheckKeys %}<code>after:{{ k }}</code> {% endfor %}
+                                    {% if step.beforeCheckKeys is empty and step.afterCheckKeys is empty %}—{% endif %}
+                                </td>
+                            {% endif %}
                         </tr>
                     {% endfor %}
                 </tbody>

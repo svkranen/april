@@ -1,4 +1,6 @@
-{# `probes` = array of probe rows from TemplateAccessView. #}
+{# `probes` = array of probe rows from TemplateAccessView.
+   Technical columns are shown only in the expert view; key + description stay
+   visible in business view (less prominent). #}
 {% if probes is empty %}
     <p class="muted">Keine Access-Probes definiert.</p>
 {% else %}
@@ -6,26 +8,30 @@
         <thead>
             <tr>
                 <th>Key</th>
-                <th>Source-System</th>
-                <th>Typ</th>
+                {% if is_expert_view() %}<th>Source-System</th><th>Typ</th>{% endif %}
                 <th>Beschreibung</th>
-                <th>max_documents</th>
-                <th>page_size</th>
-                <th>Referenz (magnet_id)</th>
+                {% if is_expert_view() %}<th>max_documents</th><th>page_size</th><th>Referenz (magnet_id)</th>{% endif %}
             </tr>
         </thead>
         <tbody>
             {% for probe in probes %}
                 <tr>
                     <td><code>{{ probe.key }}</code></td>
-                    <td><code>{{ probe.sourceSystem }}</code></td>
-                    <td>{{ probe.type }}</td>
+                    {% if is_expert_view() %}
+                        <td><code>{{ probe.sourceSystem }}</code></td>
+                        <td>{{ probe.type }}</td>
+                    {% endif %}
                     <td>{{ probe.description ?? '—' }}</td>
-                    <td>{{ probe.maxDocuments ?? '—' }}</td>
-                    <td>{{ probe.pageSize ?? '—' }}</td>
-                    <td>{{ probe.probeRef ?? '—' }}</td>
+                    {% if is_expert_view() %}
+                        <td>{{ probe.maxDocuments ?? '—' }}</td>
+                        <td>{{ probe.pageSize ?? '—' }}</td>
+                        <td>{{ probe.probeRef ?? '—' }}</td>
+                    {% endif %}
                 </tr>
             {% endfor %}
         </tbody>
     </table>
+    {% if not is_expert_view() %}
+        <p class="muted">Technische Probe-Details (Source-System, Typ, magnet_id, page_size, max_documents) in der Technischen Sicht einblendbar.</p>
+    {% endif %}
 {% endif %}

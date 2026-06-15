@@ -16,7 +16,6 @@ use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
-use Symfony\Component\HttpKernel\KernelInterface;
 
 final class IntelligenceTemplateHeatmapCommandTest extends TestCase
 {
@@ -31,7 +30,7 @@ final class IntelligenceTemplateHeatmapCommandTest extends TestCase
 
         $exitCode = $tester->execute([
             'processKey' => 'ai-rechnungen',
-            '--template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            '--template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--format' => 'json',
         ]);
         $report = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
@@ -52,7 +51,7 @@ final class IntelligenceTemplateHeatmapCommandTest extends TestCase
 
         $exitCode = $tester->execute([
             'processKey' => 'ai-rechnungen',
-            '--template' => dirname(__DIR__, 2).'/templates/ai-rechnungen.yaml',
+            '--template' => dirname(__DIR__, 2).'/config/april/process-templates/ai-rechnungen.yaml',
             '--format' => 'json',
             '--include-excluded' => true,
         ]);
@@ -66,15 +65,30 @@ final class IntelligenceTemplateHeatmapCommandTest extends TestCase
         self::assertSame('no_process_version_defined', $report['kpi_eligibility']['excluded_timelines'][0]['exclusion_reason']);
     }
 
+    public function testHeatmapUsesConfiguredProcessTemplateDirectoryByDefault(): void
+    {
+        $events = [
+            $this->event('900001', 'uuid-900001', 1, '01 Rechnungen pruefen', '2026-06-01T09:00:00+00:00'),
+        ];
+        $tester = new CommandTester($this->command($events));
+
+        $exitCode = $tester->execute([
+            'processKey' => 'ai-rechnungen',
+            '--format' => 'json',
+            '--include-excluded' => true,
+        ]);
+        $report = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(1, $report['documents_used']);
+    }
+
     /**
      * @param array<int, ProcessEventRecord> $events
      * @param array<int, ProcessVersion>|null $versions
      */
     private function command(array $events, ?array $versions = null): IntelligenceTemplateHeatmapCommand
     {
-        $kernel = $this->createMock(KernelInterface::class);
-        $kernel->method('getProjectDir')->willReturn(dirname(__DIR__, 2));
-
         return new IntelligenceTemplateHeatmapCommand(
             new TemplateHeatmapReportBuilder(new TemplateFlowHeatmapBuilder(), new TemplateDurationHeatmapBuilder()),
             new InMemoryProcessDocumentUuidProvider($events),
@@ -82,7 +96,7 @@ final class IntelligenceTemplateHeatmapCommandTest extends TestCase
             new KpiRelevantTimelineFilter(new InMemoryProcessVersionRepository($versions ?? [
                 new ProcessVersion(null, 'ai-rechnungen', '1.0', new DateTimeImmutable('2026-06-01T08:00:00+00:00')),
             ])),
-            $kernel
+            dirname(__DIR__, 2).'/config/april/process-templates'
         );
     }
 

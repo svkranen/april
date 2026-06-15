@@ -24,7 +24,10 @@ Amagno ist der erste Connector. Der fachliche Kern bleibt langfristig DMS-unabha
 
 ## Schnellstart
 
-Template-Dateien liegen typischerweise unter `templates/*.yaml`.
+APRIL-Prozess-Templates liegen typischerweise unter
+`config/april/process-templates/*.yaml`. Das Projektverzeichnis `templates/`
+ist fuer Symfony/Twig- und Frontend-Templates reserviert und darf nicht fuer
+APRIL-Prozess-YAMLs verwendet werden.
 
 Verfuegbare Templates anzeigen:
 
@@ -37,21 +40,21 @@ Ein Dokument gegen ein Template pruefen:
 
 ```bash
 bin/console intelligence:template:check-document <documentUuid> <processKey> \
-  --template=templates/<processKey>.yaml
+  --template=config/april/process-templates/<processKey>.yaml
 ```
 
 Alle Dokumente eines Prozesses pruefen:
 
 ```bash
 bin/console intelligence:template:check-process <processKey> \
-  --template=templates/<processKey>.yaml
+  --template=config/april/process-templates/<processKey>.yaml
 ```
 
 JSON-Ausgabe:
 
 ```bash
 bin/console intelligence:template:check-process <processKey> \
-  --template=templates/<processKey>.yaml \
+  --template=config/april/process-templates/<processKey>.yaml \
   --format=json
 ```
 
@@ -59,7 +62,7 @@ Nur fachliche Abweichungen anzeigen:
 
 ```bash
 bin/console intelligence:template:check-process <processKey> \
-  --template=templates/<processKey>.yaml \
+  --template=config/april/process-templates/<processKey>.yaml \
   --only-deviations
 ```
 
@@ -67,7 +70,7 @@ OK-Dokumente zusaetzlich auflisten:
 
 ```bash
 bin/console intelligence:template:check-process <processKey> \
-  --template=templates/<processKey>.yaml \
+  --template=config/april/process-templates/<processKey>.yaml \
   --show-ok
 ```
 
@@ -254,9 +257,9 @@ Heatmap erzeugen:
 
 ```bash
 bin/console intelligence:template:heatmap <processKey> \
-  --template=templates/<processKey>.yaml \
+  --template=config/april/process-templates/<processKey>.yaml \
   --format=json \
-  --output=templates/<processKey>-heatmap.json \
+  --output=var/intelligence/heatmaps/<processKey>-heatmap.json \
   --force
 ```
 
@@ -272,20 +275,20 @@ Der direkte Diagramm-Export nutzt zuerst einen neutralen `ProcessGraph` und rend
 Strukturansicht:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/<processKey>.yaml
+bin/console intelligence:template:export-diagram config/april/process-templates/<processKey>.yaml
 ```
 
 Obsidian-kompatible Labels:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/<processKey>.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/<processKey>.yaml \
   --compat=obsidian
 ```
 
 Default-Order-Kanten aus der Reihenfolge in `steps` sind standardmaessig ausgeblendet. Bei Bedarf:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/<processKey>.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/<processKey>.yaml \
   --show-default-order
 ```
 
@@ -310,7 +313,7 @@ Dwell-Farben nutzen standardmaessig eine relative Gelb-bis-Rot-Perzentil-Skala i
 Legende ausgeben:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=dwell \
   --show-dwell-legend
 ```
@@ -326,23 +329,23 @@ In `--view=flow` codiert die Kantendicke die beobachtete Menge auf der Kante. No
 - Rot bedeutet hohes Volumen im aktuellen Datensatz, nicht kritisch.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=flow \
   --show-flow-legend \
   --show-node-metrics
 ```
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined
 ```
 
 Eine vorhandene Heatmap-Datei kann explizit genutzt werden:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
-  --metrics=templates/ai-rechnungen-heatmap.json
+  --metrics=var/intelligence/heatmaps/ai-rechnungen-heatmap.json
 ```
 
 Wichtig: Wenn `--metrics` gesetzt ist, wird genau diese Datei verwendet. Ohne `--metrics` ist die Live-Datenbasis der aktuelle `processKey`.
@@ -361,7 +364,7 @@ Live-Metrik-Filter:
 Debug-Ausgabe fuer Metrik-Projektion:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
   --debug-metrics
 ```
@@ -376,8 +379,8 @@ View Model als JSON:
 
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
-  --template=templates/<processKey>.yaml \
-  --heatmap=templates/<processKey>-heatmap.json \
+  --template=config/april/process-templates/<processKey>.yaml \
+  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
   --format=json
 ```
 
@@ -385,8 +388,8 @@ Mermaid fuer Doku:
 
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
-  --template=templates/<processKey>.yaml \
-  --heatmap=templates/<processKey>-heatmap.json \
+  --template=config/april/process-templates/<processKey>.yaml \
+  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
   --format=mermaid \
   --view=summary
 ```
@@ -395,8 +398,8 @@ SVG Summary, gut lesbar als Prozessansicht:
 
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
-  --template=templates/<processKey>.yaml \
-  --heatmap=templates/<processKey>-heatmap.json \
+  --template=config/april/process-templates/<processKey>.yaml \
+  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
   --format=svg \
   --view=summary \
   --layout=process
@@ -406,8 +409,8 @@ Bottleneck-Fokus:
 
 ```bash
 bin/console intelligence:template:bpmn-view <processKey> \
-  --template=templates/<processKey>.yaml \
-  --heatmap=templates/<processKey>-heatmap.json \
+  --template=config/april/process-templates/<processKey>.yaml \
+  --heatmap=var/intelligence/heatmaps/<processKey>-heatmap.json \
   --format=svg \
   --view=bottleneck \
   --layout=process
