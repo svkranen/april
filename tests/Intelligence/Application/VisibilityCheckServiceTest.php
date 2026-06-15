@@ -3,10 +3,13 @@
 namespace App\Tests\Intelligence\Application;
 
 use App\Intelligence\Application\AccessProbeProviderRegistry;
+use App\Intelligence\Application\AccessProbeResult;
 use App\Intelligence\Application\VisibilityCheckService;
 use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateAccessProbe;
 use App\Intelligence\Domain\ProcessTemplateArrayFactory;
 use App\Intelligence\Infrastructure\Access\InMemoryAccessProbeProvider;
+use App\Intelligence\Port\AccessProbeProvider;
 use PHPUnit\Framework\TestCase;
 
 class VisibilityCheckServiceTest extends TestCase
@@ -28,7 +31,8 @@ class VisibilityCheckServiceTest extends TestCase
 
     public function testProfileResolverMapsContextValue(): void
     {
-        $results = $this->service(['approval_location_a_today'])->evaluate(
+        $provider = new CountingAccessProbeProvider(['approval_location_a_today']);
+        $results = $this->serviceWithProvider($provider)->evaluate(
             $this->template(),
             'doc-1',
             'received',
@@ -38,11 +42,13 @@ class VisibilityCheckServiceTest extends TestCase
         );
 
         self::assertSame('approval_location_a', $results[0]->profileKey);
+        self::assertSame(2, $provider->calls);
     }
 
     public function testMissingContextFieldReturnsWarning(): void
     {
-        $results = $this->service()->evaluate(
+        $provider = new CountingAccessProbeProvider();
+        $results = $this->serviceWithProvider($provider)->evaluate(
             $this->template(),
             'doc-1',
             'received',
@@ -53,11 +59,13 @@ class VisibilityCheckServiceTest extends TestCase
 
         self::assertSame('warning', $results[0]->status);
         self::assertSame('missing_context_field', $results[0]->reason);
+        self::assertSame(0, $provider->calls);
     }
 
     public function testUnmappedContextValueReturnsWarning(): void
     {
-        $results = $this->service()->evaluate(
+        $provider = new CountingAccessProbeProvider();
+        $results = $this->serviceWithProvider($provider)->evaluate(
             $this->template(),
             'doc-1',
             'received',
@@ -68,6 +76,7 @@ class VisibilityCheckServiceTest extends TestCase
 
         self::assertSame('warning', $results[0]->status);
         self::assertSame('unmapped_context_value', $results[0]->reason);
+        self::assertSame(0, $provider->calls);
     }
 
     public function testExpectedVisibleAndVisibleIsOk(): void
@@ -168,6 +177,11 @@ class VisibilityCheckServiceTest extends TestCase
         ]));
     }
 
+    private function serviceWithProvider(AccessProbeProvider $provider): VisibilityCheckService
+    {
+        return new VisibilityCheckService(new AccessProbeProviderRegistry([$provider]));
+    }
+
     private function template(string $profileMode = 'resolver', int $maxDocuments = 500): ProcessTemplate
     {
         $check = $profileMode === 'direct'
@@ -210,5 +224,31 @@ class VisibilityCheckServiceTest extends TestCase
                 ],
             ],
         ]);
+    }
+}
+
+final class CountingAccessProbeProvider implements AccessProbeProvider
+{
+    public int $calls = 0;
+
+    /**
+     * @param array<int, string> $visibleProbeKeys
+     */
+    public function __construct(private readonly array $visibleProbeKeys = [])
+    {
+    }
+
+    public function supports(string $sourceSystem, string $type): bool
+    {
+        return $sourceSystem === 'fake' && $type === 'fake_document_visibility';
+    }
+
+    public function evaluate(ProcessTemplateAccessProbe $probe, string $documentUuid): AccessProbeResult
+    {
+        ++$this->calls;
+
+        return in_array($probe->key, $this->visibleProbeKeys, true)
+            ? AccessProbeResult::visible(1)
+            : AccessProbeResult::hidden(1);
     }
 }

@@ -65,9 +65,10 @@ visibility_check_profiles:
 
 visibility_profile_resolvers:
   approval_location_by_context:
-    # Im aktuellen Template gibt es noch kein produktiv gemapptes Standortfeld.
-    # cost_center ist hier ein plausibles Routingfeld; vor produktiver Nutzung
-    # muss dafuer ein echtes Amagno-Tag-Mapping im field_mapping ergaenzt werden.
+    # Das Zielprofil wird dynamisch aus dem Standort-Merkmal des Dokuments
+    # abgeleitet. cost_center ist hier nur ein technischer Platzhalter fuer
+    # das spaetere Amagno-Merkmal "Standort (Projekt)" bzw. project_location.
+    # Vor produktiver Nutzung muss dafuer ein echtes Tag-Mapping ergaenzt werden.
     field: cost_center
     map:
       A: approval_location_a
