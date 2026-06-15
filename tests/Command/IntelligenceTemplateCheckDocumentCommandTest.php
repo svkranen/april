@@ -7,6 +7,9 @@ use App\Intelligence\Application\ProcessTemplateCheckService;
 use App\Intelligence\Domain\ContextSnapshot;
 use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
+use App\Intelligence\Application\VisibilityCheckEvaluationResult;
+use App\Intelligence\Application\VisibilityCheckResultSaveContext;
+use App\Intelligence\Infrastructure\Access\InMemoryVisibilityCheckResultStore;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -340,23 +343,89 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
         $this->removeTemplate($path);
     }
 
+    public function testCheckDocumentWithoutAccessOptionKeepsAccessResultsHidden(): void
+    {
+        $path = $this->templatePath(['eingang']);
+        $store = $this->accessResultStore();
+        $tester = new CommandTester($this->command([['eingang', 1]], $store));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--template' => $path,
+            '--document-version' => '1',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Ist-Schrittfolge: eingang', $tester->getDisplay());
+        self::assertStringNotContainsString('Sichtbarkeitspruefungen', $tester->getDisplay());
+        self::assertStringNotContainsString('approval_location_a_today', $tester->getDisplay());
+
+        $this->removeTemplate($path);
+    }
+
+    public function testCheckDocumentWithAccessOptionShowsStoredResults(): void
+    {
+        $path = $this->templatePath(['eingang']);
+        $tester = new CommandTester($this->command([['eingang', 1]], $this->accessResultStore()));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--template' => $path,
+            '--document-version' => '1',
+            '--with-access' => true,
+        ]);
+        $display = $tester->getDisplay();
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Sichtbarkeitspruefungen:', $display);
+        self::assertStringContainsString('eingang | after | route_to_location_approval', $display);
+        self::assertStringContainsString('approval_location_a_today: expected visible, actual visible, status ok', $display);
+        self::assertStringContainsString('external_today: expected hidden, actual visible, status violation, reason forbidden_visibility', $display);
+        self::assertStringContainsString('Ist-Schrittfolge: eingang', $display);
+        self::assertStringNotContainsString('Ist-Schrittfolge: eingang -> approval_location_a_today', $display);
+
+        $this->removeTemplate($path);
+    }
+
+    public function testCheckDocumentWithAccessOptionShowsEmptyMessage(): void
+    {
+        $path = $this->templatePath(['eingang']);
+        $tester = new CommandTester($this->command([['eingang', 1]], new InMemoryVisibilityCheckResultStore()));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'eingangsrechnung',
+            '--template' => $path,
+            '--document-version' => '1',
+            '--with-access' => true,
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Sichtbarkeitspruefungen:', $tester->getDisplay());
+        self::assertStringContainsString('keine gespeicherten Ergebnisse gefunden', $tester->getDisplay());
+
+        $this->removeTemplate($path);
+    }
+
 
     /**
      * @param array<int, array{0: string, 1: int}> $steps
      */
-    private function command(array $steps): IntelligenceTemplateCheckDocumentCommand
+    private function command(array $steps, ?InMemoryVisibilityCheckResultStore $accessResultProvider = null): IntelligenceTemplateCheckDocumentCommand
     {
         return $this->commandWithEvents(array_map(
             fn (array $step, int $index): ProcessEventRecord => $this->event($index + 1, $step[0], $step[1], $index),
             $steps,
             array_keys($steps)
-        ));
+        ), $accessResultProvider);
     }
 
     /**
      * @param array<int, ProcessEventRecord> $events
      */
-    private function commandWithEvents(array $events): IntelligenceTemplateCheckDocumentCommand
+    private function commandWithEvents(array $events, ?InMemoryVisibilityCheckResultStore $accessResultProvider = null): IntelligenceTemplateCheckDocumentCommand
     {
         return new IntelligenceTemplateCheckDocumentCommand(
             new ProcessTemplateCheckService(
@@ -364,8 +433,23 @@ class IntelligenceTemplateCheckDocumentCommandTest extends TestCase
                     [],
                     $events
                 )
-            )
+            ),
+            $accessResultProvider
         );
+    }
+
+    private function accessResultStore(): InMemoryVisibilityCheckResultStore
+    {
+        $store = new InMemoryVisibilityCheckResultStore();
+        $store->saveMany(
+            [
+                new VisibilityCheckEvaluationResult('uuid-1', 'eingangsrechnung', 'eingang', 'after', 'route_to_location_approval', 'approval_location_a', 'approval_location_a_today', 'visible', 'visible', 'ok', null, ['documentCount' => 1]),
+                new VisibilityCheckEvaluationResult('uuid-1', 'eingangsrechnung', 'eingang', 'after', 'route_to_location_approval', 'approval_location_a', 'external_today', 'hidden', 'visible', 'violation', 'forbidden_visibility', ['documentCount' => 1]),
+            ],
+            new VisibilityCheckResultSaveContext(sourceSystem: 'amagno', documentVersion: 1)
+        );
+
+        return $store;
     }
 
     private function event(int $id, string $stepKey, int $documentVersion, int $minuteOffset): ProcessEventRecord

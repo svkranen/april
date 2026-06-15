@@ -4,6 +4,8 @@ namespace App\Command;
 
 use App\Intelligence\Application\ProcessTemplateCheckService;
 use App\Intelligence\Application\EventTimelineOrder;
+use App\Intelligence\Application\VisibilityCheckResultProvider;
+use App\Intelligence\Application\VisibilityCheckResultRecord;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -19,7 +21,8 @@ use Symfony\Component\Yaml\Yaml;
 final class IntelligenceTemplateCheckDocumentCommand extends Command
 {
     public function __construct(
-        private readonly ProcessTemplateCheckService $checkService
+        private readonly ProcessTemplateCheckService $checkService,
+        private readonly ?VisibilityCheckResultProvider $accessResultProvider = null
     ) {
         parent::__construct();
     }
@@ -31,7 +34,8 @@ final class IntelligenceTemplateCheckDocumentCommand extends Command
             ->addArgument('processKey', InputArgument::REQUIRED, 'Process key to check')
             ->addOption('template', null, InputOption::VALUE_REQUIRED, 'Path to the YAML process template')
             ->addOption('document-version', null, InputOption::VALUE_REQUIRED, 'Document version to check')
-            ->addOption('order-by', null, InputOption::VALUE_REQUIRED, 'Event order: occurred-at, received-at, or occurred-then-received', EventTimelineOrder::DEFAULT->value);
+            ->addOption('order-by', null, InputOption::VALUE_REQUIRED, 'Event order: occurred-at, received-at, or occurred-then-received', EventTimelineOrder::DEFAULT->value)
+            ->addOption('with-access', null, InputOption::VALUE_NONE, 'Show persisted access visibility check results for the document');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -117,7 +121,76 @@ final class IntelligenceTemplateCheckDocumentCommand extends Command
             }
         }
 
+        if ($input->getOption('with-access') === true) {
+            $this->writeAccessResults(
+                $output,
+                (string) $input->getArgument('documentUuid'),
+                (string) $input->getArgument('processKey')
+            );
+        }
+
         return Command::SUCCESS;
+    }
+
+    private function writeAccessResults(OutputInterface $output, string $documentUuid, string $processKey): void
+    {
+        $output->writeln('<info>Sichtbarkeitspruefungen:</info>');
+        if ($this->accessResultProvider === null) {
+            $output->writeln('  - keine gespeicherten Ergebnisse gefunden');
+
+            return;
+        }
+
+        $records = $this->accessResultProvider->findByDocument($documentUuid, $processKey);
+        if ($records === []) {
+            $output->writeln('  - keine gespeicherten Ergebnisse gefunden');
+
+            return;
+        }
+
+        foreach ($this->groupAccessResults($records) as $group) {
+            /** @var VisibilityCheckResultRecord $first */
+            $first = $group[0];
+            $output->writeln(sprintf(
+                '  - %s | %s | %s | %s',
+                $first->checkedAt->format('Y-m-d H:i:s'),
+                $first->stepKey,
+                $first->eventPhase,
+                $first->checkKey
+            ));
+
+            foreach ($group as $record) {
+                $reason = $record->reason === null ? '' : sprintf(', reason %s', $record->reason);
+                $output->writeln(sprintf(
+                    '    - %s: expected %s, actual %s, status %s%s',
+                    $record->probeKey,
+                    $record->expected,
+                    $record->actual,
+                    $record->status,
+                    $reason
+                ));
+            }
+        }
+    }
+
+    /**
+     * @param array<int, VisibilityCheckResultRecord> $records
+     * @return array<string, array<int, VisibilityCheckResultRecord>>
+     */
+    private function groupAccessResults(array $records): array
+    {
+        $groups = [];
+        foreach ($records as $record) {
+            $key = implode('|', [
+                $record->checkedAt->format(DATE_ATOM),
+                $record->stepKey,
+                $record->eventPhase,
+                $record->checkKey,
+            ]);
+            $groups[$key][] = $record;
+        }
+
+        return $groups;
     }
 
     /**
