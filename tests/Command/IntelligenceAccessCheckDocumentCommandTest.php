@@ -8,6 +8,7 @@ use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateAccessProbe;
 use App\Intelligence\Domain\ProcessTemplateArrayFactory;
+use App\Intelligence\Infrastructure\Access\InMemoryVisibilityCheckResultStore;
 use App\Intelligence\Port\AccessProbeProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
@@ -93,6 +94,126 @@ class IntelligenceAccessCheckDocumentCommandTest extends TestCase
         self::assertStringContainsString('approval_location_a_today', $display);
         self::assertStringContainsString('external_today', $display);
         self::assertStringContainsString('ok', $display);
+    }
+
+    public function testPersistOptionStoresResults(): void
+    {
+        $store = new InMemoryVisibilityCheckResultStore();
+        $tester = new CommandTester(new IntelligenceAccessCheckDocumentCommand($this->provider($this->template()), [], $store));
+
+        $exitCode = $tester->execute([
+            'processKey' => 'invoice',
+            'documentUuid' => 'doc-1',
+            '--step' => 'received',
+            '--phase' => 'after',
+            '--context' => '{"cost_center":"A"}',
+            '--fake-visible-probes' => 'approval_location_a_today',
+            '--persist' => true,
+            '--event-key' => 'evt-42',
+            '--document-version' => '3',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Persisted visibility check results: 2', $tester->getDisplay());
+
+        $records = $store->findByDocument('doc-1', 'invoice');
+        self::assertCount(2, $records);
+
+        $record = $records[0];
+        self::assertSame('doc-1', $record->documentUuid);
+        self::assertSame('invoice', $record->processKey);
+        self::assertSame('received', $record->stepKey);
+        self::assertSame('after', $record->eventPhase);
+        self::assertSame('route_to_location_approval', $record->checkKey);
+        self::assertSame('approval_location_a_today', $record->probeKey);
+        self::assertSame('visible', $record->expected);
+        self::assertSame('visible', $record->actual);
+        self::assertSame('ok', $record->status);
+        self::assertNull($record->reason);
+        self::assertSame('fake', $record->sourceSystem);
+        self::assertSame(3, $record->documentVersion);
+    }
+
+    public function testWithoutPersistNothingIsStored(): void
+    {
+        $store = new InMemoryVisibilityCheckResultStore();
+        $tester = new CommandTester(new IntelligenceAccessCheckDocumentCommand($this->provider($this->template()), [], $store));
+
+        $tester->execute([
+            'processKey' => 'invoice',
+            'documentUuid' => 'doc-1',
+            '--step' => 'received',
+            '--phase' => 'after',
+            '--context' => '{"cost_center":"A"}',
+            '--fake-visible-probes' => 'approval_location_a_today',
+        ]);
+
+        self::assertSame([], $store->findByDocument('doc-1'));
+        self::assertStringNotContainsString('Persisted visibility check results', $tester->getDisplay());
+    }
+
+    public function testRepeatedManualDryRunsForSameDocumentAccumulate(): void
+    {
+        $store = new InMemoryVisibilityCheckResultStore();
+        $command = new IntelligenceAccessCheckDocumentCommand($this->provider($this->template()), [], $store);
+
+        $arguments = [
+            'processKey' => 'invoice',
+            'documentUuid' => 'doc-1',
+            '--step' => 'received',
+            '--phase' => 'after',
+            '--context' => '{"cost_center":"A"}',
+            '--fake-visible-probes' => 'approval_location_a_today',
+            '--persist' => true,
+        ];
+
+        (new CommandTester($command))->execute($arguments);
+        (new CommandTester($command))->execute($arguments);
+
+        // No unique constraint blocks repeated manual checks without an event key.
+        self::assertCount(4, $store->findByDocument('doc-1', 'invoice'));
+    }
+
+    public function testJsonOutputRemainsCompatibleWithPersist(): void
+    {
+        $store = new InMemoryVisibilityCheckResultStore();
+        $tester = new CommandTester(new IntelligenceAccessCheckDocumentCommand($this->provider($this->template()), [], $store));
+
+        $tester->execute([
+            'processKey' => 'invoice',
+            'documentUuid' => 'doc-1',
+            '--step' => 'received',
+            '--phase' => 'after',
+            '--context' => '{"cost_center":"A"}',
+            '--fake-visible-probes' => 'approval_location_a_today',
+            '--format' => 'json',
+            '--persist' => true,
+        ]);
+        $data = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame('doc-1', $data['documentUuid']);
+        self::assertTrue($data['persisted']);
+        self::assertSame(2, $data['persistedCount']);
+        self::assertSame('approval_location_a_today', $data['results'][0]['probeKey']);
+        self::assertSame('ok', $data['results'][0]['status']);
+    }
+
+    public function testPersistFailsWhenStoreNotConfigured(): void
+    {
+        $tester = new CommandTester(new IntelligenceAccessCheckDocumentCommand($this->provider($this->template())));
+
+        $exitCode = $tester->execute([
+            'processKey' => 'invoice',
+            'documentUuid' => 'doc-1',
+            '--step' => 'received',
+            '--phase' => 'after',
+            '--context' => '{"cost_center":"A"}',
+            '--fake-visible-probes' => 'approval_location_a_today',
+            '--persist' => true,
+        ]);
+
+        self::assertSame(Command::FAILURE, $exitCode);
+        self::assertStringContainsString('store is not configured', $tester->getDisplay());
     }
 
     private function template(): ProcessTemplate

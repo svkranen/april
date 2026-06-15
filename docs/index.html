@@ -318,6 +318,8 @@
                                 <li>Kontext-Historie: <a href="../src/Command/IntelligenceDocumentContextHistoryCommand.php">IntelligenceDocumentContextHistoryCommand</a></li>
                                 <li>Prozessversionen: <a href="../src/Command/IntelligenceProcessVersionListCommand.php">IntelligenceProcessVersionListCommand</a></li>
                                 <li>Access-Coverage: <a href="../src/Command/IntelligenceTemplateAccessCoverageCommand.php">IntelligenceTemplateAccessCoverageCommand</a></li>
+                                <li>Access-Doku: <a href="../src/Command/IntelligenceTemplateAccessDocumentCommand.php">IntelligenceTemplateAccessDocumentCommand</a></li>
+                                <li>Access-Pruefung: <a href="../src/Command/IntelligenceAccessCheckDocumentCommand.php">IntelligenceAccessCheckDocumentCommand</a></li>
                                 <li>Dev/Test Sample-Daten: <a href="../src/Command/IntelligenceSampleDataLoadAiRechnungenCommand.php">IntelligenceSampleDataLoadAiRechnungenCommand</a></li>
                                 <li>Legacy Sync: <a href="../src/Command/AmagnoSyncCommand.php">src/Command/AmagnoSyncCommand.php</a></li>
                             </ul>
@@ -365,12 +367,42 @@ bin/console intelligence:process-version:list &lt;processKey&gt;</code></pre>
                             <p>Die Dokument-Timeline zeigt Ereignisse inklusive <code>eventPhase</code> (<code>before</code>/<code>after</code>). Kontext-Historie und Prozessversionen halten fest, wie sich Dokumentkontext und Soll-Baseline ueber die Zeit veraendern. Baselines entstehen ueber <code>intelligence:process-version:create</code>.</p>
                         </div>
                         <div class="mini">
-                            <h3>Access-Control-Coverage</h3>
-                            <pre><code>bin/console intelligence:template:access-coverage &lt;processKey&gt; \
-  --format=json</code></pre>
-                            <p>Statische Auswertung der im YAML deklarierten Access-Probes, Visibility-Checks und manuellen Access-Tests. Aktuell rein deklarativ &ndash; es werden noch keine Probes gegen Amagno abgefragt. Hintergrund: <a href="./intelligence/access-visibility-concept.md">Sichtbarkeits-Konzept</a>.</p>
+                            <h3>Access- und Visibility-Pruefungen</h3>
+                            <pre><code>bin/console intelligence:template:access-coverage &lt;processKey&gt; --format=json
+bin/console intelligence:template:access-document &lt;processKey&gt; \
+  --format=html --output=docs/&lt;processKey&gt;-access.html
+bin/console intelligence:access:check-document &lt;processKey&gt; &lt;documentUuid&gt; \
+  --step="01 Rechnungseingang" --phase=after \
+  --fake-visible-probes=approval_location_a_today --persist
+bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;</code></pre>
+                            <p><code>access-coverage</code> wertet die Abdeckung der im YAML deklarierten Access-Probes, Visibility-Checks und manuellen Tests aus. <code>access-document</code> erzeugt daraus human-readable Pruefdokumentation als Markdown oder HTML. <code>access:check-document</code> fuehrt Visibility-Checks synchron aus &ndash; mit <code>--fake-visible-probes</code> gegen einen In-Memory-Provider, sonst gegen registrierte Probe-Provider wie Amagno. Mit <code>--persist</code> werden die Ergebnisse gespeichert; <code>access:results</code> listet gespeicherte Pruefergebnisse. Hintergrund: <a href="./intelligence/access-visibility-concept.md">Sichtbarkeits-Konzept</a>.</p>
                         </div>
                     </div>
+
+                    <h3>Access-Control: aktueller Stand</h3>
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h4>Schon verfuegbar</h4>
+                            <ul class="notes">
+                                <li>Access-/Visibility-Regeln im Template deklarieren: Probes, Profile, Resolver, Retry-Policies und manuelle Tests</li>
+                                <li>Coverage auswerten: <code>intelligence:template:access-coverage</code></li>
+                                <li>Pruefdokumentation erzeugen (Markdown/HTML): <code>intelligence:template:access-document</code></li>
+                                <li>Synchron gegen Fake- oder Amagno-Probes pruefen: <code>intelligence:access:check-document</code></li>
+                                <li>Manuelle/synchrone Pruefergebnisse persistieren: <code>--persist</code></li>
+                                <li>Gespeicherte Ergebnisse anzeigen: <code>intelligence:access:results</code></li>
+                            </ul>
+                        </div>
+                        <div class="mini">
+                            <h4>Bewusst noch nicht</h4>
+                            <ul class="notes">
+                                <li>Keine automatische Ausfuehrung nach Eventverarbeitung</li>
+                                <li>Kein Retry- bzw. Queue-Scheduling</li>
+                                <li>Keine automatische Timeline-Integration gespeicherter Access-Ergebnisse</li>
+                                <li>Keine vollstaendige Amagno-ACL-Pruefung &ndash; nur die definierten Access-Probes</li>
+                            </ul>
+                        </div>
+                    </div>
+
                     <h3>Template-Konzepte</h3>
                     <ul class="notes">
                         <li><code>required_steps</code> sind globale Pflichtschritte, nicht der vollstaendige Ablauf.</li>

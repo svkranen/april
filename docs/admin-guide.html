@@ -346,10 +346,38 @@ bin/console intelligence:process-version:list &lt;processKey&gt;</code></pre>
                             <p>Diese Befehle helfen bei der Fehleranalyse: <code>timeline</code> und <code>context-history</code> zeigen den zeitlichen Verlauf eines Dokuments samt Kontextaenderungen, <code>process:status</code> den aktuellen Stand der Prozessinstanzen. Prozessversionen halten die jeweils gueltige Soll-Baseline fest.</p>
                         </div>
                         <div class="mini">
-                            <h3>Access-Control-Coverage</h3>
-                            <pre><code>bin/console intelligence:template:access-coverage &lt;processKey&gt; \
-  --format=text</code></pre>
-                            <p>Zeigt, welche Berechtigungs- und Sichtbarkeitsaussagen das Template deklariert und wie sie abgedeckt sind. Aktuell rein statisch &ndash; es werden noch keine Amagno-Probes abgefragt; manuelle Access-Tests bleiben dokumentierte Kontrollpunkte.</p>
+                            <h3>Access- und Visibility-Pruefung</h3>
+                            <pre><code>bin/console intelligence:template:access-coverage &lt;processKey&gt; --format=text
+bin/console intelligence:template:access-document &lt;processKey&gt; \
+  --format=html --output=docs/&lt;processKey&gt;-access.html
+bin/console intelligence:access:check-document &lt;processKey&gt; &lt;documentUuid&gt; \
+  --phase=after --fake-visible-probes=approval_location_a_today --persist
+bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;</code></pre>
+                            <p><code>access-coverage</code> zeigt die deklarierte Abdeckung, <code>access-document</code> erzeugt eine human-readable Pruefdokumentation (Markdown/HTML) und <code>access:check-document</code> fuehrt einen synchronen Visibility-Check aus &ndash; gegen Fake-Probes (<code>--fake-visible-probes</code>) oder gegen registrierte Amagno-Probes. Mit <code>--persist</code> werden die Ergebnisse historisiert; <code>access:results</code> zeigt gespeicherte Pruefergebnisse wieder an.</p>
+                        </div>
+                    </div>
+
+                    <h3>Access-Control: aktueller Stand</h3>
+                    <div class="grid-2">
+                        <div class="ok">
+                            <strong>Schon verfuegbar</strong>
+                            <ul class="notes">
+                                <li>Access-/Visibility-Regeln im Template dokumentieren</li>
+                                <li>Coverage auswerten (<code>access-coverage</code>)</li>
+                                <li>Pruefdokumentation erzeugen (<code>access-document</code>)</li>
+                                <li>Synchron gegen Fake-/Amagno-Probes pruefen (<code>access:check-document</code>)</li>
+                                <li>Manuelle/synchrone Access-Pruefergebnisse persistieren (<code>--persist</code>)</li>
+                                <li>Gespeicherte Ergebnisse anzeigen (<code>access:results</code>)</li>
+                            </ul>
+                        </div>
+                        <div class="status">
+                            <strong>Bewusst noch nicht</strong>
+                            <ul class="notes">
+                                <li>Automatisch nach Event ausfuehren</li>
+                                <li>Retry-Scheduler oder Queue</li>
+                                <li>Automatische Timeline-Integration gespeicherter Access-Ergebnisse</li>
+                                <li>Vollstaendige Amagno-ACL pruefen</li>
+                            </ul>
                         </div>
                     </div>
                     <h3>Status und Priorisierung</h3>

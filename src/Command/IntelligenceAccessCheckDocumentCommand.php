@@ -5,6 +5,8 @@ namespace App\Command;
 use App\Intelligence\Application\AccessProbeProviderRegistry;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\VisibilityCheckService;
+use App\Intelligence\Application\VisibilityCheckResultSaveContext;
+use App\Intelligence\Application\VisibilityCheckResultStore;
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Infrastructure\Access\InMemoryAccessProbeProvider;
 use App\Intelligence\Port\AccessProbeProvider;
@@ -19,7 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
     name: 'intelligence:access:check-document',
-    description: 'Runs template visibility checks against an in-memory access probe provider.'
+    description: 'Runs template visibility checks against registered access probe providers.'
 )]
 final class IntelligenceAccessCheckDocumentCommand extends Command
 {
@@ -28,7 +30,8 @@ final class IntelligenceAccessCheckDocumentCommand extends Command
      */
     public function __construct(
         private readonly ProcessTemplateProvider $templateProvider,
-        private readonly iterable $accessProbeProviders = []
+        private readonly iterable $accessProbeProviders = [],
+        private readonly ?VisibilityCheckResultStore $resultStore = null
     ) {
         parent::__construct();
     }
@@ -43,7 +46,10 @@ final class IntelligenceAccessCheckDocumentCommand extends Command
             ->addOption('check', null, InputOption::VALUE_REQUIRED, 'Optional visibility check key; defaults to all checks in step/phase')
             ->addOption('context', null, InputOption::VALUE_REQUIRED, 'JSON object with context fields', '{}')
             ->addOption('fake-visible-probes', null, InputOption::VALUE_REQUIRED, 'Comma-separated probe keys treated as visible by the fake provider', '')
-            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format: text or json', 'text');
+            ->addOption('format', null, InputOption::VALUE_REQUIRED, 'Output format: text or json', 'text')
+            ->addOption('persist', null, InputOption::VALUE_NONE, 'Persist visibility check results')
+            ->addOption('event-key', null, InputOption::VALUE_REQUIRED, 'Optional external event key for persisted results')
+            ->addOption('document-version', null, InputOption::VALUE_REQUIRED, 'Optional document version for persisted results');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -97,12 +103,29 @@ final class IntelligenceAccessCheckDocumentCommand extends Command
             }
         }
 
+        $persistedCount = 0;
+        if ((bool) $input->getOption('persist')) {
+            if ($this->resultStore === null) {
+                $output->writeln('<error>Visibility check result store is not configured.</error>');
+
+                return Command::FAILURE;
+            }
+
+            $persistedCount = $this->resultStore->saveMany($results, new VisibilityCheckResultSaveContext(
+                externalEventKey: $this->nullableOption($input->getOption('event-key')),
+                documentVersion: $this->nullableIntOption($input->getOption('document-version')),
+                sourceSystem: $template->sourceSystem
+            ));
+        }
+
         if ($format === 'json') {
             $output->writeln(json_encode([
                 'documentUuid' => $documentUuid,
                 'processKey' => $processKey,
                 'stepKey' => $stepKey,
                 'eventPhase' => $phase,
+                'persisted' => (bool) $input->getOption('persist'),
+                'persistedCount' => $persistedCount,
                 'results' => array_map(static fn ($result): array => $result->toArray(), $results),
             ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
 
@@ -123,6 +146,9 @@ final class IntelligenceAccessCheckDocumentCommand extends Command
             ]);
         }
         $table->render();
+        if ((bool) $input->getOption('persist')) {
+            $output->writeln(sprintf('Persisted visibility check results: %d', $persistedCount));
+        }
 
         return Command::SUCCESS;
     }
@@ -150,9 +176,26 @@ final class IntelligenceAccessCheckDocumentCommand extends Command
         ), static fn (string $part): bool => $part !== ''));
     }
 
-    /**
-     * @return array<int, string>
-     */
+    private function nullableOption(mixed $value): ?string
+    {
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
+    }
+
+    private function nullableIntOption(mixed $value): ?int
+    {
+        if (!is_scalar($value) || trim((string) $value) === '') {
+            return null;
+        }
+
+        return (int) $value;
+    }
+
     /**
      * @return iterable<AccessProbeProvider>
      */

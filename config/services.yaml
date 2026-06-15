@@ -166,6 +166,12 @@ services:
     App\Intelligence\Application\ProcessResetter:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessResetter
 
+    App\Intelligence\Application\VisibilityCheckResultStore:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineVisibilityCheckResultRepository
+
+    App\Intelligence\Application\VisibilityCheckResultProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineVisibilityCheckResultRepository
+
     App\Intelligence\Port\ContextProvider:
         alias: App\Intelligence\Infrastructure\Context\NullContextProvider
 
@@ -191,6 +197,7 @@ services:
     App\Command\IntelligenceAccessCheckDocumentCommand:
         arguments:
             $accessProbeProviders: !tagged_iterator app.access_probe_provider
+            $resultStore: '@App\Intelligence\Application\VisibilityCheckResultStore'
 
     App\Intelligence\Connector\Amagno\AmagnoContextProviderFactory:
         arguments:
