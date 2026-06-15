@@ -4,6 +4,7 @@ namespace App\Controller\App;
 
 use App\Intelligence\Application\DocumentCheckResultProvider;
 use App\Intelligence\Application\DocumentDetailView;
+use App\Intelligence\Application\DocumentFindingsView;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\VisibilityCheckResultProvider;
@@ -50,11 +51,13 @@ final class TemplateDocumentController
         // view renders a friendly empty state (200), we do not 404 the document.
         $timeline = $this->timelineProvider->build($documentUuid);
         $visibilityRecords = $this->visibilityResultProvider->findByDocument($documentUuid, $template->key);
+        $check = $this->checkResultProvider->forDocument($template, $documentUuid);
 
         return new Response($this->twig->render('document/show.html.twig', [
             'active_nav' => 'templates',
             'view' => DocumentDetailView::fromData($template, $documentUuid, $timeline, $visibilityRecords),
-            'check' => $this->checkResultProvider->forDocument($template, $documentUuid),
+            'check' => $check,
+            'findings' => DocumentFindingsView::fromData($check, $visibilityRecords),
         ]));
     }
 }

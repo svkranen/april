@@ -3,12 +3,15 @@
 namespace App\Controller\App;
 
 use App\Intelligence\Application\AccessCoverageReportBuilder;
+use App\Intelligence\Application\DocumentListFindingsProvider;
 use App\Intelligence\Application\DocumentListProvider;
+use App\Intelligence\Application\DocumentsIndexView;
 use App\Intelligence\Application\ProcessTemplateCatalog;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\TemplateAccessView;
 use App\Intelligence\Application\TemplateDetailView;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
@@ -25,10 +28,13 @@ final class TemplateController
         private readonly ProcessTemplateProvider $templateProvider,
         private readonly AccessCoverageReportBuilder $coverageBuilder,
         private readonly DocumentListProvider $documentListProvider,
+        private readonly DocumentListFindingsProvider $documentListFindingsProvider,
         private readonly Environment $twig,
         private readonly string $processTemplateDirectory
     ) {
     }
+
+    private const FINDINGS_LIMIT = 50;
 
     #[Route('/app', name: 'app_home', methods: ['GET'])]
     public function home(): Response
@@ -79,18 +85,36 @@ final class TemplateController
     }
 
     #[Route('/app/templates/{key}/documents', name: 'app_templates_documents', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
-    public function documents(string $key): Response
+    public function documents(string $key, Request $request): Response
     {
         $template = $this->templateProvider->findByProcessKey($key);
         if ($template === null) {
             throw new NotFoundHttpException($this->notFoundMessage($key));
         }
 
+        $rows = $this->documentListProvider->documentsForProcess($template->key, 200);
+
+        $withFindings = $request->query->getBoolean('withFindings');
+        $findings = [];
+        if ($withFindings) {
+            $findings = $this->documentListFindingsProvider->forDocuments(
+                $template,
+                array_map(static fn ($row): string => $row->documentUuid, $rows),
+                self::FINDINGS_LIMIT
+            );
+        }
+
         return new Response($this->twig->render('template/documents.html.twig', [
             'active_nav' => 'templates',
             'key' => $template->key,
             'version' => $template->version,
-            'rows' => $this->documentListProvider->documentsForProcess($template->key, 200),
+            'index' => DocumentsIndexView::build(
+                $rows,
+                $withFindings,
+                $findings,
+                $request->query->get('severity'),
+                self::FINDINGS_LIMIT
+            ),
         ]));
     }
 

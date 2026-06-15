@@ -29,8 +29,51 @@
         <p class="muted">Diese Ansicht zeigt die in APRIL gespeicherten Events und Prüfergebnisse für dieses Dokument.</p>
     </div>
 
+    {# Zusammenfassung (rein aus bereits geladenen Daten, keine Persistenz) #}
+    {% set sev_class = { critical: 'vs-violation', deviation: 'vs-violation', warning: 'vs-warning', technical: 'vs-unknown' } %}
+    {% set sev_label = { critical: 'Kritisch', deviation: 'Abweichung', warning: 'Warnung', technical: 'Technisch' } %}
+    <div class="card" id="zusammenfassung">
+        <h2>Zusammenfassung</h2>
+        <p class="meta-line">Gesamtstatus:
+            <span class="status-badge {{ findings.overallCssClass }}">{{ findings.overallLabel }}</span></p>
+
+        {% if not findings.hasFindings %}
+            <p class="muted">Keine Findings – dieses Dokument ist unauffällig.</p>
+        {% else %}
+            <p class="meta-line">Findings:
+                Prozess {{ findings.countsByCategory.process }} ·
+                Kontext {{ findings.countsByCategory.context }} ·
+                Access {{ findings.countsByCategory.access }} ·
+                Technisch {{ findings.countsByCategory.technical }}
+                <span class="muted">({{ findings.total }} gesamt)</span></p>
+
+            <ul class="notes">
+                {% for finding in findings.findings|slice(0, 5) %}
+                    <li>
+                        <span class="status-badge {{ sev_class[finding.severity] }}">{{ sev_label[finding.severity] }}</span>
+                        {{ finding.message }}
+                        {% if is_expert_view() and (finding.checkKey or finding.probeKey or finding.reason) %}
+                            <span class="muted">·
+                                {% if finding.checkKey %}checkKey=<code>{{ finding.checkKey }}</code> {% endif %}
+                                {% if finding.probeKey %}probeKey=<code>{{ finding.probeKey }}</code> {% endif %}
+                                {% if finding.status %}status=<code>{{ finding.status }}</code> {% endif %}
+                                {% if finding.reason %}reason=<code>{{ finding.reason }}</code>{% endif %}
+                            </span>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+            {% if findings.total > 5 %}<p class="muted">+ {{ findings.total - 5 }} weitere Finding(s)</p>{% endif %}
+        {% endif %}
+
+        <p class="meta-line">Details:
+            <a href="#soll-ist">Soll-/Ist-Prüfung</a> ·
+            <a href="#timeline">Timeline</a> ·
+            <a href="#access">Access-/Visibility-Ergebnisse</a></p>
+    </div>
+
     {# Soll-/Ist-Pruefung (on-demand, nicht persistiert) #}
-    <div class="card">
+    <div class="card" id="soll-ist">
         <h2>Soll-/Ist-Prüfung</h2>
         <p class="muted">Dieses Ergebnis wird on-demand aus den aktuell gespeicherten Events und
         Context-Snapshots berechnet und in diesem MVP nicht als Finding persistiert.</p>
@@ -102,7 +145,7 @@
     </div>
 
     {# 3. Fachliche Timeline / Step-Accordion #}
-    <div class="card">
+    <div class="card" id="timeline">
         <h2>Timeline</h2>
         {% if not view.hasTimeline %}
             <p class="muted">APRIL kennt für dieses Dokument noch keine Events.</p>
@@ -134,7 +177,7 @@
     </div>
 
     {# 4. Access-/Visibility-Ergebnisse #}
-    <div class="card">
+    <div class="card" id="access">
         <h2>Access-/Visibility-CheckResults</h2>
         {% if not view.hasVisibilityResults %}
             <p class="muted">Für dieses Dokument sind noch keine gespeicherten Access-/Visibility-CheckResults vorhanden.</p>
