@@ -409,16 +409,38 @@ Service-/Unit-Tests (Beispiele Iteration 1):
 Verifikation jeder Iteration: `composer test`, `bin/console lint:container`,
 `git diff --check`.
 
-## Naechster Schritt
+## Verzeichnis-Konventionen (verbindlich)
 
-Ein technisches Umsetzungskonzept fuer Iteration 1 (Routen, Controller, Twig-
-Templates, verwendete Services, Seitenstruktur, Risiken, Implementierungs-
-reihenfolge) wird separat erarbeitet. Wichtige Randbedingungen aus der
-Code-Pruefung:
+Prozess-Templates und Web-Views sind strikt getrennt:
 
-- Twig ist aktuell nicht installiert; `symfony/twig-bundle` muss ergaenzt und
-  sein View-Pfad getrennt von `templates/` (Prozess-YAMLs) konfiguriert werden.
-- Template-Listing ist noch kein Service und sollte als
-  `ProcessTemplateCatalog` extrahiert werden.
-- Der HTML-Doku-Renderer liefert ein vollstaendiges Dokument und wird per
-  iframe eingebettet.
+- **APRIL Prozess-Templates (YAML):** `config/april/process-templates/*.yaml`.
+  Massgeblich konfiguriert ueber den Parameter `april.process_template_dir` in
+  `config/services.yaml`. Genutzt von `YamlProcessTemplateProvider`,
+  `ProcessTemplateCatalog`, `IntelligenceTemplateListCommand`,
+  `IntelligenceTemplateHeatmapCommand` und (fuer die 404-Meldung) vom
+  `TemplateController`.
+- **Twig/Web-Views:** `templates/web/` (Parameter `twig.default_path`). Twig
+  liest ausschliesslich hier und niemals aus `config/april/process-templates`.
+  Das Projektverzeichnis `templates/` enthaelt keine Prozess-YAMLs mehr.
+- **Generierte Artefakte:** `var/april/generated/` (Heatmaps, Diagramme) und
+  `docs/generated/` sind nicht versioniert (siehe `.gitignore`).
+- **Access-/Visibility-Dokumentation:** wird on-demand aus dem Template gerendert
+  und nicht persistiert.
+
+Diese Trennung ist durch `ProcessTemplateLocationTest` abgesichert (Catalog/
+Provider/List-Command lesen aus `config/april/process-templates`; aus
+`templates/web` werden keine Prozess-Templates geladen).
+
+## Umsetzungsstand (Iteration 1 + Start Iteration 2)
+
+Umgesetzt und durch WebTestCase-/Unit-Tests abgesichert:
+
+- `symfony/twig-bundle` ergaenzt; `twig.default_path = templates/web`.
+- `ProcessTemplateCatalog` als Application-Service (vom List-Command genutzt).
+- Frontend-Seiten unter dem Prefix `/app`: Template-Liste, Detail, Access-
+  Coverage, Access-Dokumentation (iframe-Vorschau + MD/HTML-Download),
+  Dokumentliste pro Template.
+- Fach-/Technik-Toggle (`?view=`/Cookie, rein UI).
+
+Hinweis: Die konzeptionellen Routen weiter oben (`/templates/...`) sind real
+unter dem Prefix `/app/templates/...` implementiert.

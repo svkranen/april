@@ -210,6 +210,10 @@ services:
             $processTemplateDirectory: '%april.process_template_dir%'
             $heatmapOutputDirectory: '%april.heatmap_output_dir%'
 
+    App\Controller\App\TemplateController:
+        arguments:
+            $processTemplateDirectory: '%april.process_template_dir%'
+
     App\Command\IntelligenceAccessCheckDocumentCommand:
         arguments:
             $accessProbeProviders: !tagged_iterator app.access_probe_provider

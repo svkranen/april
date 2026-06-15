@@ -25,7 +25,8 @@ final class TemplateController
         private readonly ProcessTemplateProvider $templateProvider,
         private readonly AccessCoverageReportBuilder $coverageBuilder,
         private readonly DocumentListProvider $documentListProvider,
-        private readonly Environment $twig
+        private readonly Environment $twig,
+        private readonly string $processTemplateDirectory
     ) {
     }
 
@@ -52,7 +53,7 @@ final class TemplateController
     {
         $template = $this->templateProvider->findByProcessKey($key);
         if ($template === null) {
-            throw new NotFoundHttpException(sprintf('Template "%s" not found.', $key));
+            throw new NotFoundHttpException($this->notFoundMessage($key));
         }
 
         return new Response($this->twig->render('template/show.html.twig', [
@@ -66,7 +67,7 @@ final class TemplateController
     {
         $template = $this->templateProvider->findByProcessKey($key);
         if ($template === null) {
-            throw new NotFoundHttpException(sprintf('Template "%s" not found.', $key));
+            throw new NotFoundHttpException($this->notFoundMessage($key));
         }
 
         $report = $this->coverageBuilder->build($template);
@@ -82,7 +83,7 @@ final class TemplateController
     {
         $template = $this->templateProvider->findByProcessKey($key);
         if ($template === null) {
-            throw new NotFoundHttpException(sprintf('Template "%s" not found.', $key));
+            throw new NotFoundHttpException($this->notFoundMessage($key));
         }
 
         return new Response($this->twig->render('template/documents.html.twig', [
@@ -91,5 +92,14 @@ final class TemplateController
             'version' => $template->version,
             'rows' => $this->documentListProvider->documentsForProcess($template->key, 200),
         ]));
+    }
+
+    private function notFoundMessage(string $key): string
+    {
+        return sprintf(
+            'Template "%s" not found in configured APRIL process template directory "%s".',
+            $key,
+            $this->processTemplateDirectory
+        );
     }
 }

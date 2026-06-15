@@ -3,6 +3,7 @@
 namespace App\Tests\Controller\App;
 
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class TemplateControllerTest extends WebTestCase
 {
@@ -19,8 +20,10 @@ class TemplateControllerTest extends WebTestCase
         self::assertStringContainsString('lang="de"', $html);
         // Navigation contains "Templates".
         self::assertSelectorTextContains('nav.app-nav', 'Templates');
-        // Real process template under templates/ is discovered by the catalog.
+        // Real process template under config/april/process-templates/ is discovered by the catalog.
         self::assertStringContainsString('ai-rechnungen', $html);
+        self::assertStringContainsString('config/april/process-templates/ai-rechnungen.yaml', $html);
+        self::assertStringNotContainsString('/templates/ai-rechnungen.yaml', $html);
     }
 
     public function testHomeRedirectsToTemplates(): void
@@ -65,6 +68,31 @@ class TemplateControllerTest extends WebTestCase
         $client->request('GET', '/app/templates/does-not-exist-xyz');
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testTemplateDetailUnknownKeyReportsProcessTemplateDirectory(): void
+    {
+        $client = static::createClient();
+        $client->catchExceptions(false);
+
+        try {
+            $client->request('GET', '/app/templates/does-not-exist-xyz');
+            self::fail('Expected NotFoundHttpException.');
+        } catch (NotFoundHttpException $exception) {
+            self::assertStringContainsString('does-not-exist-xyz', $exception->getMessage());
+            self::assertStringContainsString('config/april/process-templates', $exception->getMessage());
+        }
+    }
+
+    public function testFrontendDoesNotRequireProcessTemplateUnderTwigTemplatesDirectory(): void
+    {
+        self::assertFileExists(dirname(__DIR__, 3).'/config/april/process-templates/ai-rechnungen.yaml');
+        self::assertFileDoesNotExist(dirname(__DIR__, 3).'/templates/ai-rechnungen.yaml');
+
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen');
+
+        self::assertResponseIsSuccessful();
     }
 
     public function testTemplateDetailHasActiveAccessLink(): void
