@@ -1,0 +1,95 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.key }} · Prozessgrafik · APRIL{% endblock %}
+
+{% block head %}
+    <style>
+        .mermaid-source {
+            background: #0a2342; color: #eef9fa; border-radius: 0.8rem;
+            padding: 1rem 1.1rem; overflow-x: auto; font-size: 0.85rem; line-height: 1.5;
+            font-family: Consolas, "Liberation Mono", monospace; margin-top: 0.6rem;
+        }
+        .legend { display: flex; gap: 0.45rem; flex-wrap: wrap; margin: 0.6rem 0 0.2rem; }
+        .gs-critical { background: #fce4ec; color: #880e4f; border: 1px solid #880e4f; }
+        .gs-deviation { background: #ffebee; color: #c62828; border: 1px solid #c62828; }
+        .gs-warning { background: #fff8e1; color: #8a6d00; border: 1px solid #f9a825; }
+        .gs-technical { background: #ede7f6; color: #4527a0; border: 1px solid #4527a0; }
+        .gs-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #2e7d32; }
+        .gs-not_calculated { background: #eeeeee; color: #555; border: 1px solid #757575; }
+    </style>
+{% endblock %}
+
+{% block body %}
+    {# 1. Kopfbereich #}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_show', { key: view.key }) }}">← Zurück zur Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Prozessgrafik – {{ view.key }}</h1>
+        <p class="meta-line">Key: <code>{{ view.key }}</code></p>
+        <p class="meta-line">Version: <strong>{{ view.version }}</strong></p>
+
+        <p class="muted">Die Grafik wird aus dem Soll-Prozess-Template (Schritte und Transitions) erzeugt.</p>
+
+        {% if view.withFindings %}
+            <p class="muted">Findings wurden on-demand je Schritt aggregiert und nicht persistiert.</p>
+            {% if view.limitReached %}
+                <p class="muted">Hinweis: Aus Performance-Gründen werden Findings nur für die ersten
+                {{ view.findingsLimit }} von {{ view.totalDocuments }} Dokumenten berechnet.</p>
+            {% else %}
+                <p class="muted">Findings über {{ view.processedDocuments }} Dokument(e) berechnet.</p>
+            {% endif %}
+        {% else %}
+            <p class="muted">Findings werden nicht automatisch berechnet, um die Ansicht performant zu halten.</p>
+            <p><a class="pill-link" href="{{ path('app_templates_graph', { key: view.key, withFindings: 1 }) }}">Mit Findings anzeigen</a></p>
+        {% endif %}
+    </div>
+
+    {# 2. Mermaid-Quelltext (MVP: Codeblock, kein Browser-Rendering) #}
+    <div class="card">
+        <h2>Mermaid-Grafik</h2>
+        <p class="muted">Dies ist der Mermaid-Quelltext des Prozesses. Er kann unverändert in einen
+        Mermaid-Renderer (z. B. mermaid.live oder eine Markdown-Vorschau) eingefügt werden.
+        Ein direktes Rendering im Browser ist bewusst ein späterer Schritt.</p>
+        <pre class="mermaid-source">{{ view.mermaidCode }}</pre>
+    </div>
+
+    {# 3. Legende, prozessweite Findings und Schritt-Tabelle (barrierearmer Fallback) #}
+    <div class="card">
+        <h2>Schritte &amp; Status</h2>
+
+        <div class="legend">
+            {% for item in view.legend %}
+                <span class="status-badge gs-{{ item.status }}">{{ item.label }}</span>
+            {% endfor %}
+        </div>
+
+        {% if view.withFindings and view.hasProcessFindings %}
+            <p class="meta-line">Prozessweite Soll-/Ist-Findings (nicht einzelnen Schritten zuordenbar):
+                {{ view.processDeviations }} Abweichung(en) ·
+                {{ view.processWarnings }} Warnung(en) ·
+                {{ view.processTechnical }} technisch</p>
+        {% endif %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Schritt</th>
+                    <th>Status</th>
+                    <th>Findings</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for step in view.steps %}
+                    <tr>
+                        <td>{{ step.name }}{% if is_expert_view() %} <code class="muted">{{ step.key }}</code>{% endif %}</td>
+                        <td><span class="status-badge gs-{{ step.status }}">{{ step.statusLabel }}</span></td>
+                        <td>{{ step.findingsLabel }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

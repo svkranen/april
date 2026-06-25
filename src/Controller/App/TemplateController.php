@@ -10,6 +10,9 @@ use App\Intelligence\Application\ProcessTemplateCatalog;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\TemplateAccessView;
 use App\Intelligence\Application\TemplateDetailView;
+use App\Intelligence\Application\TemplateGraphFindingsProvider;
+use App\Intelligence\Application\TemplateMermaidGraphBuilder;
+use App\Intelligence\Application\TemplateMermaidGraphView;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -29,6 +32,8 @@ final class TemplateController
         private readonly AccessCoverageReportBuilder $coverageBuilder,
         private readonly DocumentListProvider $documentListProvider,
         private readonly DocumentListFindingsProvider $documentListFindingsProvider,
+        private readonly TemplateGraphFindingsProvider $graphFindingsProvider,
+        private readonly TemplateMermaidGraphBuilder $graphBuilder,
         private readonly Environment $twig,
         private readonly string $processTemplateDirectory
     ) {
@@ -113,6 +118,38 @@ final class TemplateController
                 $withFindings,
                 $findings,
                 $request->query->get('severity'),
+                self::FINDINGS_LIMIT
+            ),
+        ]));
+    }
+
+    #[Route('/app/templates/{key}/graph', name: 'app_templates_graph', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
+    public function graph(string $key, Request $request): Response
+    {
+        $template = $this->templateProvider->findByProcessKey($key);
+        if ($template === null) {
+            throw new NotFoundHttpException($this->notFoundMessage($key));
+        }
+
+        // Findings are opt-in: without withFindings=1 we never read any document.
+        $withFindings = $request->query->getBoolean('withFindings');
+        $findings = null;
+        if ($withFindings) {
+            $rows = $this->documentListProvider->documentsForProcess($template->key, 200);
+            $findings = $this->graphFindingsProvider->aggregate(
+                $template,
+                array_map(static fn ($row): string => $row->documentUuid, $rows),
+                self::FINDINGS_LIMIT
+            );
+        }
+
+        return new Response($this->twig->render('template/graph.html.twig', [
+            'active_nav' => 'templates',
+            'view' => TemplateMermaidGraphView::build(
+                $template,
+                $withFindings,
+                $findings,
+                $this->graphBuilder->build($template, $findings),
                 self::FINDINGS_LIMIT
             ),
         ]));
