@@ -9,6 +9,7 @@ use App\Intelligence\Application\DocumentsIndexView;
 use App\Intelligence\Application\ProcessTemplateCatalog;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\TemplateAccessView;
+use App\Intelligence\Application\TemplateAssistantAnalyzer;
 use App\Intelligence\Application\TemplateDetailView;
 use App\Intelligence\Application\TemplateGraphFindingsProvider;
 use App\Intelligence\Application\TemplateMermaidGraphBuilder;
@@ -35,6 +36,7 @@ final class TemplateController
         private readonly DocumentListFindingsProvider $documentListFindingsProvider,
         private readonly TemplateGraphFindingsProvider $graphFindingsProvider,
         private readonly TemplateMermaidGraphBuilder $graphBuilder,
+        private readonly TemplateAssistantAnalyzer $assistantAnalyzer,
         private readonly Environment $twig,
         private readonly string $processTemplateDirectory
     ) {
@@ -71,6 +73,24 @@ final class TemplateController
         return new Response($this->twig->render('template/show.html.twig', [
             'active_nav' => 'templates',
             'view' => TemplateDetailView::fromTemplate($template),
+        ]));
+    }
+
+    #[Route('/app/templates/{key}/assistant', name: 'app_templates_assistant', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
+    public function assistant(string $key): Response
+    {
+        $template = $this->templateProvider->findByProcessKey($key);
+        if ($template === null) {
+            throw new NotFoundHttpException($this->notFoundMessage($key));
+        }
+
+        // Read-only assistance: derive the conventional YAML path for display only;
+        // no file is read or written here.
+        $filePath = rtrim($this->processTemplateDirectory, '/').'/'.$template->key.'.yaml';
+
+        return new Response($this->twig->render('template/assistant.html.twig', [
+            'active_nav' => 'templates',
+            'view' => $this->assistantAnalyzer->analyze($template, $filePath),
         ]));
     }
 
