@@ -100,13 +100,29 @@ final class TemplateController
 
         $rows = $this->documentListProvider->documentsForProcess($template->key, 200);
 
-        // Optional step filter (coming from the process graph). Only declared steps
-        // are honoured; an unknown/empty step key is ignored. A step filter needs
-        // findings, so it implies withFindings - the smallest, clearest behaviour.
+        // Optional graph filters (coming from the process graph): step, decision
+        // gateway or observed transition. They are mutually exclusive (step wins,
+        // then decision, then transition); each only honours valid values and each
+        // implies withFindings - the smallest, clearest behaviour. Unknown values
+        // are ignored rather than producing an error.
         $stepKey = $this->resolveStepKey($template, $request->query->get('step'));
-        $stepLabel = $stepKey !== null ? $this->stepName($template, $stepKey) : null;
+        $decisionKey = $stepKey === null
+            ? $this->resolveDecisionKey($template, $request->query->get('decision'))
+            : null;
+        $transition = ($stepKey === null && $decisionKey === null)
+            ? $this->resolveTransition($request->query->get('transitionFrom'), $request->query->get('transitionTo'))
+            : null;
 
-        $withFindings = $request->query->getBoolean('withFindings') || $stepKey !== null;
+        $stepLabel = $stepKey !== null ? $this->stepName($template, $stepKey) : null;
+        $decisionLabel = $decisionKey;
+        $transitionLabel = $transition !== null
+            ? $this->stepName($template, $transition['from']).' → '.$this->stepName($template, $transition['to'])
+            : null;
+
+        $withFindings = $request->query->getBoolean('withFindings')
+            || $stepKey !== null
+            || $decisionKey !== null
+            || $transition !== null;
         $findings = [];
         if ($withFindings) {
             $findings = $this->documentListFindingsProvider->forDocuments(
@@ -127,7 +143,12 @@ final class TemplateController
                 $request->query->get('severity'),
                 self::FINDINGS_LIMIT,
                 $stepKey,
-                $stepLabel
+                $stepLabel,
+                $decisionKey,
+                $decisionLabel,
+                $transition['from'] ?? null,
+                $transition['to'] ?? null,
+                $transitionLabel
             ),
         ]));
     }
@@ -181,6 +202,44 @@ final class TemplateController
         }
 
         return null;
+    }
+
+    /**
+     * Returns the trimmed decision key only if the template declares a decision
+     * point with that key, otherwise null (conservative: unknown -> ignored).
+     */
+    private function resolveDecisionKey(ProcessTemplate $template, ?string $rawDecision): ?string
+    {
+        $decisionKey = $rawDecision !== null ? trim($rawDecision) : '';
+        if ($decisionKey === '') {
+            return null;
+        }
+
+        foreach ($template->decisionPoints as $decisionPoint) {
+            if ($decisionPoint->key === $decisionKey) {
+                return $decisionKey;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Returns the observed transition only if both endpoints are present; the
+     * actual (Ist) target may be an unexpected step, so it is not validated against
+     * the template - matching is done structurally against the findings.
+     *
+     * @return array{from: string, to: string}|null
+     */
+    private function resolveTransition(?string $rawFrom, ?string $rawTo): ?array
+    {
+        $from = $rawFrom !== null ? trim($rawFrom) : '';
+        $to = $rawTo !== null ? trim($rawTo) : '';
+        if ($from === '' || $to === '') {
+            return null;
+        }
+
+        return ['from' => $from, 'to' => $to];
     }
 
     private function stepName(ProcessTemplate $template, string $stepKey): string

@@ -143,11 +143,70 @@ class DocumentsIndexViewTest extends TestCase
         return new DocumentListRow($uuid, 'DOC', 1, 1, new DateTimeImmutable('2026-06-15T09:00:00+00:00'));
     }
 
+    public function testDecisionFilterKeepsOnlyDocumentsWithThatDecision(): void
+    {
+        $findings = [
+            'a' => $this->finding('a', 'deviation', [], ['approval']),
+            'b' => $this->finding('b', 'deviation', [], ['other']),
+            'c' => $this->finding('c', 'deviation'), // process-wide, no decision
+        ];
+        $rows = [$this->row('a'), $this->row('b'), $this->row('c')];
+
+        $view = DocumentsIndexView::build($rows, true, $findings, 'all', 50, null, null, 'approval', 'approval');
+
+        self::assertSame(DocumentsIndexView::FILTER_DECISION, $view->graphFilterKind());
+        self::assertSame(['decision' => 'approval'], $view->filterParams());
+        self::assertSame(1, $view->shownCount);
+        self::assertSame('a', $view->entries[0]['row']->documentUuid);
+    }
+
+    public function testTransitionFilterKeepsOnlyDocumentsWithThatTransition(): void
+    {
+        $findings = [
+            'a' => $this->finding('a', 'deviation', [], [], [DocumentListFindingView::transitionKey('01', '99')]),
+            'b' => $this->finding('b', 'deviation', [], [], [DocumentListFindingView::transitionKey('02', '03')]),
+        ];
+        $rows = [$this->row('a'), $this->row('b')];
+
+        $view = DocumentsIndexView::build($rows, true, $findings, 'all', 50, null, null, null, null, '01', '99', '01 → 99');
+
+        self::assertSame(DocumentsIndexView::FILTER_TRANSITION, $view->graphFilterKind());
+        self::assertSame(['transitionFrom' => '01', 'transitionTo' => '99'], $view->filterParams());
+        self::assertSame(1, $view->shownCount);
+        self::assertSame('a', $view->entries[0]['row']->documentUuid);
+    }
+
+    public function testDecisionFilterCombinesWithSeverityFilter(): void
+    {
+        $findings = [
+            'a' => $this->finding('a', 'critical', [], ['approval']),
+            'b' => $this->finding('b', 'warning', [], ['approval']),
+        ];
+        $rows = [$this->row('a'), $this->row('b')];
+
+        $view = DocumentsIndexView::build($rows, true, $findings, 'warning', 50, null, null, 'approval', 'approval');
+
+        self::assertSame(1, $view->shownCount);
+        self::assertSame('b', $view->entries[0]['row']->documentUuid);
+    }
+
+    public function testGraphFilterIsIgnoredWithoutFindings(): void
+    {
+        $view = DocumentsIndexView::build([$this->row('a'), $this->row('b')], false, [], 'all', 50, null, null, 'approval', 'approval');
+
+        self::assertFalse($view->hasGraphFilter());
+        self::assertNull($view->decisionKey);
+        self::assertSame([], $view->filterParams());
+        self::assertCount(2, $view->entries);
+    }
+
     /**
      * @param array<int, string> $stepKeys
+     * @param array<int, string> $decisionKeys
+     * @param array<int, string> $transitionKeys
      */
-    private function finding(string $uuid, string $severity, array $stepKeys = []): DocumentListFindingView
+    private function finding(string $uuid, string $severity, array $stepKeys = [], array $decisionKeys = [], array $transitionKeys = []): DocumentListFindingView
     {
-        return new DocumentListFindingView($uuid, $severity, ucfirst($severity), 'vs-ok', 1, ['process' => 0, 'context' => 0, 'access' => 0, 'technical' => 0], null, $stepKeys);
+        return new DocumentListFindingView($uuid, $severity, ucfirst($severity), 'vs-ok', 1, ['process' => 0, 'context' => 0, 'access' => 0, 'technical' => 0], null, $stepKeys, $decisionKeys, $transitionKeys);
     }
 }

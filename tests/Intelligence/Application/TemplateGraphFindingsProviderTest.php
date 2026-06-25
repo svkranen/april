@@ -141,6 +141,10 @@ class TemplateGraphFindingsProviderTest extends TestCase
         self::assertSame(AttributedFinding::TARGET_GATEWAY, $attributed->target);
         self::assertSame('approval', $attributed->label);
         self::assertSame(1, $attributed->documentCount);
+        // Machine-readable link fields for the "Dokumente anzeigen" deep link.
+        self::assertSame('approval', $attributed->decisionKey);
+        self::assertTrue($attributed->hasDocuments());
+        self::assertTrue($attributed->isGateway());
 
         // Attributed -> removed from the process-wide bucket, steps untouched.
         self::assertSame(0, $findings->processDeviations);
@@ -164,6 +168,10 @@ class TemplateGraphFindingsProviderTest extends TestCase
         $attributed = $findings->attributedFindings[0];
         self::assertSame(AttributedFinding::TARGET_TRANSITION, $attributed->target);
         self::assertSame('01 → 99', $attributed->label);
+        self::assertSame('01', $attributed->transitionFrom);
+        self::assertSame('99', $attributed->transitionTo);
+        self::assertNull($attributed->decisionKey);
+        self::assertFalse($attributed->isGateway());
 
         // No gateway is coloured and the start node 01 stays OK (not a node finding).
         self::assertSame([], $findings->gatewayStatusByNodeId);

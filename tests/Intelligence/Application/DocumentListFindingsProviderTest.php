@@ -8,7 +8,9 @@ use App\Intelligence\Application\DocumentListFindingsProvider;
 use App\Intelligence\Application\ProcessTemplateCheckResult;
 use App\Intelligence\Application\VisibilityCheckResultProvider;
 use App\Intelligence\Application\VisibilityCheckResultRecord;
+use App\Intelligence\Domain\ProcessDeviation;
 use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -91,9 +93,57 @@ class DocumentListFindingsProviderTest extends TestCase
         self::assertSame('db down', $result['doc-1']->error);
     }
 
+    public function testCollectsAttributedDecisionAndTransitionKeys(): void
+    {
+        $decisionMsg = 'Decision rule violation: approval after 01 expected 02 but got 03';
+        $transitionMsg = 'Transition violation: 01 expected one of 02 but got 99';
+        $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(
+            [], ['01', '03'], [$decisionMsg, $transitionMsg], [], [], null, [],
+            [
+                ProcessDeviation::decisionRuleViolation($decisionMsg, 'approval', '01', '03'),
+                ProcessDeviation::transitionViolation($transitionMsg, '01', '99', ['02']),
+            ]
+        ));
+        $provider = new DocumentListFindingsProvider($this->checkProvider($check), $this->visibilityProvider([]));
+
+        $result = $provider->forDocuments($this->templateWithDecision(), ['doc-1'], 50);
+
+        self::assertSame(['approval'], $result['doc-1']->decisionKeys);
+        self::assertTrue($result['doc-1']->hasDecision('approval'));
+        self::assertTrue($result['doc-1']->hasTransition('01', '99'));
+        self::assertFalse($result['doc-1']->hasTransition('01', '02'));
+    }
+
+    public function testUndeclaredGatewayAndUnstructuredDeviationAreNotCollected(): void
+    {
+        $ghostMsg = 'Decision rule violation: ghost after 01 expected 02 but got 03';
+        $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(
+            ['01', '02'], ['01'], ['fehlt 02', $ghostMsg], [], [], null, [],
+            [ProcessDeviation::decisionRuleViolation($ghostMsg, 'ghost', '01', '03')]
+        ));
+        $provider = new DocumentListFindingsProvider($this->checkProvider($check), $this->visibilityProvider([]));
+
+        $result = $provider->forDocuments($this->templateWithDecision(), ['doc-1'], 50);
+
+        // "ghost" gateway is not declared -> not attributed; "fehlt 02" carries no
+        // structured detail -> never attributed (no regex on the message).
+        self::assertSame([], $result['doc-1']->decisionKeys);
+        self::assertSame([], $result['doc-1']->transitionKeys);
+        self::assertFalse($result['doc-1']->hasDecision('ghost'));
+    }
+
     private function template(): ProcessTemplate
     {
         return new ProcessTemplate(key: 'ai-rechnungen', version: '1.1');
+    }
+
+    private function templateWithDecision(): ProcessTemplate
+    {
+        return new ProcessTemplate(
+            key: 'ai-rechnungen',
+            version: '1.1',
+            decisionPoints: [new ProcessTemplateDecisionPoint('approval', '01', [], [])],
+        );
     }
 
     private function checkProvider(DocumentCheckResultView $view): DocumentCheckResultProvider

@@ -135,7 +135,17 @@
                             <td>{{ finding.targetLabel }}: <code>{{ finding.label }}</code></td>
                             <td><span class="status-badge gs-{{ finding.severity }}">{{ finding.severityLabel }}</span></td>
                             <td>{{ finding.message }}</td>
-                            <td>{{ finding.documentCount }}</td>
+                            <td>
+                                {% if finding.hasDocuments %}
+                                    {% if finding.isGateway %}
+                                        <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, decision: finding.decisionKey }) }}">{{ finding.documentCount }} – Dokumente anzeigen</a>
+                                    {% else %}
+                                        <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, transitionFrom: finding.transitionFrom, transitionTo: finding.transitionTo }) }}">{{ finding.documentCount }} – Dokumente anzeigen</a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="muted">{{ finding.documentCount }}</span>
+                                {% endif %}
+                            </td>
                         </tr>
                     {% endfor %}
                 </tbody>

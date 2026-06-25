@@ -127,7 +127,7 @@ final readonly class TemplateGraphFindingsProvider
      * therefore NOT be counted process-wide).
      *
      * @param array<string, bool> $gatewayNodeIds
-     * @param array<string, array{target: string, nodeId: ?string, label: string, message: string, count: int, docs: array<string, bool>}> $acc
+     * @param array<string, array{target: string, nodeId: ?string, decisionKey: ?string, from: ?string, to: ?string, label: string, message: string, count: int, docs: array<string, bool>}> $acc
      */
     private function attributeDeviations(DocumentCheckResultView $check, array $gatewayNodeIds, string $documentUuid, array &$acc): int
     {
@@ -148,9 +148,13 @@ final readonly class TemplateGraphFindingsProvider
             }
 
             if (!isset($acc[$key])) {
+                $isGateway = $attribution->target === FindingAttribution::TARGET_GATEWAY;
                 $acc[$key] = [
                     'target' => $attribution->target,
-                    'nodeId' => $attribution->target === FindingAttribution::TARGET_GATEWAY ? $attribution->nodeId : null,
+                    'nodeId' => $isGateway ? $attribution->nodeId : null,
+                    'decisionKey' => $isGateway ? $deviation->decisionKey : null,
+                    'from' => $isGateway ? null : $attribution->from,
+                    'to' => $isGateway ? null : $attribution->actual,
                     'label' => $label,
                     'message' => $deviation->message,
                     'count' => 0,
@@ -169,7 +173,7 @@ final readonly class TemplateGraphFindingsProvider
      * ordered display list. All transition/decision violations map to the
      * "deviation" severity, mirroring DocumentFindingsView.
      *
-     * @param array<string, array{target: string, nodeId: ?string, label: string, message: string, count: int, docs: array<string, bool>}> $acc
+     * @param array<string, array{target: string, nodeId: ?string, decisionKey: ?string, from: ?string, to: ?string, label: string, message: string, count: int, docs: array<string, bool>}> $acc
      * @return array{0: array<string, string>, 1: array<int, AttributedFinding>}
      */
     private function buildAttributed(array $acc): array
@@ -195,7 +199,10 @@ final readonly class TemplateGraphFindingsProvider
                 FindingSeverityFilter::label(FindingSeverityFilter::DEVIATION),
                 $entry['message'],
                 $entry['count'],
-                count($entry['docs'])
+                count($entry['docs']),
+                $entry['decisionKey'],
+                $entry['from'],
+                $entry['to']
             );
         }
 
