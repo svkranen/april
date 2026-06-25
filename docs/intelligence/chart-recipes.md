@@ -18,7 +18,7 @@ Starte immer mit einem schlanken Diagramm und schalte Analyseinformationen nur g
 Zweck: Template pruefen, Prozesspfade und Decision Points sichtbar machen.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml
 ```
 
 Sinnvoll fuer:
@@ -37,7 +37,7 @@ Nicht sinnvoll fuer:
 Zweck: Auch die aus `steps` abgeleitete Default-Reihenfolge sichtbar machen.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --show-default-order
 ```
 
@@ -48,7 +48,7 @@ Nutzen: Hilfreich bei Templates, die wenig explizite `transitions` enthalten.
 Zweck: Welche Wege werden tatsaechlich genutzt?
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=flow \
   --show-node-metrics
 ```
@@ -72,7 +72,7 @@ Wichtig: Rot bedeutet in dieser Ansicht hohes Volumen im aktuellen Datensatz, ni
 Zweck: Farben und Bucket-Verteilung nachvollziehbar machen.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=flow \
   --show-flow-legend \
   --show-node-metrics
@@ -85,7 +85,7 @@ Nutzen: Gut fuer Screenshots oder Reports, weil die Farbskala mit ausgegeben wir
 Zweck: Wo liegen Dokumente lange?
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=dwell
 ```
 
@@ -108,7 +108,7 @@ Wichtig: Rot bedeutet laengere Liegedauer relativ zu den anderen Knoten im aktue
 Zweck: Ausreisser oder Durchschnitt anders betrachten.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=dwell \
   --dwell-metric=p95 \
   --show-dwell-legend
@@ -125,7 +125,7 @@ Metriken:
 Zweck: Unerwartete Ist-Uebergaenge sichtbar machen.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=deviations
 ```
 
@@ -145,7 +145,7 @@ Sinnvoll fuer:
 Zweck: Flow, Dwell und Deviations gemeinsam sehen.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined
 ```
 
@@ -162,7 +162,7 @@ Nachteil: Kann bei grossen Prozessen schnell dicht werden. Fuer Detailanalyse be
 Zweck: Erklaeren, ob eine Decision Rule Violation durch spaetere Context-Korrektur plausibel wird.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --diagram-mode=audit
 ```
 
@@ -198,7 +198,7 @@ Wichtig:
 Zweck: Einen konkreten Fall analysieren.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
   --document-id=900001 \
   --debug-metrics
@@ -220,7 +220,7 @@ bin/console intelligence:document:timeline <documentUuid> ai-rechnungen \
 Zweck: Vergleichbare Auswertungsfenster erzeugen.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=flow \
   --from=2026-05-01T00:00:00+02:00 \
   --to=2026-05-31T23:59:59+02:00
@@ -237,7 +237,7 @@ Sinnvoll fuer:
 Zweck: Nur Dokumente anzeigen, die nach der aktuellsten Prozess-Baseline gestartet sind und nicht mehr aus aelteren Baseline-Versionen stammen.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
   --process-version=latest
 ```
@@ -245,7 +245,7 @@ bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
 Wenn nur fachlich vollstaendige/OK-Durchlaeufe angezeigt werden sollen:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
   --process-version=latest \
   --include-ok
@@ -254,7 +254,7 @@ bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
 Mit Diagnoseausgabe:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
   --process-version=latest \
   --include-ok \
@@ -270,7 +270,7 @@ Zweck: Diagramm auf bestimmte Dokumentstatus eingrenzen.
 Nur Abweichungen:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
   --include-deviations
 ```
@@ -278,7 +278,7 @@ bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
 Nur OK-Faelle:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
   --include-ok
 ```
@@ -290,7 +290,7 @@ Beides zusammen bedeutet: OK- und Abweichungsdokumente werden explizit eingeschl
 Zweck: Pruefen, welche Timelines aus Standardauswertungen ausgeschlossen wurden.
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=flow \
   --include-excluded \
   --debug-metrics
@@ -309,14 +309,14 @@ Zweck: Ein reproduzierbares Diagramm aus einer vorher erzeugten Heatmap rendern.
 
 ```bash
 bin/console intelligence:template:heatmap ai-rechnungen \
-  --template=templates/ai-rechnungen.yaml \
+  --template=config/april/process-templates/ai-rechnungen.yaml \
   --format=json \
-  --output=templates/ai-rechnungen-heatmap.json \
+  --output=var/april/generated/heatmaps/ai-rechnungen-heatmap.json \
   --force
 
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
-  --metrics=templates/ai-rechnungen-heatmap.json
+  --metrics=var/april/generated/heatmaps/ai-rechnungen-heatmap.json
 ```
 
 Wichtig: Mit `--metrics` wird bewusst diese Datei verwendet. Sie kann andere Counts zeigen als Live-Auswertungen, wenn sie veraltet ist.
@@ -327,25 +327,25 @@ Fuer den Alltag reichen meistens diese vier:
 
 ```bash
 # 1. Soll-Struktur
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml
 
 # 2. Volumen
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=flow \
   --show-node-metrics
 
 # 3. Engpaesse
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=dwell \
   --show-dwell-legend
 
 # 4. Abweichungen mit Context-Erklaerung
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=deviations \
   --diagram-mode=audit
 
 # 5. Nur letzte Baseline-Version, nur OK-Durchlaeufe
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
   --process-version=latest \
   --include-ok
@@ -354,7 +354,7 @@ bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
 ## Ausgabe speichern
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined \
   --output=var/ai-rechnungen-combined.mmd
 ```
@@ -364,7 +364,7 @@ Die Datei ist Mermaid-Markdown und kann z. B. in Mermaid Live Editor, Obsidian o
 Fuer Obsidian-kompatiblere Edge-Labels:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --compat=obsidian \
   --output=var/ai-rechnungen-obsidian.mmd
 ```

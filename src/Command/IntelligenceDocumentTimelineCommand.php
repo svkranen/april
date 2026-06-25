@@ -8,6 +8,8 @@ use App\Intelligence\Application\DocumentTimelineContextDiffBuilder;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\EventTimelineOrder;
 use App\Intelligence\Application\ProcessTemplateProvider;
+use App\Intelligence\Application\VisibilityCheckResultProvider;
+use App\Intelligence\Application\VisibilityCheckResultRecord;
 use App\Intelligence\Domain\ProcessTemplate;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -26,7 +28,8 @@ final class IntelligenceDocumentTimelineCommand extends Command
     public function __construct(
         private readonly DocumentTimelineProvider $timelineProvider,
         private readonly ?ProcessTemplateProvider $templateProvider = null,
-        private readonly DocumentTimelineContextDiffBuilder $contextDiffBuilder = new DocumentTimelineContextDiffBuilder()
+        private readonly DocumentTimelineContextDiffBuilder $contextDiffBuilder = new DocumentTimelineContextDiffBuilder(),
+        private readonly ?VisibilityCheckResultProvider $accessResultProvider = null
     ) {
         parent::__construct();
     }
@@ -40,7 +43,8 @@ final class IntelligenceDocumentTimelineCommand extends Command
             ->addOption('order-by', null, InputOption::VALUE_REQUIRED, 'Event order: occurred-at, received-at, or occurred-then-received', EventTimelineOrder::DEFAULT->value)
             ->addOption('with-context', null, InputOption::VALUE_NONE, 'Show full context snapshots for timeline events')
             ->addOption('with-diff', null, InputOption::VALUE_NONE, 'Show context changes compared to the previous snapshot')
-            ->addOption('with-decisions', null, InputOption::VALUE_NONE, 'Mark context changes that are used by template decision rules');
+            ->addOption('with-decisions', null, InputOption::VALUE_NONE, 'Mark context changes that are used by template decision rules')
+            ->addOption('with-access', null, InputOption::VALUE_NONE, 'Show persisted access visibility check results grouped by step');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -53,6 +57,7 @@ final class IntelligenceDocumentTimelineCommand extends Command
         $withContext = $input->getOption('with-context') === true;
         $withDiff = $input->getOption('with-diff') === true;
         $withDecisions = $input->getOption('with-decisions') === true;
+        $withAccess = $input->getOption('with-access') === true;
 
         if (!in_array($format, ['table', 'json'], true)) {
             $output->writeln('<error>Invalid --format. Use "table" or "json".</error>');
@@ -73,10 +78,13 @@ final class IntelligenceDocumentTimelineCommand extends Command
         $decisionFields = $template === null ? [] : $this->decisionFields($template);
         $diffsByEventKey = ($withDiff || $withDecisions) ? $this->contextDiffBuilder->build($events) : [];
         $decisionChangesByEventKey = $withDecisions ? $this->decisionChanges($diffsByEventKey, $decisionFields) : [];
+        $accessResults = $withAccess && $this->accessResultProvider !== null
+            ? $this->accessResultProvider->findByDocument($documentUuid, $processKey)
+            : [];
 
         if ($format === 'json') {
             $output->writeln(json_encode(
-                $this->reportArray($documentUuid, $instances, $events, $withContext, $withDiff, $withDecisions, $diffsByEventKey, $decisionChangesByEventKey),
+                $this->reportArray($documentUuid, $instances, $events, $withContext, $withDiff, $withDecisions, $diffsByEventKey, $decisionChangesByEventKey, $withAccess, $accessResults),
                 JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR
             ));
 
@@ -89,6 +97,9 @@ final class IntelligenceDocumentTimelineCommand extends Command
         }
         if ($instances === [] && $events === []) {
             $output->writeln('<comment>Keine Prozessinstanzen oder Events fuer dieses Dokument gefunden.</comment>');
+            if ($withAccess) {
+                $this->writeAccessTimeline($output, $accessResults);
+            }
 
             return Command::SUCCESS;
         }
@@ -125,6 +136,10 @@ final class IntelligenceDocumentTimelineCommand extends Command
 
         if ($withContext || $withDiff || $withDecisions) {
             $this->writeContextTimeline($output, $events, $withContext, $withDiff, $withDecisions, $diffsByEventKey, $decisionChangesByEventKey);
+        }
+
+        if ($withAccess) {
+            $this->writeAccessTimeline($output, $accessResults);
         }
 
         return Command::SUCCESS;
@@ -201,6 +216,7 @@ final class IntelligenceDocumentTimelineCommand extends Command
      * @param array<int, DocumentTimelineEventRow> $events
      * @param array<string, array<int, array<string, mixed>>> $diffsByEventKey
      * @param array<string, array<int, array<string, mixed>>> $decisionChangesByEventKey
+     * @param array<int, VisibilityCheckResultRecord> $accessResults
      * @return array<string, mixed>
      */
     private function reportArray(
@@ -211,9 +227,11 @@ final class IntelligenceDocumentTimelineCommand extends Command
         bool $withDiff,
         bool $withDecisions,
         array $diffsByEventKey,
-        array $decisionChangesByEventKey
+        array $decisionChangesByEventKey,
+        bool $withAccess,
+        array $accessResults
     ): array {
-        return [
+        $report = [
             'documentUuid' => $documentUuid,
             'instances' => array_map(
                 static fn (DocumentTimelineInstanceRow $row): array => $row->toArray(),
@@ -224,6 +242,15 @@ final class IntelligenceDocumentTimelineCommand extends Command
                 $events
             ),
         ];
+
+        if ($withAccess) {
+            $report['accessResults'] = array_map(
+                static fn (VisibilityCheckResultRecord $record): array => $record->toArray(),
+                $accessResults
+            );
+        }
+
+        return $report;
     }
 
     /**
@@ -313,6 +340,65 @@ final class IntelligenceDocumentTimelineCommand extends Command
                 }
             }
         }
+    }
+
+    /**
+     * @param array<int, VisibilityCheckResultRecord> $accessResults
+     */
+    private function writeAccessTimeline(OutputInterface $output, array $accessResults): void
+    {
+        $output->writeln('');
+        $output->writeln('<comment>Sichtbarkeitspruefungen</comment>');
+
+        if ($accessResults === []) {
+            $output->writeln('- keine gespeicherten Ergebnisse gefunden');
+
+            return;
+        }
+
+        foreach ($this->groupAccessResults($accessResults) as $group) {
+            /** @var VisibilityCheckResultRecord $first */
+            $first = $group[0];
+            $output->writeln(sprintf(
+                '- stepKey=%s eventPhase=%s checkKey=%s checkedAt=%s',
+                $first->stepKey,
+                $first->eventPhase,
+                $first->checkKey,
+                $first->checkedAt->format('Y-m-d H:i:s')
+            ));
+
+            foreach ($group as $record) {
+                $reason = $record->reason === null ? '' : sprintf(' reason=%s', $record->reason);
+                $output->writeln(sprintf(
+                    '  - %s expected=%s actual=%s status=%s%s',
+                    $record->probeKey,
+                    $record->expected,
+                    $record->actual,
+                    $record->status,
+                    $reason
+                ));
+            }
+        }
+    }
+
+    /**
+     * @param array<int, VisibilityCheckResultRecord> $records
+     * @return array<string, array<int, VisibilityCheckResultRecord>>
+     */
+    private function groupAccessResults(array $records): array
+    {
+        $groups = [];
+        foreach ($records as $record) {
+            $key = implode('|', [
+                $record->stepKey,
+                $record->eventPhase,
+                $record->checkKey,
+                $record->checkedAt->format(DATE_ATOM),
+            ]);
+            $groups[$key][] = $record;
+        }
+
+        return $groups;
     }
 
     /**

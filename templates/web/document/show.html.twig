@@ -1,0 +1,237 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.documentUuid }} · Dokument · APRIL{% endblock %}
+
+{% block body %}
+    {% import _self as h %}
+    {# 1. Kopfbereich #}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_documents', { key: view.processKey }) }}">← Zurück zur Dokumentliste</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_show', { key: view.processKey }) }}">Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Dokument {{ view.documentUuid }}</h1>
+        <p class="meta-line">Template: <code>{{ view.processKey }}</code></p>
+        <p class="meta-line">Version: <strong>{{ view.version }}</strong></p>
+        <p class="meta-line">Document UUID: <code>{{ view.documentUuid }}</code></p>
+
+        {% if view.instances is not empty and is_expert_view() %}
+            {% for instance in view.instances %}
+                <p class="meta-line">Prozessinstanz {{ instance.id ?? '—' }}: Status <code>{{ instance.status }}</code>,
+                aktueller Schritt <code>{{ instance.currentStepKey }}</code>, Version {{ instance.documentVersion }}</p>
+            {% endfor %}
+        {% endif %}
+
+        {# 2. Hinweis #}
+        <p class="muted">Diese Ansicht zeigt die in APRIL gespeicherten Events und Prüfergebnisse für dieses Dokument.</p>
+    </div>
+
+    {# Zusammenfassung (rein aus bereits geladenen Daten, keine Persistenz) #}
+    {% set sev_class = { critical: 'vs-violation', deviation: 'vs-violation', warning: 'vs-warning', technical: 'vs-unknown' } %}
+    {% set sev_label = { critical: 'Kritisch', deviation: 'Abweichung', warning: 'Warnung', technical: 'Technisch' } %}
+    <div class="card" id="zusammenfassung">
+        <h2>Zusammenfassung</h2>
+        <p class="meta-line">Gesamtstatus:
+            <span class="status-badge {{ findings.overallCssClass }}">{{ findings.overallLabel }}</span></p>
+
+        {% if not findings.hasFindings %}
+            <p class="muted">Keine Findings – dieses Dokument ist unauffällig.</p>
+        {% else %}
+            <p class="meta-line">Findings:
+                Prozess {{ findings.countsByCategory.process }} ·
+                Kontext {{ findings.countsByCategory.context }} ·
+                Access {{ findings.countsByCategory.access }} ·
+                Technisch {{ findings.countsByCategory.technical }}
+                <span class="muted">({{ findings.total }} gesamt)</span></p>
+
+            <ul class="notes">
+                {% for finding in findings.findings|slice(0, 5) %}
+                    <li>
+                        <span class="status-badge {{ sev_class[finding.severity] }}">{{ sev_label[finding.severity] }}</span>
+                        {{ finding.message }}
+                        {% if is_expert_view() and (finding.checkKey or finding.probeKey or finding.reason) %}
+                            <span class="muted">·
+                                {% if finding.checkKey %}checkKey=<code>{{ finding.checkKey }}</code> {% endif %}
+                                {% if finding.probeKey %}probeKey=<code>{{ finding.probeKey }}</code> {% endif %}
+                                {% if finding.status %}status=<code>{{ finding.status }}</code> {% endif %}
+                                {% if finding.reason %}reason=<code>{{ finding.reason }}</code>{% endif %}
+                            </span>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+            {% if findings.total > 5 %}<p class="muted">+ {{ findings.total - 5 }} weitere Finding(s)</p>{% endif %}
+        {% endif %}
+
+        <p class="meta-line">Details:
+            <a href="#soll-ist">Soll-/Ist-Prüfung</a> ·
+            <a href="#timeline">Timeline</a> ·
+            <a href="#access">Access-/Visibility-Ergebnisse</a></p>
+    </div>
+
+    {# Soll-/Ist-Pruefung (on-demand, nicht persistiert) #}
+    <div class="card" id="soll-ist">
+        <h2>Soll-/Ist-Prüfung</h2>
+        <p class="muted">Dieses Ergebnis wird on-demand aus den aktuell gespeicherten Events und
+        Context-Snapshots berechnet und in diesem MVP nicht als Finding persistiert.</p>
+
+        {% if not check.available %}
+            <p class="muted">Die Soll-/Ist-Prüfung ist für dieses Dokument derzeit nicht berechenbar.
+            {% if is_expert_view() and check.error %}<br><span class="muted">Grund: {{ check.error }}</span>{% endif %}</p>
+        {% else %}
+            <p class="meta-line">Status:
+                <span class="status-badge {{ check.statusCssClass }}">{{ check.status }}</span>
+                {% if is_expert_view() and check.contextStatus %}<span class="muted">· contextStatus=<code>{{ check.contextStatus }}</code></span>{% endif %}
+            </p>
+
+            <div class="grid-2">
+                <div>
+                    <h3>Pflichtschritte (Soll)</h3>
+                    {% if check.expectedSteps is empty %}<p class="muted">—</p>
+                    {% else %}<ol class="notes">{% for step in check.expectedSteps %}<li><code>{{ step }}</code></li>{% endfor %}</ol>{% endif %}
+                </div>
+                <div>
+                    <h3>Ist-Schrittfolge</h3>
+                    {% if not check.hasActualSteps %}<p class="muted">Noch keine Ist-Schrittfolge erfasst.</p>
+                    {% else %}<ol class="notes">{% for step in check.actualSteps %}<li><code>{{ step }}</code></li>{% endfor %}</ol>{% endif %}
+                </div>
+            </div>
+
+            {% if check.deviations is not empty %}
+                <h3>Abweichungen</h3>
+                <ul class="notes">{% for d in check.deviations %}<li>{{ d }}</li>{% endfor %}</ul>
+                {% if is_expert_view() %}<p class="muted">Hinweis: Missing-Step-, Transition- und Decision-Rule-Verletzungen werden vom Check-Service als eine Abweichungsliste geliefert.</p>{% endif %}
+            {% endif %}
+
+            {% if check.warnings is not empty %}
+                <h3>Warnungen</h3>
+                <ul class="notes">{% for w in check.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+            {% endif %}
+
+            {% if check.parallelGroupMessages is not empty %}
+                <h3>Parallelgruppen</h3>
+                <ul class="notes">{% for m in check.parallelGroupMessages %}<li>{{ m }}</li>{% endfor %}</ul>
+            {% endif %}
+
+            {% if check.signChecks is not empty %}
+                <h3>SignChecks</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Key</th><th>Bezeichnung</th><th>Status</th><th>Erfüllt</th>
+                            {% if is_expert_view() %}<th>fehlende Werte</th><th>unerwartete Werte</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sc in check.signChecks %}
+                            <tr>
+                                <td><code>{{ sc.key }}</code></td>
+                                <td>{{ sc.label ?? '—' }}</td>
+                                <td>{{ sc.status }}</td>
+                                <td>{{ sc.satisfied ? 'ja' : 'nein' }}</td>
+                                {% if is_expert_view() %}
+                                    <td>{{ sc.missingValues is empty ? '—' : sc.missingValues|join(', ') }}</td>
+                                    <td>{{ sc.unexpectedValues is empty ? '—' : sc.unexpectedValues|join(', ') }}</td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    {# 3. Fachliche Timeline / Step-Accordion #}
+    <div class="card" id="timeline">
+        <h2>Timeline</h2>
+        {% if not view.hasTimeline %}
+            <p class="muted">APRIL kennt für dieses Dokument noch keine Events.</p>
+        {% else %}
+            <p class="muted"><code>before</code>/<code>after</code> sind Prüfphasen innerhalb eines Schritts –
+            keine eigenen Prozessschritte. ({{ view.eventCount }} Event(s) gesamt)</p>
+
+            {% for step in view.steps %}
+                <h3 class="step-head">{{ step.stepKey != '' ? step.stepKey : '(kein Schritt)' }}
+                    <span class="badge is-muted">{{ step.eventCount }} Event(s)</span></h3>
+
+                {% for phase in ['before', 'after'] %}
+                    {% if step.phases[phase] is not empty %}
+                        <div class="phase-block">
+                            <div class="phase-label">{{ phase }}</div>
+                            {{ h.events(step.phases[phase], is_expert_view()) }}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+
+                {% if is_expert_view() and step.phases.unknown is not empty %}
+                    <div class="phase-block">
+                        <div class="phase-label">unknown (technisch)</div>
+                        {{ h.events(step.phases.unknown, true) }}
+                    </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    {# 4. Access-/Visibility-Ergebnisse #}
+    <div class="card" id="access">
+        <h2>Access-/Visibility-CheckResults</h2>
+        {% if not view.hasVisibilityResults %}
+            <p class="muted">Für dieses Dokument sind noch keine gespeicherten Access-/Visibility-CheckResults vorhanden.</p>
+        {% else %}
+            {% for group in view.visibilityGroups %}
+                <h3 class="step-head">{{ group.stepKey }} · <span class="badge">{{ group.eventPhase }}</span> · <code>{{ group.checkKey }}</code></h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>checkedAt</th>
+                            <th>probeKey</th>
+                            {% if is_expert_view() %}<th>sourceSystem</th><th>probeRef</th>{% endif %}
+                            <th>expected</th>
+                            <th>actual</th>
+                            <th>status</th>
+                            <th>reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in group.records %}
+                            <tr>
+                                <td>{{ record.checkedAt|date('Y-m-d H:i') }}</td>
+                                <td><code>{{ record.probeKey }}</code></td>
+                                {% if is_expert_view() %}
+                                    <td><code>{{ record.sourceSystem }}</code></td>
+                                    <td>{{ record.probeRef ?? '—' }}</td>
+                                {% endif %}
+                                <td>{{ record.expected }}</td>
+                                <td>{{ record.actual }}</td>
+                                <td><span class="status-badge vs-{{ record.status }}">{{ record.status }}</span></td>
+                                <td>{{ record.reason ?? '—' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% macro events(events, expert) %}
+    <ul class="notes">
+        {% for event in events %}
+            <li>
+                <code>{{ event.eventKey }}</code>
+                <span class="muted">· {{ event.occurredAt|date('Y-m-d H:i') }}</span>
+                {% if event.duplicate %}<span class="badge is-muted">duplikat</span>{% endif %}
+                {% if expert %}
+                    <span class="muted">· phase=<code>{{ event.eventPhase }}</code>
+                    · externalEventKey=<code>{{ event.externalEventKey }}</code>
+                    {% if event.processEventId %}· eventId={{ event.processEventId }}{% endif %}
+                    · v{{ event.documentVersion }}</span>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+{% endmacro %}

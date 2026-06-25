@@ -62,8 +62,8 @@ kpi_eligibility:
 Der Diagramm-Export kann auf eine konkrete Prozessversion begrenzt werden. `latest` meint die zuletzt definierte Baseline fuer den `process_key`:
 
 ```bash
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml --view=combined --process-version=latest
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml --view=combined --process-version=latest --include-ok
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml --view=combined --process-version=latest
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml --view=combined --process-version=latest --include-ok
 ```
 
 Damit werden aeltere, aber fuer fruehere Baselines gueltige Timelines nicht in die aktuelle Version gemischt.
@@ -74,5 +74,5 @@ Damit werden aeltere, aber fuer fruehere Baselines gueltige Timelines nicht in d
 bin/console intelligence:process-version:create ai-rechnungen 1.0 "2026-06-01 08:00" --description="Produktivstart nach Entwicklungsphase"
 bin/console intelligence:process-version:list ai-rechnungen
 bin/console intelligence:template:heatmap ai-rechnungen --include-excluded
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml --view=flow --debug-metrics --include-excluded
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml --view=flow --debug-metrics --include-excluded
 ```

@@ -1,0 +1,30 @@
+{# `manualTests` = array of manual access test rows from the AccessCoverageReport. #}
+{% if manualTests is empty %}
+    <p class="muted">Keine manuellen Access-Tests definiert.</p>
+{% else %}
+    {% for test in manualTests %}
+        <div class="mini-test">
+            <h3>{{ test.title ?? test.key }} <span class="muted">(<code>{{ test.key }}</code>)</span></h3>
+            {% if test.description %}<p>{{ test.description }}</p>{% endif %}
+            {% if test.frequency %}<p class="meta-line">Frequenz: {{ test.frequency }}</p>{% endif %}
+
+            {% if test.testProcedure is not empty %}
+                <p class="meta-line"><strong>Testprozedur</strong></p>
+                <ol>
+                    {% for step in test.testProcedure %}<li>{{ step }}</li>{% endfor %}
+                </ol>
+            {% endif %}
+
+            {% if test.expectedResult is not empty %}
+                <p class="meta-line"><strong>Erwartetes Ergebnis</strong></p>
+                <ul>
+                    {% for result in test.expectedResult %}<li>{{ result }}</li>{% endfor %}
+                </ul>
+            {% endif %}
+
+            {% if test.evidenceRequired %}
+                <p class="meta-line">Evidenz erforderlich: {{ test.evidenceRequired }}</p>
+            {% endif %}
+        </div>
+    {% endfor %}
+{% endif %}

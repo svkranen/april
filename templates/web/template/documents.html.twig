@@ -1,0 +1,120 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ key }} · Dokumente · APRIL{% endblock %}
+
+{% block body %}
+    {# 1. Kopfbereich #}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_show', { key: key }) }}">← Zurück zur Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Dokumente – {{ key }}</h1>
+        <p class="meta-line">Key: <code>{{ key }}</code></p>
+        <p class="meta-line">Version: <strong>{{ version }}</strong></p>
+
+        <p class="muted">Diese Liste zeigt Dokumente, zu denen APRIL bereits Events/Prozessdaten kennt.</p>
+
+        {% if index.withFindings %}
+            <p class="muted">Findings wurden on-demand für diese Liste berechnet und nicht persistiert.</p>
+            {% if index.limitReached %}
+                <p class="muted">Hinweis: Aus Performance-Gründen werden Findings nur für die ersten {{ index.findingsLimit }} Dokumente berechnet.</p>
+            {% endif %}
+        {% else %}
+            <p class="muted">Findings werden nicht automatisch berechnet, um Listen performant zu halten.</p>
+            {% set activation = { key: key, withFindings: 1 } %}
+            {% if index.severity != 'all' %}{% set activation = activation|merge({ severity: index.severity }) %}{% endif %}
+            <p><a class="pill-link" href="{{ path('app_templates_documents', activation) }}">Mit Findings anzeigen</a></p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Bekannte Dokumente</h2>
+
+        {# Filterleiste / Filterhinweis #}
+        {% if index.withFindings %}
+            {% if index.stepKey %}
+                {# Aktiver Schritt-Filter (aus der Prozessgrafik) – mit Möglichkeit, ihn zu entfernen. #}
+                <p class="meta-line">
+                    <span class="status-badge gs-structure">Schritt-Filter: {{ index.stepLabel }}{% if is_expert_view() %} <code class="muted">{{ index.stepKey }}</code>{% endif %}</span>
+                    <a class="pill-link" href="{{ path('app_templates_documents', index.severity != 'all' ? { key: key, withFindings: 1, severity: index.severity } : { key: key, withFindings: 1 }) }}">Schritt-Filter entfernen</a>
+                </p>
+            {% endif %}
+            <div class="filter-bar">
+                {% for value, label in index.severityOptions %}
+                    <a class="pill-link {{ index.severity == value ? 'is-active' : '' }}"
+                       href="{{ path('app_templates_documents', index.stepKey ? { key: key, withFindings: 1, severity: value, step: index.stepKey } : { key: key, withFindings: 1, severity: value }) }}">{{ label }}</a>
+                {% endfor %}
+            </div>
+            <p class="muted">Zeige {{ index.shownCount }} von {{ index.totalCount }} Dokumenten{% if index.severity != 'all' %} · Filter: {{ index.activeLabel }}{% endif %}{% if index.stepKey %} · Schritt: {{ index.stepLabel }}{% endif %}{% if is_expert_view() %} <span class="muted">[{{ index.severity }}]</span>{% endif %}</p>
+        {% else %}
+            <p class="muted">Severity-Filter erst verfügbar, wenn Findings berechnet werden.</p>
+        {% endif %}
+
+        {% if index.totalCount == 0 %}
+            <p class="muted">Für dieses Template sind APRIL aktuell keine Dokumente bekannt
+            (noch keine Events erfasst).</p>
+        {% elseif index.entries is empty %}
+            <p class="muted">Keine Dokumente für diesen Filter gefunden.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Document UUID</th>
+                        {% if is_expert_view() %}<th>Externe ID</th><th>Version</th>{% endif %}
+                        <th>Status</th>
+                        <th>Findings</th>
+                        <th>Events</th>
+                        <th>Letztes Event</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in index.entries %}
+                        {% set row = entry.row %}
+                        {% set f = entry.finding %}
+                        <tr>
+                            <td><code>{{ row.documentUuid }}</code></td>
+                            {% if is_expert_view() %}
+                                <td>{{ row.documentExternalId ?? '—' }}</td>
+                                <td>{{ row.documentVersion ?? '—' }}</td>
+                            {% endif %}
+                            <td>
+                                {% if not index.withFindings %}
+                                    <span class="muted">nicht berechnet</span>
+                                {% elseif f is null %}
+                                    <span class="muted">nicht berechnet (Limit)</span>
+                                {% else %}
+                                    <span class="status-badge {{ f.cssClass }}">{{ f.label }}</span>
+                                    {% if is_expert_view() and f.error %}<div class="muted">{{ f.error }}</div>{% endif %}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if index.withFindings and f is not null %}
+                                    {{ f.total }}
+                                    {% if is_expert_view() %}
+                                        <div class="muted">Breakdown: Prozess {{ f.countsByCategory.process }} ·
+                                        Kontext {{ f.countsByCategory.context }} ·
+                                        Access {{ f.countsByCategory.access }} ·
+                                        Technisch {{ f.countsByCategory.technical }}</div>
+                                    {% endif %}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                            <td>{{ row.eventCount }}</td>
+                            <td>{{ row.lastEventAt ? row.lastEventAt|date('Y-m-d H:i') : '—' }}</td>
+                            <td><a class="pill-link" href="{{ path('app_template_document_show', { key: key, documentUuid: row.documentUuid }) }}">Details</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if is_expert_view() %}
+                <p class="muted">Technische Sicht: <code>documentUuid</code> ist die rohe Dokument-UUID;
+                externe ID und Version stammen aus den jüngsten Events.</p>
+            {% endif %}
+        {% endif %}
+    </div>
+{% endblock %}

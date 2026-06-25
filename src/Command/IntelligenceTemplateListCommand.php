@@ -2,17 +2,14 @@
 
 namespace App\Command;
 
-use App\Intelligence\Domain\ProcessTemplate;
-use App\Intelligence\Domain\ProcessTemplateArrayFactory;
+use App\Intelligence\Application\ProcessTemplateCatalog;
+use App\Intelligence\Application\ProcessTemplateCatalogEntry;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Yaml\Exception\ParseException;
-use Symfony\Component\Yaml\Yaml;
-use Throwable;
 
 #[AsCommand(
     name: 'intelligence:template:list',
@@ -74,50 +71,18 @@ final class IntelligenceTemplateListCommand extends Command
      */
     private function loadTemplates(): array
     {
-        $templates = [];
-        $warnings = [];
-        $paths = glob(rtrim($this->templateDirectory, '/').'/*.yaml') ?: [];
-        sort($paths);
-
-        foreach ($paths as $path) {
-            try {
-                $template = $this->loadTemplate($path);
-                $templates[] = [
-                    'key' => $template->key,
-                    'version' => $template->version,
-                    'path' => $path,
-                ];
-            } catch (Throwable $exception) {
-                $warnings[] = [
-                    'path' => $path,
-                    'message' => $exception->getMessage(),
-                ];
-            }
-        }
+        $result = (new ProcessTemplateCatalog($this->templateDirectory))->list();
 
         return [
-            'templates' => $templates,
-            'warnings' => $warnings,
+            'templates' => array_map(
+                static fn (ProcessTemplateCatalogEntry $entry): array => [
+                    'key' => $entry->key,
+                    'version' => $entry->version,
+                    'path' => $entry->path,
+                ],
+                $result->entries
+            ),
+            'warnings' => $result->warnings,
         ];
-    }
-
-    private function loadTemplate(string $path): ProcessTemplate
-    {
-        try {
-            $data = Yaml::parseFile($path);
-        } catch (ParseException $exception) {
-            throw new ParseException(sprintf('Invalid YAML: %s', $exception->getMessage()), 0, $exception);
-        }
-
-        if (!is_array($data)) {
-            throw new \RuntimeException('Template file is not a YAML mapping.');
-        }
-
-        $template = ProcessTemplateArrayFactory::fromArray($data);
-        if ($template->key === '') {
-            throw new \RuntimeException('Template key is missing.');
-        }
-
-        return $template;
     }
 }

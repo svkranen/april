@@ -38,13 +38,19 @@
 
         a {
             color: var(--accent);
+            overflow-wrap: anywhere;
         }
 
         code {
             font-family: Consolas, "Liberation Mono", monospace;
+            font-size: 0.92em;
             background: var(--code);
+            color: var(--ink);
             padding: 0.12rem 0.35rem;
             border-radius: 0.3rem;
+            word-break: break-word;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
         }
 
         pre {
@@ -54,10 +60,22 @@
             background: #172026;
             color: #eef6f7;
             border-radius: 0.75rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Code inside a pre must not keep the light inline-code background,
+           otherwise the light text of the dark code block becomes unreadable. */
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            border-radius: 0;
+            font-size: inherit;
+            word-break: normal;
         }
 
         .page {
-            width: min(1180px, calc(100% - 2rem));
+            width: min(1360px, calc(100% - 2rem));
             margin: 2rem auto 4rem;
         }
 
@@ -296,6 +314,12 @@
                                 <li>Template-Pr&uuml;fung: <a href="../src/Command/IntelligenceTemplateCheckDocumentCommand.php">IntelligenceTemplateCheckDocumentCommand</a></li>
                                 <li>Heatmap-Report: <a href="../src/Command/IntelligenceTemplateHeatmapCommand.php">IntelligenceTemplateHeatmapCommand</a></li>
                                 <li>Mermaid ProcessGraph: <a href="../src/Command/IntelligenceTemplateExportDiagramCommand.php">IntelligenceTemplateExportDiagramCommand</a></li>
+                                <li>Dokument-Timeline: <a href="../src/Command/IntelligenceDocumentTimelineCommand.php">IntelligenceDocumentTimelineCommand</a></li>
+                                <li>Kontext-Historie: <a href="../src/Command/IntelligenceDocumentContextHistoryCommand.php">IntelligenceDocumentContextHistoryCommand</a></li>
+                                <li>Prozessversionen: <a href="../src/Command/IntelligenceProcessVersionListCommand.php">IntelligenceProcessVersionListCommand</a></li>
+                                <li>Access-Coverage: <a href="../src/Command/IntelligenceTemplateAccessCoverageCommand.php">IntelligenceTemplateAccessCoverageCommand</a></li>
+                                <li>Access-Doku: <a href="../src/Command/IntelligenceTemplateAccessDocumentCommand.php">IntelligenceTemplateAccessDocumentCommand</a></li>
+                                <li>Access-Pruefung: <a href="../src/Command/IntelligenceAccessCheckDocumentCommand.php">IntelligenceAccessCheckDocumentCommand</a></li>
                                 <li>Dev/Test Sample-Daten: <a href="../src/Command/IntelligenceSampleDataLoadAiRechnungenCommand.php">IntelligenceSampleDataLoadAiRechnungenCommand</a></li>
                                 <li>Legacy Sync: <a href="../src/Command/AmagnoSyncCommand.php">src/Command/AmagnoSyncCommand.php</a></li>
                             </ul>
@@ -306,35 +330,80 @@
                 <section class="card" id="analyse">
                     <h2>2. Prozessanalyse</h2>
                     <p class="lead">Der aktuelle Hauptpfad ist die template-basierte Prozessanalyse. Details und Beispiele stehen im <a href="./process-analysis-guide.md">Process Analysis Guide</a>; die wichtigsten Einstiege sind hier zusammengefasst.</p>
+                    <p>APRIL-Prozess-Templates liegen unter <code>config/april/process-templates/</code>. Das Projektverzeichnis <code>templates/</code> ist fuer Symfony/Twig- und Frontend-Templates reserviert.</p>
                     <div class="grid-2">
                         <div class="mini">
                             <h3>Template und Check</h3>
                             <pre><code>bin/console intelligence:template:list
 bin/console intelligence:template:check-document &lt;documentUuid&gt; &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml
 bin/console intelligence:template:check-process &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml</code></pre>
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml</code></pre>
                             <p>Der Batch-Check liefert Statusklassen <code>OK</code>, <code>WARNING</code>, <code>DEVIATION</code> und <code>ERROR</code>, Problem-Statistiken und priorisierte Top-Problem-Dokumente.</p>
                         </div>
                         <div class="mini">
                             <h3>Heatmap und BPMN-View</h3>
                             <pre><code>bin/console intelligence:template:heatmap &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml \
-  --format=json --output=templates/&lt;processKey&gt;-heatmap.json --force
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml \
+  --format=json --output=var/april/generated/heatmaps/&lt;processKey&gt;-heatmap.json --force
 bin/console intelligence:template:bpmn-view &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml \
-  --heatmap=templates/&lt;processKey&gt;-heatmap.json \
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml \
+  --heatmap=var/april/generated/heatmaps/&lt;processKey&gt;-heatmap.json \
   --format=svg --view=summary --layout=process</code></pre>
                             <p>SVG-Views unterstuetzen <code>summary</code>, <code>bottleneck</code>, <code>deviations</code>, <code>observed</code> und <code>combined</code>. Das Layout <code>process</code> ist fuer fachliche Prozessansichten gedacht, <code>graph</code> fuer Detailanalyse.</p>
                         </div>
                         <div class="mini">
                             <h3>Mermaid ProcessGraph</h3>
-                            <pre><code>bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+                            <pre><code>bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined --debug-metrics
 bin/console intelligence:sample-data:load-ai-rechnungen --purge</code></pre>
                             <p>Der Export nutzt fuer Metrik-Views ohne <code>--metrics</code> dieselbe ProcessEvent-/Timeline-Basis wie <code>check-process</code>. Direkte beobachtete Step-Uebergaenge werden auf virtuelle Soll-Knoten wie Decision Gateways und Parallel-Join projiziert.</p>
                         </div>
+                        <div class="mini">
+                            <h3>Timeline, Kontext und Versionen</h3>
+                            <pre><code>bin/console intelligence:document:timeline &lt;documentUuid&gt; &lt;processKey&gt; \
+  --with-context --with-diff --with-decisions
+bin/console intelligence:document:context-history &lt;documentUuid&gt; &lt;processKey&gt; --diff
+bin/console intelligence:process-version:list &lt;processKey&gt;</code></pre>
+                            <p>Die Dokument-Timeline zeigt Ereignisse inklusive <code>eventPhase</code> (<code>before</code>/<code>after</code>). Kontext-Historie und Prozessversionen halten fest, wie sich Dokumentkontext und Soll-Baseline ueber die Zeit veraendern. Baselines entstehen ueber <code>intelligence:process-version:create</code>.</p>
+                        </div>
+                        <div class="mini">
+                            <h3>Access- und Visibility-Pruefungen</h3>
+                            <pre><code>bin/console intelligence:template:access-coverage &lt;processKey&gt; --format=json
+bin/console intelligence:template:access-document &lt;processKey&gt; \
+  --format=html --output=docs/&lt;processKey&gt;-access.html
+bin/console intelligence:access:check-document &lt;processKey&gt; &lt;documentUuid&gt; \
+  --step="01 Rechnungseingang" --phase=after \
+  --fake-visible-probes=approval_location_a_today --persist
+bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;</code></pre>
+                            <p><code>access-coverage</code> wertet die Abdeckung der im YAML deklarierten Access-Probes, Visibility-Checks und manuellen Tests aus. <code>access-document</code> erzeugt daraus human-readable Pruefdokumentation als Markdown oder HTML. <code>access:check-document</code> fuehrt Visibility-Checks synchron aus &ndash; mit <code>--fake-visible-probes</code> gegen einen In-Memory-Provider, sonst gegen registrierte Probe-Provider wie Amagno. Mit <code>--persist</code> werden die Ergebnisse gespeichert; <code>access:results</code> listet gespeicherte Pruefergebnisse. Hintergrund: <a href="./intelligence/access-visibility-concept.md">Sichtbarkeits-Konzept</a>.</p>
+                        </div>
                     </div>
+
+                    <h3>Access-Control: aktueller Stand</h3>
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h4>Schon verfuegbar</h4>
+                            <ul class="notes">
+                                <li>Access-/Visibility-Regeln im Template deklarieren: Probes, Profile, Resolver, Retry-Policies und manuelle Tests</li>
+                                <li>Coverage auswerten: <code>intelligence:template:access-coverage</code></li>
+                                <li>Pruefdokumentation erzeugen (Markdown/HTML): <code>intelligence:template:access-document</code></li>
+                                <li>Synchron gegen Fake- oder Amagno-Probes pruefen: <code>intelligence:access:check-document</code></li>
+                                <li>Manuelle/synchrone Pruefergebnisse persistieren: <code>--persist</code></li>
+                                <li>Gespeicherte Ergebnisse anzeigen: <code>intelligence:access:results</code></li>
+                            </ul>
+                        </div>
+                        <div class="mini">
+                            <h4>Bewusst noch nicht</h4>
+                            <ul class="notes">
+                                <li>Keine automatische Ausfuehrung nach Eventverarbeitung</li>
+                                <li>Kein Retry- bzw. Queue-Scheduling</li>
+                                <li>Keine automatische Timeline-Integration gespeicherter Access-Ergebnisse</li>
+                                <li>Keine vollstaendige Amagno-ACL-Pruefung &ndash; nur die definierten Access-Probes</li>
+                            </ul>
+                        </div>
+                    </div>
+
                     <h3>Template-Konzepte</h3>
                     <ul class="notes">
                         <li><code>required_steps</code> sind globale Pflichtschritte, nicht der vollstaendige Ablauf.</li>

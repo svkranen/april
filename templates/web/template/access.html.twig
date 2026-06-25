@@ -1,0 +1,83 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.key }} · Access &amp; Visibility · APRIL{% endblock %}
+
+{% block body %}
+    {# 1. Kopfbereich #}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_show', { key: view.key }) }}">← Zurück zur Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_docs', { key: view.key }) }}">Dokumentation</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Access &amp; Visibility – {{ view.key }}</h1>
+        <p class="meta-line">Key: <code>{{ view.key }}</code></p>
+        <p class="meta-line">Version: <strong>{{ view.version }}</strong></p>
+        <p class="meta-line">Source-System: <code>{{ view.sourceSystem }}</code></p>
+
+        {# 2. Nicht wegklickbarer Compliance-Hinweis #}
+        {{ include('_partials/_compliance_notice.html.twig') }}
+    </div>
+
+    {# 3. Coverage-Zusammenfassung #}
+    <div class="card">
+        <h2>Coverage-Zusammenfassung</h2>
+        <div class="summary-grid">
+            <div class="metric"><div class="n">{{ view.summary.automatic }}</div><div class="l">automatic</div></div>
+            <div class="metric"><div class="n">{{ view.summary.manualAccessTests }}</div><div class="l">manual</div></div>
+            <div class="metric"><div class="n">{{ view.summary.unsupported }}</div><div class="l">unsupported</div></div>
+            <div class="metric"><div class="n">{{ view.summary.notCovered }}</div><div class="l">notCovered / incomplete</div></div>
+        </div>
+    </div>
+
+    {# 4. Coverage-Matrix / Check-Liste #}
+    <div class="card">
+        <h2>Visibility-Checks</h2>
+        {{ include('template/_coverage_matrix.html.twig', { checks: view.checks }) }}
+    </div>
+
+    {# 5. Access-Probes #}
+    <div class="card">
+        <h2>Access-Probes</h2>
+        {{ include('template/_probe_table.html.twig', { probes: view.probes }) }}
+    </div>
+
+    {# 6. Visibility Check Profiles #}
+    <div class="card">
+        <h2>Visibility Check Profiles</h2>
+        {{ include('template/_profiles.html.twig', { profiles: view.profiles }) }}
+    </div>
+
+    {# 7. Visibility Profile Resolvers #}
+    <div class="card">
+        <h2>Visibility Profile Resolvers</h2>
+        {% if view.resolvers is empty %}
+            <p class="muted">Keine Resolver definiert.</p>
+        {% else %}
+            {% for resolver in view.resolvers %}
+                <h3><code>{{ resolver.key }}</code></h3>
+                <p class="meta-line">Context-Feld: <code>{{ resolver.field }}</code></p>
+                <table>
+                    <thead><tr><th>Context-Wert</th><th>Profil</th></tr></thead>
+                    <tbody>
+                        {% for value, profile in resolver.map %}
+                            <tr><td><code>{{ value }}</code></td><td><code>{{ profile }}</code></td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endfor %}
+            <p class="muted">
+                Fehlt das Context-Feld oder ist der Wert nicht gemappt, gilt der Check als
+                <strong>nicht bewertbar (warning)</strong> – nicht als Access-Violation.
+            </p>
+        {% endif %}
+    </div>
+
+    {# 8. Manual Access Tests #}
+    <div class="card">
+        <h2>Manuelle Access-Tests</h2>
+        {{ include('template/_manual_tests.html.twig', { manualTests: view.manualTests }) }}
+    </div>
+{% endblock %}

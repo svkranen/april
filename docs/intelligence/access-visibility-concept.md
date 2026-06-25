@@ -61,6 +61,11 @@ Der fachliche Kern bleibt DMS-unabhaengig. Amagno bleibt Adapter.
 
 ## Template-Erweiterung
 
+APRIL-Prozess-Templates liegen standardmaessig unter
+`config/april/process-templates/*.yaml`. Das Projektverzeichnis `templates/`
+ist fuer Symfony/Twig- und Frontend-Templates reserviert und darf nicht fuer
+APRIL-Prozess-YAMLs verwendet werden.
+
 Vorgeschlagene Top-Level-Keys:
 
 ```yaml
@@ -98,7 +103,9 @@ visibility_check_profiles:
 
 visibility_profile_resolvers:
   approval_location_by_context:
-    field: standort
+    # Fachlich z. B. "Standort (Projekt)", technisch z. B. project_location
+    # oder im aktuellen ai-rechnungen-Beispiel vorlaeufig cost_center.
+    field: project_location
     map:
       A: approval_location_a
       B: approval_location_b
@@ -146,6 +153,17 @@ steps:
 eigenen Steps. Die bestehenden `steps[*].key` bleiben die einzige Quelle fuer
 fachliche Prozessknoten.
 
+Standortbezogene Sichtbarkeit wird nicht pauschal an einen Schritt gebunden,
+sondern dynamisch aus einem Context-Feld des Dokuments abgeleitet. Ein Resolver
+liest z. B. das fachliche Merkmal `"Standort (Projekt)"` oder ein technisches
+Feld wie `project_location` bzw. `cost_center` und bildet den Wert auf ein
+Visibility-Profil ab. Fehlt dieses Feld, ist das keine Access-Violation,
+sondern ein nicht bewertbarer Kontrollfall mit Reason `missing_context_field`.
+Ist der Context-Wert nicht gemappt, gilt entsprechend
+`unmapped_context_value`. In beiden Faellen werden keine technischen Probes
+ausgefuehrt, weil ohne Profil nicht klar ist, welche Sichtbarkeit erwartet ist;
+die Bewertung sollte als `warning` oder `unknown` dokumentiert werden.
+
 Empfehlung: `source_system` sollte global am Template stehen duerfen, aber
 optional bleiben. Wenn der Key fehlt, gilt aus Kompatibilitaetsgruenden
 `amagno`. Einzelne `access_probes` und bei Bedarf einzelne Checks duerfen
@@ -175,7 +193,7 @@ Vorgeschlagene Objekte im Domain-Layer:
 - `ProcessTemplateVisibilityProfileResolver`
   - `key`, `field`, `map`
 - `ProcessTemplateVisibilityRetryPolicy`
-  - `key`, `attemptsAfterSeconds`, `forbiddenFound`, `expectedMissingAfterLastAttempt`, `magnetTooLarge`
+  - `key`, `attemptsAfterSeconds`, `forbiddenFound`, `expectedMissingAfterLastAttempt`, `probeTooLarge`
 - `ProcessTemplateVisibilityCheck`
   - `key`, `phase`, `expectedProfile`, `expectedProfileResolver`, `retryPolicy`
 - `ProcessTemplateManualAccessTest`
@@ -235,6 +253,12 @@ Vorgeschlagene Services:
 
 - `VisibilityProfileResolver`
   - bestimmt aus Check-Konfiguration und Context Snapshot das Profil.
+  - verwendet `expected_profile` direkt oder loest
+    `expected_profile_resolver` ueber ein Context-Feld wie
+    `"Standort (Projekt)"`, `project_location` oder `cost_center` auf.
+  - liefert bei fehlendem Feld `missing_context_field` und bei nicht
+    gemapptem Wert `unmapped_context_value`; in beiden Faellen werden keine
+    Access-Probes ausgefuehrt.
 - `VisibilityCheckPlanner`
   - erzeugt aus Event, Template, Step und Phase konkrete Probe-Pruefaufgaben.
 - `VisibilityCheckService`

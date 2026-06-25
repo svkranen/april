@@ -4,6 +4,8 @@ namespace App\Tests\Command;
 
 use App\Command\IntelligenceDocumentTimelineCommand;
 use App\Intelligence\Application\ProcessTemplateProvider;
+use App\Intelligence\Application\VisibilityCheckEvaluationResult;
+use App\Intelligence\Application\VisibilityCheckResultSaveContext;
 use App\Intelligence\Domain\ContextSnapshot;
 use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
@@ -12,6 +14,7 @@ use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
 use App\Intelligence\Domain\ProcessTemplateDecisionRule;
 use App\Intelligence\Domain\ProcessTemplateRuleCondition;
+use App\Intelligence\Infrastructure\Access\InMemoryVisibilityCheckResultStore;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -456,6 +459,77 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
         self::assertStringContainsString('affected decisions: route_after_pruefung, freigabe_ab_1000', $display);
     }
 
+    public function testTimelineJsonContainsAccessResultsOnlyWithAccessOption(): void
+    {
+        $store = $this->accessResultStore();
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($this->provider(), accessResultProvider: $store));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'invoice-process',
+            '--format' => 'json',
+        ]);
+        $withoutAccess = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertArrayNotHasKey('accessResults', $withoutAccess);
+
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($this->provider(), accessResultProvider: $store));
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'invoice-process',
+            '--format' => 'json',
+            '--with-access' => true,
+        ]);
+        $withAccess = json_decode($tester->getDisplay(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertCount(2, $withAccess['accessResults']);
+        self::assertSame('approved', $withAccess['accessResults'][0]['stepKey']);
+        self::assertSame('approval_location_a_today', $withAccess['accessResults'][0]['probeKey']);
+        self::assertCount(3, $withAccess['events']);
+    }
+
+    public function testTimelineTextGroupsAccessResultsAtStepKey(): void
+    {
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand($this->provider(), accessResultProvider: $this->accessResultStore()));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'invoice-process',
+            '--with-access' => true,
+        ]);
+        $display = $tester->getDisplay();
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Sichtbarkeitspruefungen', $display);
+        self::assertStringContainsString('stepKey=approved eventPhase=after checkKey=route_to_location_approval', $display);
+        self::assertStringContainsString('approval_location_a_today expected=visible actual=visible status=ok', $display);
+        self::assertStringContainsString('external_today expected=hidden actual=visible status=violation reason=forbidden_visibility', $display);
+    }
+
+    public function testTimelineWithAccessShowsStoredResultsEvenWithoutEvents(): void
+    {
+        $store = new InMemoryVisibilityCheckResultStore();
+        $store->save(
+            new VisibilityCheckEvaluationResult('uuid-access-only', 'invoice-process', 'approved', 'after', 'route_to_location_approval', 'approval_location_a', 'approval_location_a_today', 'visible', 'visible', 'ok'),
+            new VisibilityCheckResultSaveContext(sourceSystem: 'amagno')
+        );
+        $tester = new CommandTester(new IntelligenceDocumentTimelineCommand(new InMemoryDocumentTimelineProvider(), accessResultProvider: $store));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-access-only',
+            'processKey' => 'invoice-process',
+            '--with-access' => true,
+        ]);
+        $display = $tester->getDisplay();
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertStringContainsString('Keine Prozessinstanzen oder Events fuer dieses Dokument gefunden.', $display);
+        self::assertStringContainsString('Sichtbarkeitspruefungen', $display);
+        self::assertStringContainsString('approval_location_a_today expected=visible actual=visible status=ok', $display);
+    }
+
     private function templateProvider(): ProcessTemplateProvider
     {
         return new class implements ProcessTemplateProvider {
@@ -607,5 +681,19 @@ class IntelligenceDocumentTimelineCommandTest extends TestCase
                 ),
             ]
         );
+    }
+
+    private function accessResultStore(): InMemoryVisibilityCheckResultStore
+    {
+        $store = new InMemoryVisibilityCheckResultStore();
+        $store->saveMany(
+            [
+                new VisibilityCheckEvaluationResult('uuid-1', 'invoice-process', 'approved', 'after', 'route_to_location_approval', 'approval_location_a', 'approval_location_a_today', 'visible', 'visible', 'ok', null, ['documentCount' => 1]),
+                new VisibilityCheckEvaluationResult('uuid-1', 'invoice-process', 'approved', 'after', 'route_to_location_approval', 'approval_location_a', 'external_today', 'hidden', 'visible', 'violation', 'forbidden_visibility', ['documentCount' => 1]),
+            ],
+            new VisibilityCheckResultSaveContext(sourceSystem: 'amagno', documentVersion: 1)
+        );
+
+        return $store;
     }
 }

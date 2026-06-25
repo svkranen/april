@@ -1,0 +1,167 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.key }} · Prozessgrafik · APRIL{% endblock %}
+
+{% block head %}
+    <style>
+        .mermaid-source {
+            background: #0a2342; color: #eef9fa; border-radius: 0.8rem;
+            padding: 1rem 1.1rem; overflow-x: auto; font-size: 0.85rem; line-height: 1.5;
+            font-family: Consolas, "Liberation Mono", monospace; margin: 0.6rem 0 0;
+        }
+        details.mermaid-box { margin-top: 0.6rem; }
+        details.mermaid-box > summary {
+            cursor: pointer; font-weight: 600; color: var(--accent);
+            padding: 0.2rem 0; user-select: none;
+        }
+        .legend { display: flex; gap: 0.45rem; flex-wrap: wrap; align-items: center; margin: 0.4rem 0 0.2rem; }
+        .legend-title { font-weight: 700; color: var(--muted); font-size: 0.85rem; margin-right: 0.2rem; }
+        .shape-legend { display: flex; gap: 1rem; flex-wrap: wrap; margin: 0.5rem 0 0.2rem; color: var(--muted); font-size: 0.88rem; }
+        .shape-legend .glyph { font-weight: 800; color: var(--accent-deep); margin-right: 0.25rem; }
+        .gs-critical { background: #fce4ec; color: #880e4f; border: 1px solid #880e4f; }
+        .gs-deviation { background: #ffebee; color: #c62828; border: 1px solid #c62828; }
+        .gs-warning { background: #fff8e1; color: #8a6d00; border: 1px solid #f9a825; }
+        .gs-technical { background: #ede7f6; color: #4527a0; border: 1px solid #4527a0; }
+        .gs-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #2e7d32; }
+        .gs-not_calculated { background: #eeeeee; color: #555; border: 1px solid #757575; }
+        .gs-structure { background: #f5f5f5; color: #455a64; border: 1px solid #90a4ae; }
+        .mermaid-preview {
+            margin-top: 0.6rem; padding: 1rem; border: 1px solid var(--line);
+            border-radius: 0.8rem; background: #fff; overflow-x: auto; min-height: 3rem;
+        }
+        .mermaid-preview svg { max-width: 100%; height: auto; }
+    </style>
+    {# Mermaid is served locally via AssetMapper/importmap (no CDN). Loaded only on this page. #}
+    {{ importmap('template-graph') }}
+{% endblock %}
+
+{% block body %}
+    {# 1. Kopfbereich #}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_show', { key: view.key }) }}">← Zurück zur Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Prozessgrafik – {{ view.key }}</h1>
+        <p class="meta-line">Key: <code>{{ view.key }}</code></p>
+        <p class="meta-line">Version: <strong>{{ view.version }}</strong></p>
+
+        <p class="muted">Zeigt den Soll-Prozess des Templates: Schritte, Verzweigungen (Entscheidungen)
+        und Parallelgruppen. Mit aktivierten Findings wird jeder Schritt zusätzlich nach seinem
+        Prüfstatus eingefärbt.</p>
+
+        {# Geschwister-Navigation, konsistent zur Template-Detailseite #}
+        <div class="header-actions">
+            <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key }) }}">Dokumente</a>
+            <a class="pill-link" href="{{ path('app_templates_access', { key: view.key }) }}">Access &amp; Visibility</a>
+            <a class="pill-link" href="{{ path('app_templates_docs', { key: view.key }) }}">Dokumentation</a>
+        </div>
+
+        {# Findings an/aus – immer beide Richtungen anbieten #}
+        <div class="header-actions">
+            {% if view.withFindings %}
+                <a class="pill-link is-active" href="{{ path('app_templates_graph', { key: view.key, withFindings: 1 }) }}">Mit Findings</a>
+                <a class="pill-link" href="{{ path('app_templates_graph', { key: view.key }) }}">Ohne Findings</a>
+            {% else %}
+                <a class="pill-link" href="{{ path('app_templates_graph', { key: view.key, withFindings: 1 }) }}">Mit Findings</a>
+                <a class="pill-link is-active" href="{{ path('app_templates_graph', { key: view.key }) }}">Ohne Findings</a>
+            {% endif %}
+        </div>
+
+        {% if view.withFindings %}
+            {% if view.limitReached %}
+                <p class="muted">Findings on-demand berechnet (nicht persistiert) – aus Performance-Gründen
+                nur für die ersten {{ view.findingsLimit }} von {{ view.totalDocuments }} Dokumenten.</p>
+            {% else %}
+                <p class="muted">Findings on-demand über {{ view.processedDocuments }} Dokument(e) berechnet (nicht persistiert).</p>
+            {% endif %}
+        {% else %}
+            <p class="muted">Findings werden nicht automatisch berechnet, um die Ansicht performant zu halten.
+            Alle Schritte sind daher grau (<em>nicht berechnet</em>). Über „Mit Findings" wird der Status je Schritt ermittelt.</p>
+        {% endif %}
+    </div>
+
+    {# 2. Gerenderte Vorschau (lokal via AssetMapper/importmap, kein CDN) #}
+    <div class="card">
+        <h2>Gerenderte Vorschau</h2>
+        <p class="muted">Die Grafik wird im Browser aus dem unten stehenden Mermaid-Quelltext erzeugt.</p>
+
+        <div class="shape-legend">
+            <span><span class="glyph">▭</span>Schritt (Farbe = Status)</span>
+            <span><span class="glyph">◇</span>Entscheidung / Verzweigung</span>
+            <span><span class="glyph">⬡</span>Parallelgruppe (Start / Zusammenführung)</span>
+            <span><span class="glyph">◯</span>Start / Ende</span>
+        </div>
+
+        <div class="mermaid-preview" data-mermaid-graph-target="preview">
+            <noscript>Die grafische Vorschau benötigt JavaScript. Der Mermaid-Quelltext bleibt unten verfügbar.</noscript>
+        </div>
+    </div>
+
+    {# 3. Mermaid-Quelltext (bleibt erhalten; dient zugleich als Render-Quelle und Fallback) #}
+    <div class="card">
+        <h2>Mermaid-Quelltext</h2>
+        <p class="muted">Der Quelltext kann unverändert in einen Mermaid-Renderer
+        (z. B. mermaid.live oder eine Markdown-Vorschau) eingefügt werden.</p>
+
+        <details class="mermaid-box" open>
+            <summary>Mermaid-Quelltext anzeigen/ausblenden</summary>
+            {# Read as plain text by template-graph.js; HTML-escaped, never injected as markup. #}
+            <pre class="mermaid-source" data-mermaid-graph-source>{{ view.mermaidCode }}</pre>
+        </details>
+    </div>
+
+    {# 4. Legende, prozessweite Findings und Schritt-Tabelle (barrierearmer Fallback) #}
+    <div class="card">
+        <h2>Schritte &amp; Status</h2>
+        <p class="muted">Die Farbe entspricht der Einfärbung des jeweiligen Schritts in der Grafik.
+        Strukturknoten (Start/Ende, Entscheidungen, Parallelgruppen) tragen keine Findings.</p>
+
+        <div class="legend">
+            <span class="legend-title">Schritt-Status:</span>
+            {% for item in view.legend %}
+                <span class="status-badge gs-{{ item.status }}">{{ item.label }}</span>
+            {% endfor %}
+            <span class="status-badge gs-structure">Struktur</span>
+        </div>
+
+        {% if view.withFindings %}
+            {% if view.hasProcessFindings %}
+                <p class="meta-line">Prozessweite Soll-/Ist-Findings (nicht einzelnen Schritten zuordenbar):
+                    {{ view.processDeviations }} Abweichung(en) ·
+                    {{ view.processWarnings }} Warnung(en) ·
+                    {{ view.processTechnical }} technisch</p>
+            {% else %}
+                <p class="meta-line muted">Keine prozessweiten Soll-/Ist-Findings festgestellt.</p>
+            {% endif %}
+        {% endif %}
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Schritt</th>
+                    <th>Status</th>
+                    <th>Findings (Zusammenfassung)</th>
+                    <th>Dokumente</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for step in view.steps %}
+                    <tr>
+                        <td>{{ step.name }}{% if is_expert_view() %} <code class="muted">{{ step.key }}</code>{% endif %}</td>
+                        <td><span class="status-badge gs-{{ step.status }}">{{ step.statusLabel }}</span></td>
+                        <td>{{ step.findingsLabel }}</td>
+                        <td>
+                            {% if step.hasFindings %}
+                                <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, step: step.key }) }}">Dokumente anzeigen</a>
+                            {% else %}
+                                <span class="muted">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

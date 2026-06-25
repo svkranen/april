@@ -1,0 +1,23 @@
+{# `profiles` = array of profile rows from TemplateAccessView. #}
+{% if profiles is empty %}
+    <p class="muted">Keine Visibility Check Profiles definiert.</p>
+{% else %}
+    <table>
+        <thead>
+            <tr>
+                <th>Profil</th>
+                <th>Erwartet sichtbar in</th>
+                <th>Erwartet nicht sichtbar in</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for profile in profiles %}
+                <tr>
+                    <td><code>{{ profile.key }}</code></td>
+                    <td>{{ profile.expectedVisibleInProbes is empty ? '—' : profile.expectedVisibleInProbes|join(', ') }}</td>
+                    <td>{{ profile.expectedNotVisibleInProbes is empty ? '—' : profile.expectedNotVisibleInProbes|join(', ') }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

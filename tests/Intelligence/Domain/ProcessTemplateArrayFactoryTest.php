@@ -263,6 +263,137 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame([], $template->decisionPoints);
         self::assertSame([], $template->requiredStepKeys);
         self::assertNull($template->connector);
+        self::assertSame('amagno', $template->sourceSystem);
+        self::assertSame([], $template->accessProbes);
+        self::assertSame([], $template->visibilityProfiles);
+        self::assertSame([], $template->visibilityProfileResolvers);
+        self::assertSame([], $template->visibilityRetryPolicies);
+        self::assertSame([], $template->manualAccessTests);
+    }
+
+    public function testParsesAccessVisibilityMetadataWithSourceSystemDefaultsAndOverrides(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'source_system' => 'amagno',
+            'access_probes' => [
+                'approval_location_a_today' => [
+                    'type' => 'amagno_magnet_documents',
+                    'magnet_id' => 1001,
+                    'max_documents' => 500,
+                    'description' => 'Freigabe Standort A',
+                ],
+                'external_today' => [
+                    'source_system' => 'external_dms',
+                    'type' => 'external_visibility_sample',
+                    'query_id' => 'external-today',
+                ],
+            ],
+            'visibility_check_profiles' => [
+                'approval_location_a' => [
+                    'expected_visible_in_probes' => ['approval_location_a_today'],
+                    'expected_not_visible_in_probes' => ['external_today'],
+                ],
+            ],
+            'visibility_profile_resolvers' => [
+                'approval_location_by_context' => [
+                    'field' => 'standort',
+                    'map' => [
+                        'A' => 'approval_location_a',
+                    ],
+                ],
+            ],
+            'visibility_retry_policies' => [
+                'amagno_today_magnets' => [
+                    'attempts_after_seconds' => [10, 30, 60],
+                    'forbidden_found' => 'violation',
+                    'expected_missing_after_last_attempt' => 'warning',
+                    'probe_too_large' => 'technical_warning',
+                ],
+            ],
+            'manual_access_tests' => [
+                [
+                    'key' => 'approver_scope_test',
+                    'title' => 'Freigeberbezogene Sichtbarkeit',
+                    'description' => 'Freigeber sehen nur eigene Dokumente.',
+                    'test_procedure' => ['Benutzer A pruefen.', 'Benutzer B pruefen.'],
+                    'expected_result' => ['A sieht das Dokument.', 'B sieht es nicht.'],
+                    'frequency' => 'quartalsweise',
+                ],
+            ],
+            'steps' => [
+                [
+                    'key' => 'received',
+                    'after' => [
+                        'visibility_checks' => [
+                            [
+                                'key' => 'route_to_location_approval',
+                                'expected_profile_resolver' => 'approval_location_by_context',
+                                'retry_policy' => 'amagno_today_magnets',
+                                'source_system' => 'amagno',
+                            ],
+                        ],
+                    ],
+                    'before' => [
+                        'visibility_checks' => [
+                            [
+                                'key' => 'initial_visibility',
+                                'expected_profile' => 'approval_location_a',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        self::assertSame('amagno', $template->sourceSystem);
+
+        self::assertCount(2, $template->accessProbes);
+        self::assertSame('amagno', $template->accessProbes['approval_location_a_today']->sourceSystem);
+        self::assertSame('amagno_magnet_documents', $template->accessProbes['approval_location_a_today']->type);
+        self::assertSame(['magnet_id' => 1001], $template->accessProbes['approval_location_a_today']->options);
+        self::assertSame(500, $template->accessProbes['approval_location_a_today']->maxDocuments);
+        self::assertSame('external_dms', $template->accessProbes['external_today']->sourceSystem);
+        self::assertSame(['query_id' => 'external-today'], $template->accessProbes['external_today']->options);
+
+        self::assertSame(['approval_location_a_today'], $template->visibilityProfiles['approval_location_a']->expectedVisibleInProbeKeys);
+        self::assertSame(['external_today'], $template->visibilityProfiles['approval_location_a']->expectedNotVisibleInProbeKeys);
+        self::assertSame('standort', $template->visibilityProfileResolvers['approval_location_by_context']->field);
+        self::assertSame(['A' => 'approval_location_a'], $template->visibilityProfileResolvers['approval_location_by_context']->map);
+        self::assertSame([10, 30, 60], $template->visibilityRetryPolicies['amagno_today_magnets']->attemptsAfterSeconds);
+        self::assertSame('technical_warning', $template->visibilityRetryPolicies['amagno_today_magnets']->probeTooLarge);
+
+        self::assertCount(1, $template->manualAccessTests);
+        self::assertSame('approver_scope_test', $template->manualAccessTests[0]->key);
+        self::assertSame(['Benutzer A pruefen.', 'Benutzer B pruefen.'], $template->manualAccessTests[0]->testProcedure);
+
+        self::assertCount(1, $template->steps[0]->beforeVisibilityChecks);
+        self::assertSame('before', $template->steps[0]->beforeVisibilityChecks[0]->phase);
+        self::assertSame('initial_visibility', $template->steps[0]->beforeVisibilityChecks[0]->key);
+        self::assertSame('approval_location_a', $template->steps[0]->beforeVisibilityChecks[0]->expectedProfileKey);
+        self::assertNull($template->steps[0]->beforeVisibilityChecks[0]->sourceSystemOverride);
+
+        self::assertCount(1, $template->steps[0]->afterVisibilityChecks);
+        self::assertSame('after', $template->steps[0]->afterVisibilityChecks[0]->phase);
+        self::assertSame('route_to_location_approval', $template->steps[0]->afterVisibilityChecks[0]->key);
+        self::assertSame('approval_location_by_context', $template->steps[0]->afterVisibilityChecks[0]->expectedProfileResolverKey);
+        self::assertSame('amagno', $template->steps[0]->afterVisibilityChecks[0]->sourceSystemOverride);
+    }
+
+    public function testAcceptsCamelCaseSourceSystemAlias(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'sourceSystem' => 'external_dms',
+            'access_probes' => [
+                'external_probe' => [
+                    'type' => 'external_probe',
+                ],
+            ],
+        ]);
+
+        self::assertSame('external_dms', $template->sourceSystem);
+        self::assertSame('external_dms', $template->accessProbes['external_probe']->sourceSystem);
     }
 
     public function testBuildsTemplateWithConnector(): void

@@ -38,13 +38,19 @@
 
         a {
             color: var(--accent);
+            overflow-wrap: anywhere;
         }
 
         code {
             font-family: Consolas, "Liberation Mono", monospace;
+            font-size: 0.92em;
             background: var(--code);
+            color: var(--ink);
             padding: 0.12rem 0.35rem;
             border-radius: 0.3rem;
+            word-break: break-word;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
         }
 
         pre {
@@ -54,10 +60,22 @@
             background: #15211b;
             color: #eef7f1;
             border-radius: 0.75rem;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Code inside a pre must not keep the light inline-code background,
+           otherwise the light text of the dark code block becomes unreadable. */
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            border-radius: 0;
+            font-size: inherit;
+            word-break: normal;
         }
 
         .page {
-            width: min(1180px, calc(100% - 2rem));
+            width: min(1360px, calc(100% - 2rem));
             margin: 2rem auto 4rem;
         }
 
@@ -278,13 +296,14 @@
                         <li>Lokale Verbindungsdatei auf Basis von <a href="../config/amagno_connections.json">config/amagno_connections.json</a> anlegen.</li>
                         <li>Doctrine-/Event-Store-Konfiguration fuer Intelligence-Funktionen pruefen.</li>
                         <li><code>bin/console intelligence:template:suggest-from-documents &lt;processKey&gt; --limit=10</code> fuer erste Template-Vorschlaege ausfuehren.</li>
-                        <li><code>bin/console intelligence:template:check-document &lt;documentUuid&gt; &lt;processKey&gt; --template=templates/&lt;processKey&gt;.yaml</code> pruefen.</li>
-                        <li><code>bin/console intelligence:template:heatmap &lt;processKey&gt; --template=templates/&lt;processKey&gt;.yaml</code> fuer Heatmap-Reports nutzen.</li>
+                        <li><code>bin/console intelligence:template:check-document &lt;documentUuid&gt; &lt;processKey&gt; --template=config/april/process-templates/&lt;processKey&gt;.yaml</code> pruefen.</li>
+                        <li><code>bin/console intelligence:template:heatmap &lt;processKey&gt; --template=config/april/process-templates/&lt;processKey&gt;.yaml</code> fuer Heatmap-Reports nutzen.</li>
                         <li>Falls Legacy-Exporter noch produktiv laeuft: <code>bin/console amagno:sync --all-connections --dry-run</code> separat pruefen.</li>
                     </ol>
                     <div class="ok">
                         <strong>Faustregel:</strong> Neue Auswertungen zuerst mit begrenzter Dokumentmenge und Ausgabedateien pruefen. Rueckschreibungen und Stempel gehoeren zum Legacy-/Connector-Kontext.
                     </div>
+                    <p><strong>Template-Pfad:</strong> APRIL-Prozess-Templates liegen unter <code>config/april/process-templates/</code>. Das Projektverzeichnis <code>templates/</code> ist fuer Symfony/Twig- und Frontend-Templates reserviert.</p>
                 </section>
 
                 <section class="card" id="analyse">
@@ -295,28 +314,71 @@
                             <h3>Template-Checks</h3>
                             <pre><code>bin/console intelligence:template:list
 bin/console intelligence:template:check-document &lt;documentUuid&gt; &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml
 bin/console intelligence:template:check-process &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml --only-deviations</code></pre>
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml --only-deviations</code></pre>
                             <p>Der Batch-Check gruppiert Ergebnisse nach <code>OK</code>, <code>WARNING</code>, <code>DEVIATION</code> und <code>ERROR</code>. Standardmaessig werden OK-Dokumente ausgeblendet; mit <code>--show-ok</code> werden sie ebenfalls gelistet.</p>
                         </div>
                         <div class="mini">
                             <h3>Heatmap und Prozessbild</h3>
                             <pre><code>bin/console intelligence:template:heatmap &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml \
-  --format=json --output=templates/&lt;processKey&gt;-heatmap.json --force
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml \
+  --format=json --output=var/april/generated/heatmaps/&lt;processKey&gt;-heatmap.json --force
 bin/console intelligence:template:bpmn-view &lt;processKey&gt; \
-  --template=templates/&lt;processKey&gt;.yaml \
-  --heatmap=templates/&lt;processKey&gt;-heatmap.json \
+  --template=config/april/process-templates/&lt;processKey&gt;.yaml \
+  --heatmap=var/april/generated/heatmaps/&lt;processKey&gt;-heatmap.json \
   --format=svg --view=summary --layout=process</code></pre>
                             <p>Fuer SVG ist <code>summary</code> die lesbare Standardansicht. <code>bottleneck</code> fokussiert Engpaesse, <code>deviations</code> zeigt Abweichungskanten, <code>combined</code> ist eher fuer Detailanalyse.</p>
                         </div>
                         <div class="mini">
                             <h3>Mermaid und Sample-Daten</h3>
                             <pre><code>bin/console intelligence:sample-data:load-ai-rechnungen --purge
-bin/console intelligence:template:export-diagram templates/ai-rechnungen.yaml \
+bin/console intelligence:template:export-diagram config/april/process-templates/ai-rechnungen.yaml \
   --view=combined --debug-metrics</code></pre>
                             <p>Der Mermaid-Export nutzt fuer Metrik-Views ohne <code>--metrics</code> live dieselbe Timeline-/ProcessEvent-Basis wie <code>check-process</code>. Mit <code>--sample-only</code> werden nur die Dev/Test-Dokumente <code>900001</code> bis <code>900008</code> ausgewertet.</p>
+                        </div>
+                        <div class="mini">
+                            <h3>Timeline, Kontext und Versionen</h3>
+                            <pre><code>bin/console intelligence:document:timeline &lt;documentUuid&gt; &lt;processKey&gt; \
+  --with-context --with-diff
+bin/console intelligence:document:context-history &lt;documentUuid&gt; &lt;processKey&gt; --diff
+bin/console intelligence:process:status &lt;processKey&gt;
+bin/console intelligence:process-version:list &lt;processKey&gt;</code></pre>
+                            <p>Diese Befehle helfen bei der Fehleranalyse: <code>timeline</code> und <code>context-history</code> zeigen den zeitlichen Verlauf eines Dokuments samt Kontextaenderungen, <code>process:status</code> den aktuellen Stand der Prozessinstanzen. Prozessversionen halten die jeweils gueltige Soll-Baseline fest.</p>
+                        </div>
+                        <div class="mini">
+                            <h3>Access- und Visibility-Pruefung</h3>
+                            <pre><code>bin/console intelligence:template:access-coverage &lt;processKey&gt; --format=text
+bin/console intelligence:template:access-document &lt;processKey&gt; \
+  --format=html --output=docs/&lt;processKey&gt;-access.html
+bin/console intelligence:access:check-document &lt;processKey&gt; &lt;documentUuid&gt; \
+  --phase=after --fake-visible-probes=approval_location_a_today --persist
+bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;</code></pre>
+                            <p><code>access-coverage</code> zeigt die deklarierte Abdeckung, <code>access-document</code> erzeugt eine human-readable Pruefdokumentation (Markdown/HTML) und <code>access:check-document</code> fuehrt einen synchronen Visibility-Check aus &ndash; gegen Fake-Probes (<code>--fake-visible-probes</code>) oder gegen registrierte Amagno-Probes. Mit <code>--persist</code> werden die Ergebnisse historisiert; <code>access:results</code> zeigt gespeicherte Pruefergebnisse wieder an.</p>
+                        </div>
+                    </div>
+
+                    <h3>Access-Control: aktueller Stand</h3>
+                    <div class="grid-2">
+                        <div class="ok">
+                            <strong>Schon verfuegbar</strong>
+                            <ul class="notes">
+                                <li>Access-/Visibility-Regeln im Template dokumentieren</li>
+                                <li>Coverage auswerten (<code>access-coverage</code>)</li>
+                                <li>Pruefdokumentation erzeugen (<code>access-document</code>)</li>
+                                <li>Synchron gegen Fake-/Amagno-Probes pruefen (<code>access:check-document</code>)</li>
+                                <li>Manuelle/synchrone Access-Pruefergebnisse persistieren (<code>--persist</code>)</li>
+                                <li>Gespeicherte Ergebnisse anzeigen (<code>access:results</code>)</li>
+                            </ul>
+                        </div>
+                        <div class="status">
+                            <strong>Bewusst noch nicht</strong>
+                            <ul class="notes">
+                                <li>Automatisch nach Event ausfuehren</li>
+                                <li>Retry-Scheduler oder Queue</li>
+                                <li>Automatische Timeline-Integration gespeicherter Access-Ergebnisse</li>
+                                <li>Vollstaendige Amagno-ACL pruefen</li>
+                            </ul>
                         </div>
                     </div>
                     <h3>Status und Priorisierung</h3>
@@ -554,7 +616,7 @@ bin/console amagno:verify-signatures --connection=nev-onprem --use-checkpoint</c
 
                     <h3>Nutzliche Befehle</h3>
                     <pre><code>bin/console intelligence:template:suggest-from-documents &lt;processKey&gt; --limit=10 -vvv
-bin/console intelligence:template:heatmap &lt;processKey&gt; --template=templates/&lt;processKey&gt;.yaml -vvv
+bin/console intelligence:template:heatmap &lt;processKey&gt; --template=config/april/process-templates/&lt;processKey&gt;.yaml -vvv
 bin/console amagno:sync --all-connections --dry-run -vvv</code></pre>
 
                     <p>Die Anwendung verwendet Monolog. Je nach Umgebung landen Logs typischerweise in <code>var/log/dev.log</code> oder <code>var/log/prod.log</code>.</p>

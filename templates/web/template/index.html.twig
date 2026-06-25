@@ -1,0 +1,44 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}Templates · APRIL{% endblock %}
+
+{% block body %}
+    <div class="card">
+        <h1>Prozess-Templates</h1>
+        <p class="muted">Verfügbare YAML-Prozess-Templates aus dem Template-Verzeichnis.</p>
+
+        {% if entries is empty %}
+            <p>Keine Templates gefunden.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Key</th>
+                        <th>Version</th>
+                        <th>Name</th>
+                        <th>Pfad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for entry in entries %}
+                        <tr>
+                            <td><a href="{{ path('app_templates_show', { key: entry.key }) }}"><code>{{ entry.key }}</code></a></td>
+                            <td>{{ entry.version }}</td>
+                            <td>{{ entry.name ?? '—' }}</td>
+                            <td class="muted"><code>{{ entry.path }}</code></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+
+        {% if warnings is not empty %}
+            <h2>Warnungen</h2>
+            <ul>
+                {% for warning in warnings %}
+                    <li><code>{{ warning.path }}</code>: {{ warning.message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </div>
+{% endblock %}

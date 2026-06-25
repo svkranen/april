@@ -609,7 +609,7 @@ final class ProcessTemplateGraphFactoryTest extends TestCase
 
     private function template(): \App\Intelligence\Domain\ProcessTemplate
     {
-        $data = Yaml::parseFile(dirname(__DIR__, 3).'/templates/ai-rechnungen.yaml');
+        $data = Yaml::parseFile(dirname(__DIR__, 3).'/config/april/process-templates/ai-rechnungen.yaml');
         self::assertIsArray($data);
 
         return ProcessTemplateArrayFactory::fromArray($data);

@@ -1,0 +1,169 @@
+key: ai-rechnungen
+version: 1.1
+source_system: amagno
+
+required_steps:
+  - "01 Rechnungen pruefen"
+  - "05 Ausgangsrechnung buchen"
+  - "07 Zahlungseingang erwartet"
+  - "09 Rechnungen Abschluss"
+
+steps:
+  - key: "01 Rechnungen pruefen"
+    after:
+      visibility_checks:
+        - key: route_to_location_approval
+          expected_profile_resolver: approval_location_by_context
+          retry_policy: amagno_today_magnets
+  - key: "02 Versenden"
+  - key: "03 Freigabe_klein"
+  - key: "04 Freigabe_gross"
+  - key: "05 Ausgangsrechnung buchen"
+  - key: "07 Zahlungseingang erwartet"
+  - key: "09 Rechnungen Abschluss"
+
+connector:
+  type: amagno
+  connection: default
+
+access_probes:
+  approval_location_a_today:
+    type: amagno_magnet_documents
+    magnet_id: 1001
+    max_documents: 500
+    page_size: 50
+    description: "Heute bearbeitete Rechnungen im Freigabe-Scope Standort A"
+
+  approval_location_b_today:
+    type: amagno_magnet_documents
+    magnet_id: 1002
+    max_documents: 500
+    page_size: 50
+    description: "Heute bearbeitete Rechnungen im Freigabe-Scope Standort B"
+
+  external_today:
+    type: amagno_magnet_documents
+    magnet_id: 1009
+    max_documents: 200
+    page_size: 50
+    description: "Heute bearbeitete Rechnungen, die fuer externe Benutzer sichtbar waeren"
+
+visibility_check_profiles:
+  approval_location_a:
+    expected_visible_in_probes:
+      - approval_location_a_today
+    expected_not_visible_in_probes:
+      - approval_location_b_today
+      - external_today
+
+  approval_location_b:
+    expected_visible_in_probes:
+      - approval_location_b_today
+    expected_not_visible_in_probes:
+      - approval_location_a_today
+      - external_today
+
+visibility_profile_resolvers:
+  approval_location_by_context:
+    # Das Zielprofil wird dynamisch aus dem Standort-Merkmal des Dokuments
+    # abgeleitet. cost_center ist hier nur ein technischer Platzhalter fuer
+    # das spaetere Amagno-Merkmal "Standort (Projekt)" bzw. project_location.
+    # Vor produktiver Nutzung muss dafuer ein echtes Tag-Mapping ergaenzt werden.
+    field: cost_center
+    map:
+      A: approval_location_a
+      KST-A: approval_location_a
+      B: approval_location_b
+      KST-B: approval_location_b
+
+visibility_retry_policies:
+  amagno_today_magnets:
+    attempts_after_seconds: [10, 30, 60, 120]
+    forbidden_found: violation
+    expected_missing_after_last_attempt: warning
+    probe_too_large: technical_warning
+
+manual_access_tests:
+  - key: approver_scope_test
+    title: "Freigeberbezogene Sichtbarkeit"
+    description: "Freigeber duerfen nur Dokumente sehen, bei denen sie als Freigeber eingetragen sind."
+    test_procedure:
+      - "Testrechnung mit Benutzer A als Freigeber anlegen."
+      - "Mit Benutzer A anmelden und pruefen, ob die Rechnung sichtbar ist."
+      - "Mit Benutzer B anmelden und pruefen, ob die Rechnung nicht sichtbar ist."
+      - "Nachweis als Screenshot oder Pruefvermerk ablegen."
+    expected_result:
+      - "Benutzer A sieht die Rechnung."
+      - "Benutzer B sieht die Rechnung nicht."
+    evidence_required: "Screenshot oder Pruefvermerk"
+    frequency: "bei Berechtigungsaenderungen und quartalsweise"
+
+context_profile:
+  required:
+    - invoice_direction
+    - amount_net
+
+context_policy:
+  snapshot:
+    max_delay_seconds: 300
+    stale_behavior: uncertain
+
+transitions:
+  - from: "04 Freigabe_gross"
+    to_parallel_group: "buchen_und_zahlung"
+
+  - from: "02 Versenden"
+    to_parallel_group: "buchen_und_zahlung"
+
+field_mapping:
+  invoice_direction:
+    source: amagno
+    tag_id: "d9a8a028-f5ec-4c17-d0f3-08db1e05182d"
+    stability: immutable
+
+  amount_net:
+    source: amagno
+    tag_id: "dc1bb3c6-ed8e-4780-32d2-08db7c5aaf65"
+    value_type: number
+    stability: snapshot_required
+
+decision_points:
+  - key: route_after_pruefung
+    after: "01 Rechnungen pruefen"
+    required_fields:
+      - invoice_direction
+      - amount_net
+    rules:
+      - when:
+          invoice_direction:
+            eq: "RE - Ausgang"
+        expect_next: "02 Versenden"
+
+      - when:
+          amount_net:
+            gt: 50
+        expect_next: "03 Freigabe_klein"
+
+      - else:
+          expect_next_parallel_group: "buchen_und_zahlung"
+
+  - key: freigabe_ab_1000
+    after: "03 Freigabe_klein"
+    required_fields:
+      - amount_net
+    rules:
+      - when:
+          amount_net:
+            gt: 1000
+        expect_next: "04 Freigabe_gross"
+
+      - else:
+          expect_next_parallel_group: "buchen_und_zahlung"
+
+parallel_groups:
+  - key: buchen_und_zahlung
+    required_steps:
+      - "05 Ausgangsrechnung buchen"
+      - "07 Zahlungseingang erwartet"
+    order: any
+    next: "09 Rechnungen Abschluss"

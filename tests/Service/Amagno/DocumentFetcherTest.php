@@ -81,6 +81,20 @@ class DocumentFetcherTest extends TestCase
         self::assertSame('https://amagno.example/api/v2/documents/tag-definitions', $url);
     }
 
+    public function testBuildsMagnetDocumentsUrlWithCountAndOffset(): void
+    {
+        $url = null;
+        $fetcher = new DocumentFetcher(
+            $this->httpClientRecordingRequest($url),
+            'https://amagno.example/api/v2/',
+            'static-token'
+        );
+
+        $fetcher->fetchDocuments('1001', 25, offset: 50);
+
+        self::assertSame('https://amagno.example/api/v2/magnets/1001/documents?count=25&offset=50', $url);
+    }
+
     public function testUsesStaticApiToken(): void
     {
         $headers = null;

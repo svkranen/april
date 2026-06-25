@@ -1,0 +1,39 @@
+{# Visibility-Check coverage list. `checks` = array of AccessCoverageReport check rows. #}
+{% if checks is empty %}
+    <p class="muted">Keine Visibility-Checks definiert.</p>
+{% else %}
+    <p class="muted"><code>before</code>/<code>after</code> sind Prüfphasen am selben Schritt – keine eigenen Prozessschritte.</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Schritt</th>
+                <th>Phase</th>
+                <th>Check</th>
+                <th>Erwartetes Profil / Resolver</th>
+                <th>Mögliche Profile</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for check in checks %}
+                <tr>
+                    <td><code>{{ check.stepKey }}</code></td>
+                    <td><span class="badge">{{ check.phase }}</span></td>
+                    <td><code>{{ check.checkKey }}</code></td>
+                    <td>
+                        {% if check.expectedProfile %}
+                            Profil: <code>{{ check.expectedProfile }}</code>
+                        {% elseif check.expectedProfileResolver %}
+                            Resolver: <code>{{ check.expectedProfileResolver }}</code>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ check.profileKeys is empty ? '—' : check.profileKeys|join(', ') }}</td>
+                    <td>
+                        <span class="status-badge s-{{ check.coverage }}">{{ check.coverage }}</span>
+                        {% if check.reason %}<div class="muted">{{ check.reason }}</div>{% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

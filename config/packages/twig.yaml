@@ -1,0 +1,9 @@
+twig:
+    # Web views live under templates/web. APRIL process YAMLs live under
+    # config/april/process-templates and must not be stored in templates/.
+    default_path: '%kernel.project_dir%/templates/web'
+    file_name_pattern: '*.twig'
+
+when@test:
+    twig:
+        strict_variables: true
