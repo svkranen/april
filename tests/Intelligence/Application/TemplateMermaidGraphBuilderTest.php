@@ -85,6 +85,26 @@ class TemplateMermaidGraphBuilderTest extends TestCase
         self::assertStringContainsString('class n_decision_decide structure', $code);
     }
 
+    public function testColoursDecisionGatewayWhenADecisionFindingIsAttributedToIt(): void
+    {
+        $template = new ProcessTemplate(
+            key: 'invoice',
+            steps: [new ProcessTemplateStep('A', 'Erster'), new ProcessTemplateStep('B', 'Zweiter')],
+            decisionPoints: [new ProcessTemplateDecisionPoint('decide', 'A', [], [new ProcessTemplateDecisionRule(null, 'B')])],
+        );
+        $findings = new TemplateGraphFindings(
+            ['A' => StepFindingSummary::fromSeverities('A', [], true), 'B' => StepFindingSummary::fromSeverities('B', [], true)],
+            1, 1, false, 0, 0, 0,
+            ['decision:decide' => FindingSeverityFilter::DEVIATION]
+        );
+
+        $code = $this->builder()->build($template, $findings);
+
+        // Gateway is coloured by its attributed finding; the step nodes are unaffected.
+        self::assertStringContainsString('class n_decision_decide deviation', $code);
+        self::assertStringContainsString('class n_A ok', $code);
+    }
+
     public function testFallsBackToImplicitStepOrderWhenNoTransitions(): void
     {
         $template = new ProcessTemplate(

@@ -11,6 +11,7 @@ final readonly class ProcessTemplateCheckResult
      * @param array<int, string> $parallelGroupMessages
      * @param array<int, string> $contextIssues
      * @param array<int, \App\Intelligence\Domain\SignCheckResult> $signCheckResults
+     * @param array<int, \App\Intelligence\Domain\ProcessDeviation> $deviationDetails structured companions for (a subset of) $deviations; never invented, only attached where the typed fields were already known at detection time
      */
     public function __construct(
         public array $expectedSteps,
@@ -19,7 +20,8 @@ final readonly class ProcessTemplateCheckResult
         public array $parallelGroupMessages = [],
         public array $contextIssues = [],
         public ?string $contextStatus = null,
-        public array $signCheckResults = []
+        public array $signCheckResults = [],
+        public array $deviationDetails = []
     ) {
     }
 

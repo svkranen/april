@@ -14,6 +14,7 @@ final readonly class TemplateMermaidGraphView
     /**
      * @param array<int, array{key: string, name: string, status: string, statusLabel: string, findingsLabel: string, hasFindings: bool}> $steps
      * @param array<int, array{status: string, label: string}> $legend
+     * @param array<int, AttributedFinding> $transitionDecisionFindings findings attributed to a gateway or transition edge
      */
     public function __construct(
         public string $key,
@@ -28,7 +29,8 @@ final readonly class TemplateMermaidGraphView
         public int $findingsLimit,
         public int $processDeviations,
         public int $processWarnings,
-        public int $processTechnical
+        public int $processTechnical,
+        public array $transitionDecisionFindings = []
     ) {
     }
 
@@ -71,12 +73,18 @@ final readonly class TemplateMermaidGraphView
             $findingsLimit,
             $findings?->processDeviations ?? 0,
             $findings?->processWarnings ?? 0,
-            $findings?->processTechnical ?? 0
+            $findings?->processTechnical ?? 0,
+            $findings?->attributedFindings ?? []
         );
     }
 
     public function hasProcessFindings(): bool
     {
         return $this->processDeviations > 0 || $this->processWarnings > 0 || $this->processTechnical > 0;
+    }
+
+    public function hasTransitionDecisionFindings(): bool
+    {
+        return $this->transitionDecisionFindings !== [];
     }
 }

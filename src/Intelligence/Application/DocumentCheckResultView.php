@@ -20,6 +20,7 @@ final readonly class DocumentCheckResultView
      * @param array<int, string> $parallelGroupMessages
      * @param array<int, string> $warnings
      * @param array<int, array{key: string, label: ?string, status: string, satisfied: bool, requiredCount: int, actualCount: int, missingValues: array<int, string>, unexpectedValues: array<int, string>, missingContextFields: array<int, string>}> $signChecks
+     * @param array<int, \App\Intelligence\Domain\ProcessDeviation> $deviationDetails structured companions for (a subset of) $deviations; carried so the process graph can attribute deviations to edges/gateways without parsing free text
      */
     public function __construct(
         public bool $available,
@@ -32,7 +33,8 @@ final readonly class DocumentCheckResultView
         public array $parallelGroupMessages,
         public array $warnings,
         public ?string $contextStatus,
-        public array $signChecks
+        public array $signChecks,
+        public array $deviationDetails = []
     ) {
     }
 
@@ -64,7 +66,8 @@ final readonly class DocumentCheckResultView
             parallelGroupMessages: $result->parallelGroupMessages,
             warnings: $result->contextIssues,
             contextStatus: $result->contextStatus,
-            signChecks: $signChecks
+            signChecks: $signChecks,
+            deviationDetails: $result->deviationDetails
         );
     }
 

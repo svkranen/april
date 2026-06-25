@@ -2,14 +2,18 @@
 
 namespace App\Tests\Intelligence\Application;
 
+use App\Intelligence\Application\AttributedFinding;
 use App\Intelligence\Application\DocumentCheckResultProvider;
 use App\Intelligence\Application\DocumentCheckResultView;
 use App\Intelligence\Application\FindingSeverityFilter;
 use App\Intelligence\Application\ProcessTemplateCheckResult;
+use App\Intelligence\Application\ProcessTemplateGraphFactory;
 use App\Intelligence\Application\TemplateGraphFindingsProvider;
 use App\Intelligence\Application\VisibilityCheckResultProvider;
 use App\Intelligence\Application\VisibilityCheckResultRecord;
+use App\Intelligence\Domain\ProcessDeviation;
 use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
 use App\Intelligence\Domain\ProcessTemplateStep;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
@@ -115,11 +119,105 @@ class TemplateGraphFindingsProviderTest extends TestCase
         self::assertSame(FindingSeverityFilter::OK, $findings->summaryFor('02')->status);
     }
 
+    public function testDecisionDeviationIsAttributedToGatewayAndNotCountedProcessWide(): void
+    {
+        $message = 'Decision rule violation: approval after 01 expected 02 but got 03';
+        $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(
+            [], ['01', '03'], [$message], [], [], null, [],
+            [ProcessDeviation::decisionRuleViolation($message, 'approval', '01', '03')]
+        ));
+
+        $findings = (new TemplateGraphFindingsProvider(
+            $this->checkProvider(['doc-1' => $check]),
+            $this->visibilityProvider(['doc-1' => []])
+        ))->aggregate($this->templateWithDecision(), ['doc-1'], 50);
+
+        $nodeId = ProcessTemplateGraphFactory::gatewayNodeId('approval');
+        self::assertSame(FindingSeverityFilter::DEVIATION, $findings->gatewayStatusFor($nodeId));
+
+        self::assertTrue($findings->hasAttributedFindings());
+        self::assertCount(1, $findings->attributedFindings);
+        $attributed = $findings->attributedFindings[0];
+        self::assertSame(AttributedFinding::TARGET_GATEWAY, $attributed->target);
+        self::assertSame('approval', $attributed->label);
+        self::assertSame(1, $attributed->documentCount);
+
+        // Attributed -> removed from the process-wide bucket, steps untouched.
+        self::assertSame(0, $findings->processDeviations);
+        self::assertSame(FindingSeverityFilter::OK, $findings->summaryFor('01')->status);
+    }
+
+    public function testTransitionDeviationIsAttributedToEdgeNotToANode(): void
+    {
+        $message = 'Transition violation: 01 expected one of 02 but got 99';
+        $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(
+            [], ['01', '99'], [$message], [], [], null, [],
+            [ProcessDeviation::transitionViolation($message, '01', '99', ['02'])]
+        ));
+
+        $findings = (new TemplateGraphFindingsProvider(
+            $this->checkProvider(['doc-1' => $check]),
+            $this->visibilityProvider(['doc-1' => []])
+        ))->aggregate($this->template(), ['doc-1'], 50);
+
+        self::assertCount(1, $findings->attributedFindings);
+        $attributed = $findings->attributedFindings[0];
+        self::assertSame(AttributedFinding::TARGET_TRANSITION, $attributed->target);
+        self::assertSame('01 → 99', $attributed->label);
+
+        // No gateway is coloured and the start node 01 stays OK (not a node finding).
+        self::assertSame([], $findings->gatewayStatusByNodeId);
+        self::assertSame(0, $findings->processDeviations);
+        self::assertSame(FindingSeverityFilter::OK, $findings->summaryFor('01')->status);
+    }
+
+    public function testUnstructuredDeviationStaysProcessWide(): void
+    {
+        // "Missing step" carries no structured detail -> never attributed, no regex.
+        $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(['02'], ['01'], ['Missing step: 02']));
+
+        $findings = (new TemplateGraphFindingsProvider(
+            $this->checkProvider(['doc-1' => $check]),
+            $this->visibilityProvider(['doc-1' => []])
+        ))->aggregate($this->templateWithDecision(), ['doc-1'], 50);
+
+        self::assertFalse($findings->hasAttributedFindings());
+        self::assertSame([], $findings->gatewayStatusByNodeId);
+        self::assertSame(1, $findings->processDeviations);
+    }
+
+    public function testDecisionDeviationForUndeclaredGatewayStaysProcessWide(): void
+    {
+        $message = 'Decision rule violation: ghost after 01 expected 02 but got 03';
+        $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(
+            [], ['01', '03'], [$message], [], [], null, [],
+            [ProcessDeviation::decisionRuleViolation($message, 'ghost', '01', '03')]
+        ));
+
+        $findings = (new TemplateGraphFindingsProvider(
+            $this->checkProvider(['doc-1' => $check]),
+            $this->visibilityProvider(['doc-1' => []])
+        ))->aggregate($this->templateWithDecision(), ['doc-1'], 50);
+
+        self::assertFalse($findings->hasAttributedFindings());
+        self::assertNull($findings->gatewayStatusFor(ProcessTemplateGraphFactory::gatewayNodeId('ghost')));
+        self::assertSame(1, $findings->processDeviations);
+    }
+
     private function template(): ProcessTemplate
     {
         return new ProcessTemplate(
             key: 'ai-rechnungen',
             steps: [new ProcessTemplateStep('01', '01'), new ProcessTemplateStep('02', '02')],
+        );
+    }
+
+    private function templateWithDecision(): ProcessTemplate
+    {
+        return new ProcessTemplate(
+            key: 'ai-rechnungen',
+            steps: [new ProcessTemplateStep('01', '01'), new ProcessTemplateStep('02', '02')],
+            decisionPoints: [new ProcessTemplateDecisionPoint('approval', '01', [], [])],
         );
     }
 
