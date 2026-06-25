@@ -22,7 +22,8 @@ final readonly class TemplateModelingSuggestion
         public string $status,
         public string $description,
         public string $rationale,
-        public ?int $documentCount = null
+        public ?int $documentCount = null,
+        public ?TemplateYamlDiffPreview $yamlDiff = null
     ) {
     }
 
@@ -38,5 +39,10 @@ final readonly class TemplateModelingSuggestion
     public function hasDocumentCount(): bool
     {
         return $this->documentCount !== null;
+    }
+
+    public function hasYamlDiff(): bool
+    {
+        return $this->yamlDiff !== null;
     }
 }

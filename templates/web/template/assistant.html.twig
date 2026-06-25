@@ -12,6 +12,12 @@
         .as-check { margin: 0.5rem 0; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 0.6rem; }
         .as-check ul { margin: 0.4rem 0 0; padding-left: 1.2rem; }
         .as-check .as-title { font-weight: 600; }
+        .as-diff-row td { background: #fbfbfb; }
+        .as-diff summary { cursor: pointer; font-weight: 600; }
+        .as-diff pre { margin: 0.5rem 0 0; padding: 0.6rem 0.8rem; border: 1px solid var(--line);
+            border-radius: 0.6rem; background: #f6f8fa; overflow-x: auto; font-size: 0.85rem; line-height: 1.45; }
+        .as-diff .diff-context { display: block; color: #455a64; }
+        .as-diff .diff-addition { display: block; color: #1b5e20; background: #e6ffed; }
     </style>
 {% endblock %}
 
@@ -130,6 +136,7 @@
 
     {# 6. Fachliche Modellierungsentscheidungen #}
     {% set suggestionStatusClass = { review: 'as-warning', optional: 'as-muted', critical: 'as-error' } %}
+    {% set diffLinePrefix = { context: ' ', addition: '+' } %}
     <div class="card">
         <h2>Änderungsvorschläge / Modellierungsentscheidungen</h2>
         <p class="muted">Fachliche Entscheidungspunkte aus den aktuell berechneten Informationen.
@@ -157,6 +164,17 @@
                             <td class="muted">{{ suggestion.rationale }}</td>
                             <td>{% if suggestion.hasDocumentCount %}{{ suggestion.documentCount }}{% else %}—{% endif %}</td>
                         </tr>
+                        {% if suggestion.hasYamlDiff %}
+                            <tr class="as-diff-row">
+                                <td colspan="5" class="as-diff">
+                                    <details>
+                                        <summary>YAML-Diff-Vorschau anzeigen</summary>
+                                        <p class="muted">{{ suggestion.yamlDiff.caption }}</p>
+                                        <pre>{% for line in suggestion.yamlDiff.lines %}<span class="diff-{{ line.kind }}">{{ diffLinePrefix[line.kind] }}{{ line.text }}</span>{% endfor %}</pre>
+                                    </details>
+                                </td>
+                            </tr>
+                        {% endif %}
                     {% endfor %}
                 </tbody>
             </table>

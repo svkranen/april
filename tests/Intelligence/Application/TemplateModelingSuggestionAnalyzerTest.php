@@ -77,6 +77,82 @@ class TemplateModelingSuggestionAnalyzerTest extends TestCase
         self::assertSame(4, $suggestion->documentCount);
     }
 
+    public function testTransitionFindingCarriesYamlDiffPreview(): void
+    {
+        $findings = $this->findings([
+            new AttributedFinding(
+                AttributedFinding::TARGET_TRANSITION,
+                '02 Versenden → 01 Rechnungen pruefen',
+                FindingSeverityFilter::DEVIATION,
+                'Abweichung',
+                'Transition violation ...',
+                5,
+                4,
+                null,
+                '02 Versenden',
+                '01 Rechnungen pruefen'
+            ),
+        ]);
+
+        $suggestion = $this->analyzer()->fromFindings($findings)->suggestions[0];
+
+        // The observed (Ist) transition is sketched as a read-only YAML addition.
+        self::assertTrue($suggestion->hasYamlDiff());
+        self::assertSame(
+            [
+                ['kind' => 'context', 'text' => 'transitions:'],
+                ['kind' => 'addition', 'text' => '  - from: "02 Versenden"'],
+                ['kind' => 'addition', 'text' => '    to: "01 Rechnungen pruefen"'],
+            ],
+            $suggestion->yamlDiff->lines
+        );
+    }
+
+    public function testTransitionFindingWithoutEndpointsHasNoYamlDiff(): void
+    {
+        $findings = $this->findings([
+            new AttributedFinding(
+                AttributedFinding::TARGET_TRANSITION,
+                '02 → ?',
+                FindingSeverityFilter::DEVIATION,
+                'Abweichung',
+                'Transition violation ...',
+                1,
+                1,
+                null,
+                '02 Versenden',
+                null
+            ),
+        ]);
+
+        $suggestion = $this->analyzer()->fromFindings($findings)->suggestions[0];
+
+        // Nothing to sketch when the observed target is unknown: no misleading preview.
+        self::assertFalse($suggestion->hasYamlDiff());
+        self::assertNull($suggestion->yamlDiff);
+    }
+
+    public function testDecisionFindingHasNoYamlDiff(): void
+    {
+        $findings = $this->findings([
+            new AttributedFinding(
+                AttributedFinding::TARGET_GATEWAY,
+                'approval',
+                FindingSeverityFilter::DEVIATION,
+                'Abweichung',
+                'Decision rule violation ...',
+                3,
+                2,
+                'approval'
+            ),
+        ]);
+
+        $suggestion = $this->analyzer()->fromFindings($findings)->suggestions[0];
+
+        // The MVP only previews transition additions, not decision-point changes.
+        self::assertFalse($suggestion->hasYamlDiff());
+    }
+
     public function testProcessWideFindingsProduceSuggestion(): void
     {
         // No attributed findings, but process-wide deviations exist.

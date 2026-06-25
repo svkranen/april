@@ -63,7 +63,9 @@ final class TemplateModelingSuggestionAnalyzer
             TemplateModelingSuggestion::STATUS_REVIEW,
             sprintf('Der beobachtete Übergang „%s" ist im Soll nicht erlaubt.', $finding->label),
             'Prüfen, ob Rücksprung, Sonderfall oder Testdokument vorliegt – oder ob eine neue Transition ins Soll gehört.',
-            $finding->documentCount
+            $finding->documentCount,
+            // Read-only sketch of the transition one could add to allow this path.
+            TemplateYamlDiffPreview::forTransitionDeviation($finding->transitionFrom, $finding->transitionTo)
         );
     }
 
