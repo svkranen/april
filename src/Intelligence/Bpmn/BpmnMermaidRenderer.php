@@ -2,8 +2,17 @@
 
 namespace App\Intelligence\Bpmn;
 
+use App\Intelligence\Application\ComparisonOperatorLabelFormatter;
+
 final class BpmnMermaidRenderer
 {
+    private ComparisonOperatorLabelFormatter $operatorLabelFormatter;
+
+    public function __construct(?ComparisonOperatorLabelFormatter $operatorLabelFormatter = null)
+    {
+        $this->operatorLabelFormatter = $operatorLabelFormatter ?? new ComparisonOperatorLabelFormatter();
+    }
+
     public function render(
         BpmnProcessView $view,
         string $mode = 'combined',
@@ -160,6 +169,9 @@ final class BpmnMermaidRenderer
     private function sanitizeEdgeLabel(string $label): string
     {
         $label = str_replace(["\r", "\n", '"', '\\', '|'], [' ', ' ', '', '', '/'], $label);
+        // Encode comparison symbols as HTML entities so Mermaid does not treat
+        // them as markup. They still render visually as >, <, >=, <=.
+        $label = str_replace(['<', '>'], ['&lt;', '&gt;'], $label);
         $label = preg_replace('/\s+/', ' ', $label) ?? $label;
 
         return trim($label);
@@ -182,6 +194,6 @@ final class BpmnMermaidRenderer
             return $value;
         }
 
-        return sprintf('%s %s', $operator, $value);
+        return sprintf('%s %s', $this->operatorLabelFormatter->toSymbol($operator), $value);
     }
 }

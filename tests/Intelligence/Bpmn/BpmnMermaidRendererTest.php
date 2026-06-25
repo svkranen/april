@@ -106,6 +106,40 @@ final class BpmnMermaidRendererTest extends TestCase
         self::assertStringNotContainsString('RE - Ausgang | Spezial', $mermaid);
     }
 
+    public function testRendersComparisonOperatorsAsHtmlEncodedSymbols(): void
+    {
+        $view = (new ProcessTemplateBpmnViewBuilder())->build(
+            new ProcessTemplate(
+                'invoice',
+                '1',
+                steps: [
+                    new ProcessTemplateStep('invoice_checked'),
+                    new ProcessTemplateStep('approval'),
+                ],
+                decisionPoints: [
+                    new ProcessTemplateDecisionPoint(
+                        'approval_route',
+                        'invoice_checked',
+                        ['amount_net'],
+                        [
+                            new ProcessTemplateDecisionRule(
+                                new ProcessTemplateRuleCondition('amount_net', 'gt', 50),
+                                'approval'
+                            ),
+                        ]
+                    ),
+                ],
+                requiredStepKeys: ['invoice_checked']
+            ),
+            []
+        );
+
+        $mermaid = (new BpmnMermaidRenderer())->render($view, 'expected');
+
+        self::assertStringContainsString('&gt; 50', $mermaid);
+        self::assertStringNotContainsString('gt 50', $mermaid);
+    }
+
     public function testExpectedViewDoesNotRenderUnexpectedObservedEdges(): void
     {
         $mermaid = (new BpmnMermaidRenderer())->render($this->viewWithUnexpectedEdges(), 'expected');

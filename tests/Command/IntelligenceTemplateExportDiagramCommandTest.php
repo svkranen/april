@@ -36,7 +36,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         self::assertStringContainsString('n_parallel_start_buchen_und_zahlung{{buchen_und_zahlung<br/>start<br/>order:any}}:::constraint', $tester->getDisplay());
         self::assertStringContainsString('n_parallel_join_buchen_und_zahlung{{buchen_und_zahlung<br/>complete}}:::constraint', $tester->getDisplay());
         self::assertStringContainsString('n_parallel_join_buchen_und_zahlung --> n_09_Rechnungen_Abschluss', $tester->getDisplay());
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net gt 50"| n_03_Freigabe_klein', $tester->getDisplay());
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net &gt; 50"| n_03_Freigabe_klein', $tester->getDisplay());
         self::assertStringNotContainsString('default order', $tester->getDisplay());
     }
 
@@ -51,7 +51,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertStringNotContainsString('default order', $tester->getDisplay());
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net gt 50"| n_03_Freigabe_klein', $tester->getDisplay());
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net &gt; 50"| n_03_Freigabe_klein', $tester->getDisplay());
         self::assertStringContainsString('n_02_Versenden --> n_parallel_start_buchen_und_zahlung', $tester->getDisplay());
         self::assertStringNotContainsString('n_02_Versenden --> n_parallel_join_buchen_und_zahlung', $tester->getDisplay());
     }
@@ -66,7 +66,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         ]);
 
         self::assertSame(Command::SUCCESS, $exitCode);
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"(2) amount_net gt 50"| n_03_Freigabe_klein', $tester->getDisplay());
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"(2) amount_net &gt; 50"| n_03_Freigabe_klein', $tester->getDisplay());
         self::assertStringContainsString('n_decision_route_after_pruefung -->|"(else)"| n_parallel_start_buchen_und_zahlung', $tester->getDisplay());
         self::assertStringNotContainsString('n_decision_route_after_pruefung -->|"(else)"| n_05_Ausgangsrechnung_buchen', $tester->getDisplay());
         self::assertStringNotContainsString('-->|"[2]', $tester->getDisplay());
@@ -84,7 +84,7 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
 
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertFileExists($outputPath);
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net gt 50"| n_03_Freigabe_klein', (string) file_get_contents($outputPath));
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net &gt; 50"| n_03_Freigabe_klein', (string) file_get_contents($outputPath));
     }
 
     public function testExportsFlowViewWithMetrics(): void
@@ -143,8 +143,8 @@ final class IntelligenceTemplateExportDiagramCommandTest extends TestCase
         self::assertStringContainsString('"documents_seen": 2', $tester->getDisplay());
         self::assertStringContainsString('"documents_projected": 2', $tester->getDisplay());
         self::assertStringContainsString('n_01_Rechnungen_pruefen -->|"count 2"| n_decision_route_after_pruefung', $tester->getDisplay());
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[1] invoice_direction eq RE - Ausgang; count 1"| n_02_Versenden', $tester->getDisplay());
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net gt 50; count 1"| n_03_Freigabe_klein', $tester->getDisplay());
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[1] invoice_direction = RE - Ausgang; count 1"| n_02_Versenden', $tester->getDisplay());
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net &gt; 50; count 1"| n_03_Freigabe_klein', $tester->getDisplay());
     }
 
     public function testLiveMetricsExposeEligibilitySummaryWithIncludeExcluded(): void

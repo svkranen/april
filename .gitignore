@@ -16,3 +16,4 @@
 /public/assets/
 /assets/vendor/
 ###< symfony/asset-mapper ###
+.phpunit.result.cache

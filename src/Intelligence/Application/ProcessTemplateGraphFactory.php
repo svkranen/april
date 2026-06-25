@@ -17,6 +17,13 @@ final class ProcessTemplateGraphFactory
     private const START_ID = '__start';
     private const END_ID = '__end';
 
+    private ComparisonOperatorLabelFormatter $operatorLabelFormatter;
+
+    public function __construct(?ComparisonOperatorLabelFormatter $operatorLabelFormatter = null)
+    {
+        $this->operatorLabelFormatter = $operatorLabelFormatter ?? new ComparisonOperatorLabelFormatter();
+    }
+
     public function create(ProcessTemplate $template): ProcessGraph
     {
         $nodes = [
@@ -209,7 +216,12 @@ final class ProcessTemplateGraphFactory
 
     private function conditionLabel(ProcessTemplateRuleCondition $condition): string
     {
-        return sprintf('%s %s %s', $condition->field, $condition->operator, $this->valueLabel($condition->value));
+        return sprintf(
+            '%s %s %s',
+            $condition->field,
+            $this->operatorLabelFormatter->toSymbol($condition->operator),
+            $this->valueLabel($condition->value)
+        );
     }
 
     private function valueLabel(mixed $value): string

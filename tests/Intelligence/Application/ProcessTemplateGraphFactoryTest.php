@@ -41,8 +41,8 @@ final class ProcessTemplateGraphFactoryTest extends TestCase
             $graph->nodes['parallel_join:buchen_und_zahlung']->label
         );
 
-        self::assertTrue($this->hasEdge($graph->edges, 'decision:route_after_pruefung', '02 Versenden', '[1] invoice_direction eq RE - Ausgang'));
-        self::assertTrue($this->hasEdge($graph->edges, 'decision:route_after_pruefung', '03 Freigabe_klein', '[2] amount_net gt 50'));
+        self::assertTrue($this->hasEdge($graph->edges, 'decision:route_after_pruefung', '02 Versenden', '[1] invoice_direction = RE - Ausgang'));
+        self::assertTrue($this->hasEdge($graph->edges, 'decision:route_after_pruefung', '03 Freigabe_klein', '[2] amount_net > 50'));
         self::assertTrue($this->hasEdge($graph->edges, 'decision:route_after_pruefung', 'parallel_start:buchen_und_zahlung', '[else]'));
         self::assertFalse($this->hasEdge($graph->edges, 'decision:route_after_pruefung', '05 Ausgangsrechnung buchen', '[else]'));
         self::assertFalse($this->hasEdge($graph->edges, 'decision:route_after_pruefung', 'parallel_join:buchen_und_zahlung', '[else]'));
@@ -72,8 +72,8 @@ final class ProcessTemplateGraphFactoryTest extends TestCase
         self::assertStringContainsString('n_decision_route_after_pruefung{route_after_pruefung}', $mermaid);
         self::assertStringContainsString('n_parallel_start_buchen_und_zahlung{{buchen_und_zahlung<br/>start<br/>order:any}}:::constraint', $mermaid);
         self::assertStringContainsString('n_parallel_join_buchen_und_zahlung{{buchen_und_zahlung<br/>complete}}:::constraint', $mermaid);
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[1] invoice_direction eq RE - Ausgang"| n_02_Versenden', $mermaid);
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net gt 50"| n_03_Freigabe_klein', $mermaid);
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[1] invoice_direction = RE - Ausgang"| n_02_Versenden', $mermaid);
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net &gt; 50"| n_03_Freigabe_klein', $mermaid);
         self::assertStringContainsString('n_decision_route_after_pruefung -->|"[else]"| n_parallel_start_buchen_und_zahlung', $mermaid);
         self::assertStringNotContainsString('n_decision_route_after_pruefung -->|"[else]"| n_05_Ausgangsrechnung_buchen', $mermaid);
         self::assertStringNotContainsString('n_decision_route_after_pruefung -->|"[else]"| n_parallel_join_buchen_und_zahlung', $mermaid);
@@ -92,6 +92,47 @@ final class ProcessTemplateGraphFactoryTest extends TestCase
         self::assertStringContainsString('classDef required', $mermaid);
         self::assertStringContainsString('classDef constraint', $mermaid);
         self::assertStringContainsString('classDef implicit', $mermaid);
+    }
+
+    public function testMermaidRendererRendersReadableOperatorsForEachComparison(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'check'],
+                ['key' => 'a'],
+                ['key' => 'b'],
+                ['key' => 'c'],
+                ['key' => 'd'],
+                ['key' => 'e'],
+                ['key' => 'f'],
+            ],
+            'decision_points' => [
+                [
+                    'key' => 'route',
+                    'after' => 'check',
+                    'rules' => [
+                        ['when' => ['dir' => ['eq' => 'RE']], 'expect_next' => 'a'],
+                        ['when' => ['dir' => ['neq' => 'RE']], 'expect_next' => 'b'],
+                        ['when' => ['amount' => ['gt' => 50]], 'expect_next' => 'c'],
+                        ['when' => ['amount' => ['gte' => 100]], 'expect_next' => 'd'],
+                        ['when' => ['amount' => ['lt' => 10]], 'expect_next' => 'e'],
+                        ['when' => ['amount' => ['lte' => 5]], 'expect_next' => 'f'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $mermaid = (new MermaidProcessGraphRenderer())->render((new ProcessTemplateGraphFactory())->create($template));
+
+        self::assertStringContainsString('"[1] dir = RE"', $mermaid);
+        self::assertStringContainsString('"[2] dir != RE"', $mermaid);
+        self::assertStringContainsString('"[3] amount &gt; 50"', $mermaid);
+        self::assertStringContainsString('"[4] amount &gt;= 100"', $mermaid);
+        self::assertStringContainsString('"[5] amount &lt; 10"', $mermaid);
+        self::assertStringContainsString('"[6] amount &lt;= 5"', $mermaid);
+        self::assertStringNotContainsString(' gt ', $mermaid);
+        self::assertStringNotContainsString(' lte ', $mermaid);
     }
 
     public function testMermaidRendererShowsDefaultOrderEdgesWhenEnabled(): void
@@ -129,6 +170,27 @@ final class ProcessTemplateGraphFactoryTest extends TestCase
         self::assertStringContainsString('n_a -->|"[1] &quot;quoted&quot;<br/>left/right"| n_b', $mermaid);
     }
 
+    public function testMermaidRendererEncodesComparisonSymbolsAsHtmlEntities(): void
+    {
+        $graph = new ProcessGraph(
+            'test',
+            'draft',
+            [
+                'a' => new ProcessGraphNode('a', 'A', ProcessGraphNode::TYPE_TASK),
+                'b' => new ProcessGraphNode('b', 'B', ProcessGraphNode::TYPE_TASK),
+            ],
+            [
+                new ProcessGraphEdge('a', 'b', 'amount > 50 <= 99 < 100 >= 10 = 1 != 2'),
+            ]
+        );
+
+        $mermaid = (new MermaidProcessGraphRenderer())->render($graph);
+
+        // < and > are encoded so Mermaid does not treat them as markup; = and != stay literal.
+        self::assertStringContainsString('n_a -->|"amount &gt; 50 &lt;= 99 &lt; 100 &gt;= 10 = 1 != 2"| n_b', $mermaid);
+        self::assertStringNotContainsString('amount > 50', $mermaid);
+    }
+
     public function testMermaidRendererUsesObsidianCompatiblePriorityLabels(): void
     {
         $graph = (new ProcessTemplateGraphFactory())->create($this->template());
@@ -138,8 +200,8 @@ final class ProcessTemplateGraphFactoryTest extends TestCase
             new MermaidProcessGraphRenderOptions(compatibility: MermaidProcessGraphRenderOptions::COMPAT_OBSIDIAN)
         );
 
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"(1) invoice_direction eq RE - Ausgang"| n_02_Versenden', $mermaid);
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"(2) amount_net gt 50"| n_03_Freigabe_klein', $mermaid);
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"(1) invoice_direction = RE - Ausgang"| n_02_Versenden', $mermaid);
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"(2) amount_net &gt; 50"| n_03_Freigabe_klein', $mermaid);
         self::assertStringContainsString('n_decision_route_after_pruefung -->|"(else)"| n_parallel_start_buchen_und_zahlung', $mermaid);
         self::assertStringNotContainsString('-->|"[1]', $mermaid);
     }
@@ -487,7 +549,7 @@ final class ProcessTemplateGraphFactoryTest extends TestCase
         );
 
         self::assertStringContainsString('n_01_Rechnungen_pruefen -->|"count 2"| n_decision_route_after_pruefung', $mermaid);
-        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net gt 50; count 2"| n_03_Freigabe_klein', $mermaid);
+        self::assertStringContainsString('n_decision_route_after_pruefung -->|"[2] amount_net &gt; 50; count 2"| n_03_Freigabe_klein', $mermaid);
         self::assertStringNotContainsString('n_01_Rechnungen_pruefen -.->|"count 2"| n_03_Freigabe_klein', $mermaid);
     }
 
@@ -505,7 +567,7 @@ final class ProcessTemplateGraphFactoryTest extends TestCase
         );
 
         self::assertStringContainsString('n_03_Freigabe_klein -->|"count 1"| n_decision_freigabe_ab_1000', $mermaid);
-        self::assertStringContainsString('n_decision_freigabe_ab_1000 -->|"[1] amount_net gt 1000; count 1"| n_04_Freigabe_gross', $mermaid);
+        self::assertStringContainsString('n_decision_freigabe_ab_1000 -->|"[1] amount_net &gt; 1000; count 1"| n_04_Freigabe_gross', $mermaid);
         self::assertStringNotContainsString('n_03_Freigabe_klein -.->|"count 1"| n_04_Freigabe_gross', $mermaid);
     }
 

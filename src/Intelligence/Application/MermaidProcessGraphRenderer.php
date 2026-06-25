@@ -493,6 +493,9 @@ final class MermaidProcessGraphRenderer
     private function edgeLabel(string $label, MermaidProcessGraphRenderOptions $options): string
     {
         $label = $options->isObsidianCompatible() ? $this->obsidianLabel($label) : $label;
+        // Encode comparison symbols as HTML entities so Mermaid does not treat
+        // them as markup. They still render visually as >, <, >=, <=.
+        $label = str_replace(['<', '>'], ['&lt;', '&gt;'], $label);
         $label = str_replace(["\r\n", "\r", "\n"], '<br/>', $label);
         $label = str_replace('|', '/', $label);
         $label = str_replace('"', '&quot;', $label);

@@ -2,6 +2,8 @@
 
 namespace App\Intelligence\Bpmn;
 
+use App\Intelligence\Application\ComparisonOperatorLabelFormatter;
+
 final class BpmnSvgRenderer
 {
     /**
@@ -15,6 +17,13 @@ final class BpmnSvgRenderer
     private array $taskMetricsByStep = [];
 
     private ?string $endTaskId = null;
+
+    private ComparisonOperatorLabelFormatter $operatorLabelFormatter;
+
+    public function __construct(?ComparisonOperatorLabelFormatter $operatorLabelFormatter = null)
+    {
+        $this->operatorLabelFormatter = $operatorLabelFormatter ?? new ComparisonOperatorLabelFormatter();
+    }
 
     public function render(BpmnProcessView $view, ?BpmnSvgRenderOptions $options = null): string
     {
@@ -676,13 +685,7 @@ final class BpmnSvgRenderer
         }
 
         if ($symbolOperators) {
-            $operator = match ($operator) {
-                'gt' => '>',
-                'gte' => '>=',
-                'lt' => '<',
-                'lte' => '<=',
-                default => $operator,
-            };
+            $operator = $this->operatorLabelFormatter->toSymbol($operator);
         }
 
         return sprintf('%s %s', $operator, $value);
