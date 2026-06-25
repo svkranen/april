@@ -25,7 +25,14 @@
         .gs-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #2e7d32; }
         .gs-not_calculated { background: #eeeeee; color: #555; border: 1px solid #757575; }
         .gs-structure { background: #f5f5f5; color: #455a64; border: 1px solid #90a4ae; }
+        .mermaid-preview {
+            margin-top: 0.6rem; padding: 1rem; border: 1px solid var(--line);
+            border-radius: 0.8rem; background: #fff; overflow-x: auto; min-height: 3rem;
+        }
+        .mermaid-preview svg { max-width: 100%; height: auto; }
     </style>
+    {# Mermaid is served locally via AssetMapper/importmap (no CDN). Loaded only on this page. #}
+    {{ importmap('template-graph') }}
 {% endblock %}
 
 {% block body %}
@@ -75,12 +82,10 @@
         {% endif %}
     </div>
 
-    {# 2. Mermaid-Quelltext (MVP: Codeblock, kein Browser-Rendering) #}
+    {# 2. Gerenderte Vorschau (lokal via AssetMapper/importmap, kein CDN) #}
     <div class="card">
-        <h2>Mermaid-Grafik</h2>
-        <p class="muted">Dies ist der Mermaid-Quelltext des Prozesses. Er kann unverändert in einen
-        Mermaid-Renderer (z. B. mermaid.live oder eine Markdown-Vorschau) eingefügt werden.
-        Ein direktes Rendering im Browser ist bewusst ein späterer Schritt.</p>
+        <h2>Gerenderte Vorschau</h2>
+        <p class="muted">Die Grafik wird im Browser aus dem unten stehenden Mermaid-Quelltext erzeugt.</p>
 
         <div class="shape-legend">
             <span><span class="glyph">▭</span>Schritt (Farbe = Status)</span>
@@ -89,13 +94,25 @@
             <span><span class="glyph">◯</span>Start / Ende</span>
         </div>
 
+        <div class="mermaid-preview" data-mermaid-graph-target="preview">
+            <noscript>Die grafische Vorschau benötigt JavaScript. Der Mermaid-Quelltext bleibt unten verfügbar.</noscript>
+        </div>
+    </div>
+
+    {# 3. Mermaid-Quelltext (bleibt erhalten; dient zugleich als Render-Quelle und Fallback) #}
+    <div class="card">
+        <h2>Mermaid-Quelltext</h2>
+        <p class="muted">Der Quelltext kann unverändert in einen Mermaid-Renderer
+        (z. B. mermaid.live oder eine Markdown-Vorschau) eingefügt werden.</p>
+
         <details class="mermaid-box" open>
             <summary>Mermaid-Quelltext anzeigen/ausblenden</summary>
-            <pre class="mermaid-source">{{ view.mermaidCode }}</pre>
+            {# Read as plain text by template-graph.js; HTML-escaped, never injected as markup. #}
+            <pre class="mermaid-source" data-mermaid-graph-source>{{ view.mermaidCode }}</pre>
         </details>
     </div>
 
-    {# 3. Legende, prozessweite Findings und Schritt-Tabelle (barrierearmer Fallback) #}
+    {# 4. Legende, prozessweite Findings und Schritt-Tabelle (barrierearmer Fallback) #}
     <div class="card">
         <h2>Schritte &amp; Status</h2>
         <p class="muted">Die Farbe entspricht der Einfärbung des jeweiligen Schritts in der Grafik.
