@@ -34,13 +34,20 @@
 
         {# Filterleiste / Filterhinweis #}
         {% if index.withFindings %}
+            {% if index.stepKey %}
+                {# Aktiver Schritt-Filter (aus der Prozessgrafik) – mit Möglichkeit, ihn zu entfernen. #}
+                <p class="meta-line">
+                    <span class="status-badge gs-structure">Schritt-Filter: {{ index.stepLabel }}{% if is_expert_view() %} <code class="muted">{{ index.stepKey }}</code>{% endif %}</span>
+                    <a class="pill-link" href="{{ path('app_templates_documents', index.severity != 'all' ? { key: key, withFindings: 1, severity: index.severity } : { key: key, withFindings: 1 }) }}">Schritt-Filter entfernen</a>
+                </p>
+            {% endif %}
             <div class="filter-bar">
                 {% for value, label in index.severityOptions %}
                     <a class="pill-link {{ index.severity == value ? 'is-active' : '' }}"
-                       href="{{ path('app_templates_documents', { key: key, withFindings: 1, severity: value }) }}">{{ label }}</a>
+                       href="{{ path('app_templates_documents', index.stepKey ? { key: key, withFindings: 1, severity: value, step: index.stepKey } : { key: key, withFindings: 1, severity: value }) }}">{{ label }}</a>
                 {% endfor %}
             </div>
-            <p class="muted">Zeige {{ index.shownCount }} von {{ index.totalCount }} Dokumenten{% if index.severity != 'all' %} · Filter: {{ index.activeLabel }}{% endif %}{% if is_expert_view() %} <span class="muted">[{{ index.severity }}]</span>{% endif %}</p>
+            <p class="muted">Zeige {{ index.shownCount }} von {{ index.totalCount }} Dokumenten{% if index.severity != 'all' %} · Filter: {{ index.activeLabel }}{% endif %}{% if index.stepKey %} · Schritt: {{ index.stepLabel }}{% endif %}{% if is_expert_view() %} <span class="muted">[{{ index.severity }}]</span>{% endif %}</p>
         {% else %}
             <p class="muted">Severity-Filter erst verfügbar, wenn Findings berechnet werden.</p>
         {% endif %}

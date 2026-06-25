@@ -143,6 +143,7 @@
                     <th>Schritt</th>
                     <th>Status</th>
                     <th>Findings (Zusammenfassung)</th>
+                    <th>Dokumente</th>
                 </tr>
             </thead>
             <tbody>
@@ -151,6 +152,13 @@
                         <td>{{ step.name }}{% if is_expert_view() %} <code class="muted">{{ step.key }}</code>{% endif %}</td>
                         <td><span class="status-badge gs-{{ step.status }}">{{ step.statusLabel }}</span></td>
                         <td>{{ step.findingsLabel }}</td>
+                        <td>
+                            {% if step.hasFindings %}
+                                <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, step: step.key }) }}">Dokumente anzeigen</a>
+                            {% else %}
+                                <span class="muted">—</span>
+                            {% endif %}
+                        </td>
                     </tr>
                 {% endfor %}
             </tbody>

@@ -27,7 +27,7 @@ final readonly class DocumentFindingsView
     ];
 
     /**
-     * @param array<int, array{category: string, severity: string, message: string, checkKey: ?string, probeKey: ?string, status: ?string, reason: ?string}> $findings
+     * @param array<int, array{category: string, severity: string, message: string, stepKey: ?string, checkKey: ?string, probeKey: ?string, status: ?string, reason: ?string}> $findings
      * @param array<string, int> $countsByCategory
      * @param array<string, int> $countsBySeverity
      */
@@ -84,6 +84,7 @@ final readonly class DocumentFindingsView
                 $category,
                 $severity,
                 self::accessMessage($record),
+                stepKey: $record->stepKey,
                 checkKey: $record->checkKey,
                 probeKey: $record->probeKey,
                 status: $record->status,
@@ -146,12 +147,13 @@ final readonly class DocumentFindingsView
     }
 
     /**
-     * @return array{category: string, severity: string, message: string, checkKey: ?string, probeKey: ?string, status: ?string, reason: ?string}
+     * @return array{category: string, severity: string, message: string, stepKey: ?string, checkKey: ?string, probeKey: ?string, status: ?string, reason: ?string}
      */
     private static function finding(
         string $category,
         string $severity,
         string $message,
+        ?string $stepKey = null,
         ?string $checkKey = null,
         ?string $probeKey = null,
         ?string $status = null,
@@ -161,6 +163,7 @@ final readonly class DocumentFindingsView
             'category' => $category,
             'severity' => $severity,
             'message' => $message,
+            'stepKey' => $stepKey,
             'checkKey' => $checkKey,
             'probeKey' => $probeKey,
             'status' => $status,

@@ -10,6 +10,7 @@ final readonly class DocumentListFindingView
 {
     /**
      * @param array<string, int> $countsByCategory
+     * @param array<int, string> $stepKeys distinct step keys with a step-attributable finding
      */
     public function __construct(
         public string $documentUuid,
@@ -18,7 +19,8 @@ final readonly class DocumentListFindingView
         public string $cssClass,
         public int $total,
         public array $countsByCategory,
-        public ?string $error
+        public ?string $error,
+        public array $stepKeys = []
     ) {
     }
 
@@ -31,7 +33,8 @@ final readonly class DocumentListFindingView
             $findings->overallCssClass,
             $findings->total,
             $findings->countsByCategory,
-            null
+            null,
+            self::distinctStepKeys($findings)
         );
     }
 
@@ -46,5 +49,26 @@ final readonly class DocumentListFindingView
             ['process' => 0, 'context' => 0, 'access' => 0, 'technical' => 0],
             $error
         );
+    }
+
+    public function hasStep(string $stepKey): bool
+    {
+        return in_array($stepKey, $this->stepKeys, true);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function distinctStepKeys(DocumentFindingsView $findings): array
+    {
+        $stepKeys = [];
+        foreach ($findings->findings as $finding) {
+            $stepKey = $finding['stepKey'] ?? null;
+            if ($stepKey !== null && !in_array($stepKey, $stepKeys, true)) {
+                $stepKeys[] = $stepKey;
+            }
+        }
+
+        return $stepKeys;
     }
 }

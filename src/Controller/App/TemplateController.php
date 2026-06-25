@@ -13,6 +13,7 @@ use App\Intelligence\Application\TemplateDetailView;
 use App\Intelligence\Application\TemplateGraphFindingsProvider;
 use App\Intelligence\Application\TemplateMermaidGraphBuilder;
 use App\Intelligence\Application\TemplateMermaidGraphView;
+use App\Intelligence\Domain\ProcessTemplate;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -99,7 +100,13 @@ final class TemplateController
 
         $rows = $this->documentListProvider->documentsForProcess($template->key, 200);
 
-        $withFindings = $request->query->getBoolean('withFindings');
+        // Optional step filter (coming from the process graph). Only declared steps
+        // are honoured; an unknown/empty step key is ignored. A step filter needs
+        // findings, so it implies withFindings - the smallest, clearest behaviour.
+        $stepKey = $this->resolveStepKey($template, $request->query->get('step'));
+        $stepLabel = $stepKey !== null ? $this->stepName($template, $stepKey) : null;
+
+        $withFindings = $request->query->getBoolean('withFindings') || $stepKey !== null;
         $findings = [];
         if ($withFindings) {
             $findings = $this->documentListFindingsProvider->forDocuments(
@@ -118,7 +125,9 @@ final class TemplateController
                 $withFindings,
                 $findings,
                 $request->query->get('severity'),
-                self::FINDINGS_LIMIT
+                self::FINDINGS_LIMIT,
+                $stepKey,
+                $stepLabel
             ),
         ]));
     }
@@ -153,6 +162,36 @@ final class TemplateController
                 self::FINDINGS_LIMIT
             ),
         ]));
+    }
+
+    /**
+     * Returns the trimmed step key only if the template declares it, otherwise null.
+     */
+    private function resolveStepKey(ProcessTemplate $template, ?string $rawStep): ?string
+    {
+        $stepKey = $rawStep !== null ? trim($rawStep) : '';
+        if ($stepKey === '') {
+            return null;
+        }
+
+        foreach ($template->steps as $step) {
+            if ($step->key === $stepKey) {
+                return $stepKey;
+            }
+        }
+
+        return null;
+    }
+
+    private function stepName(ProcessTemplate $template, string $stepKey): string
+    {
+        foreach ($template->steps as $step) {
+            if ($step->key === $stepKey) {
+                return $step->name ?? $step->key;
+            }
+        }
+
+        return $stepKey;
     }
 
     private function notFoundMessage(string $key): string

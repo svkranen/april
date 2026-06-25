@@ -27,16 +27,27 @@ final readonly class DocumentsIndexView
         public int $findingsLimit,
         public bool $limitReached,
         public array $entries,
-        public array $severityOptions
+        public array $severityOptions,
+        public ?string $stepKey = null,
+        public ?string $stepLabel = null
     ) {
     }
 
     /**
      * @param array<int, DocumentListRow> $rows
      * @param array<string, DocumentListFindingView> $findings keyed by document UUID
+     * @param ?string $stepKey when set (and findings are computed) the list is additionally
+     *                         restricted to documents with a step-attributable finding for that step
      */
-    public static function build(array $rows, bool $withFindings, array $findings, ?string $rawSeverity, int $findingsLimit): self
-    {
+    public static function build(
+        array $rows,
+        bool $withFindings,
+        array $findings,
+        ?string $rawSeverity,
+        int $findingsLimit,
+        ?string $stepKey = null,
+        ?string $stepLabel = null
+    ): self {
         $severity = FindingSeverityFilter::normalize($rawSeverity);
         $limitReached = $withFindings && count($rows) > $findingsLimit;
 
@@ -47,10 +58,24 @@ final readonly class DocumentsIndexView
             $allEntries[] = ['row' => $row, 'finding' => $finding, 'category' => $category];
         }
 
+        $entries = $allEntries;
+
         // Filtering only applies once findings are computed and a specific filter is chosen.
-        $entries = ($withFindings && $severity !== FindingSeverityFilter::ALL)
-            ? array_values(array_filter($allEntries, static fn (array $entry): bool => $entry['category'] === $severity))
-            : $allEntries;
+        if ($withFindings && $severity !== FindingSeverityFilter::ALL) {
+            $entries = array_values(array_filter(
+                $entries,
+                static fn (array $entry): bool => $entry['category'] === $severity
+            ));
+        }
+
+        // Step filter acts only on findings that actually carry the requested step;
+        // process-wide findings (no stepKey) are never matched here.
+        if ($withFindings && $stepKey !== null) {
+            $entries = array_values(array_filter(
+                $entries,
+                static fn (array $entry): bool => $entry['finding'] !== null && $entry['finding']->hasStep($stepKey)
+            ));
+        }
 
         return new self(
             $withFindings,
@@ -61,7 +86,9 @@ final readonly class DocumentsIndexView
             $findingsLimit,
             $limitReached,
             $entries,
-            FindingSeverityFilter::OPTIONS
+            FindingSeverityFilter::OPTIONS,
+            $withFindings ? $stepKey : null,
+            $withFindings ? $stepLabel : null
         );
     }
 }

@@ -98,13 +98,56 @@ class DocumentsIndexViewTest extends TestCase
         self::assertSame(2, $view->shownCount);
     }
 
+    public function testStepFilterKeepsOnlyDocumentsWithThatStep(): void
+    {
+        $findings = [
+            'a' => $this->finding('a', 'critical', ['01']),
+            'b' => $this->finding('b', 'warning', ['02']),
+            'c' => $this->finding('c', 'critical', []), // process-wide finding, no step
+        ];
+        $rows = [$this->row('a'), $this->row('b'), $this->row('c')];
+
+        $view = DocumentsIndexView::build($rows, true, $findings, 'all', 50, '01', '01 Eingang');
+
+        self::assertSame('01', $view->stepKey);
+        self::assertSame('01 Eingang', $view->stepLabel);
+        self::assertSame(1, $view->shownCount);
+        self::assertSame('a', $view->entries[0]['row']->documentUuid);
+    }
+
+    public function testStepFilterCombinesWithSeverityFilter(): void
+    {
+        $findings = [
+            'a' => $this->finding('a', 'critical', ['01']),
+            'b' => $this->finding('b', 'warning', ['01']),
+        ];
+        $rows = [$this->row('a'), $this->row('b')];
+
+        $view = DocumentsIndexView::build($rows, true, $findings, 'warning', 50, '01', '01 Eingang');
+
+        self::assertSame(1, $view->shownCount);
+        self::assertSame('b', $view->entries[0]['row']->documentUuid);
+    }
+
+    public function testStepFilterIsIgnoredWithoutFindings(): void
+    {
+        $view = DocumentsIndexView::build([$this->row('a'), $this->row('b')], false, [], 'all', 50, '01', '01 Eingang');
+
+        // Without findings the step filter cannot act and is not advertised.
+        self::assertNull($view->stepKey);
+        self::assertCount(2, $view->entries);
+    }
+
     private function row(string $uuid): DocumentListRow
     {
         return new DocumentListRow($uuid, 'DOC', 1, 1, new DateTimeImmutable('2026-06-15T09:00:00+00:00'));
     }
 
-    private function finding(string $uuid, string $severity): DocumentListFindingView
+    /**
+     * @param array<int, string> $stepKeys
+     */
+    private function finding(string $uuid, string $severity, array $stepKeys = []): DocumentListFindingView
     {
-        return new DocumentListFindingView($uuid, $severity, ucfirst($severity), 'vs-ok', 1, ['process' => 0, 'context' => 0, 'access' => 0, 'technical' => 0], null);
+        return new DocumentListFindingView($uuid, $severity, ucfirst($severity), 'vs-ok', 1, ['process' => 0, 'context' => 0, 'access' => 0, 'technical' => 0], null, $stepKeys);
     }
 }

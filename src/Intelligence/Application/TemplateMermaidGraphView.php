@@ -12,7 +12,7 @@ use App\Intelligence\Domain\ProcessTemplate;
 final readonly class TemplateMermaidGraphView
 {
     /**
-     * @param array<int, array{key: string, name: string, status: string, statusLabel: string, findingsLabel: string}> $steps
+     * @param array<int, array{key: string, name: string, status: string, statusLabel: string, findingsLabel: string, hasFindings: bool}> $steps
      * @param array<int, array{status: string, label: string}> $legend
      */
     public function __construct(
@@ -49,6 +49,7 @@ final readonly class TemplateMermaidGraphView
                 'status' => $status,
                 'statusLabel' => FindingSeverityFilter::label($status),
                 'findingsLabel' => $withFindings ? ($summary?->label ?? FindingSeverityFilter::label(FindingSeverityFilter::OK)) : '—',
+                'hasFindings' => $withFindings && ($summary?->total ?? 0) > 0,
             ];
         }
 

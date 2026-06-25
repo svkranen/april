@@ -28,6 +28,21 @@ class DocumentListFindingsProviderTest extends TestCase
         self::assertSame('critical', $result['doc-1']->severity);
         self::assertSame('Kritisch', $result['doc-1']->label);
         self::assertSame(1, $result['doc-1']->countsByCategory['access']);
+        // The step-attributable finding exposes its step for the document-list step filter.
+        self::assertSame(['01'], $result['doc-1']->stepKeys);
+        self::assertTrue($result['doc-1']->hasStep('01'));
+    }
+
+    public function testProcessOnlyFindingHasNoStepKeys(): void
+    {
+        $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(['01', '02'], ['01'], ['fehlt 02'], [], [], null, []));
+        $provider = new DocumentListFindingsProvider($this->checkProvider($check), $this->visibilityProvider([]));
+
+        $result = $provider->forDocuments($this->template(), ['doc-1'], 50);
+
+        // Soll/Ist process deviations carry no stepKey and must not match a step filter.
+        self::assertSame([], $result['doc-1']->stepKeys);
+        self::assertFalse($result['doc-1']->hasStep('01'));
     }
 
     public function testProcessDeviationLeadsToDeviationRow(): void
