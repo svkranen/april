@@ -135,7 +135,17 @@ final class ProcessTemplateGraphFactory
 
     private function decisionNodeId(ProcessTemplateDecisionPoint $decisionPoint): string
     {
-        return 'decision:'.$decisionPoint->key;
+        return self::gatewayNodeId($decisionPoint->key);
+    }
+
+    /**
+     * Stable node id of the decision gateway for a decision point key. Public so
+     * finding attribution can target the exact same node the graph draws, without
+     * duplicating the id convention.
+     */
+    public static function gatewayNodeId(string $decisionKey): string
+    {
+        return 'decision:'.$decisionKey;
     }
 
     private function parallelGroupNodeId(ProcessTemplateParallelGroup $parallelGroup): string

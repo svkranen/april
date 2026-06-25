@@ -1,0 +1,177 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.key }} · Template-Assistent · APRIL{% endblock %}
+
+{% block head %}
+    <style>
+        .as-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 0.6rem; font-size: 0.82rem; font-weight: 700; }
+        .as-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #2e7d32; }
+        .as-warning { background: #fff8e1; color: #8a6d00; border: 1px solid #f9a825; }
+        .as-error { background: #fce4ec; color: #880e4f; border: 1px solid #880e4f; }
+        .as-muted { background: #f5f5f5; color: #455a64; border: 1px solid #90a4ae; }
+        .as-check { margin: 0.5rem 0; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 0.6rem; }
+        .as-check ul { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+        .as-check .as-title { font-weight: 600; }
+    </style>
+{% endblock %}
+
+{% set statusLabels = { ok: 'OK', warning: 'Warnung', error: 'Fehler' } %}
+
+{% block body %}
+    {# 1. Kopf + Übersicht #}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_show', { key: view.key }) }}">← Zurück zur Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Template-Assistent – {{ view.key }}</h1>
+        <p class="muted">Read-only Aufbereitung des Soll-Prozesses mit fachlichen Konsistenzhinweisen.
+        Diese Seite ändert nichts: keine Speicherung, keine Dateiänderung, keine automatischen Korrekturen.</p>
+
+        <p class="meta-line">Gesamtstatus:
+            <span class="as-badge as-{{ view.overallStatus }}">{{ statusLabels[view.overallStatus] }}</span></p>
+
+        <div class="header-actions">
+            <a class="pill-link" href="{{ path('app_templates_show', { key: view.key }) }}">Detailseite</a>
+            <a class="pill-link" href="{{ path('app_templates_graph', { key: view.key }) }}">Prozessgrafik</a>
+            <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key }) }}">Dokumente</a>
+        </div>
+    </div>
+
+    {# 2. Übersicht / Metadaten #}
+    <div class="card">
+        <h2>Übersicht</h2>
+        <table>
+            <tbody>
+                <tr><th>Key</th><td><code>{{ view.key }}</code></td></tr>
+                <tr><th>Version</th><td>{{ view.version }}</td></tr>
+                <tr><th>Name/Titel</th><td>{{ view.name ?? '—' }}</td></tr>
+                <tr><th>Source-System</th><td>{{ view.sourceSystem }}</td></tr>
+                <tr><th>Initialschritt</th><td>{% if view.initialStepKey %}<code>{{ view.initialStepKey }}</code>{% else %}—{% endif %}</td></tr>
+                <tr><th>Schritte</th><td>{{ view.stepCount }}</td></tr>
+                <tr><th>Übergänge</th><td>{{ view.transitionCount }}</td></tr>
+                {% if view.filePath %}<tr><th>Dateipfad</th><td><code>{{ view.filePath }}</code></td></tr>{% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    {# 3. Schritte #}
+    <div class="card">
+        <h2>Schritte</h2>
+        {% if view.steps is empty %}
+            <p class="muted">Dieses Template definiert keine Schritte.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr><th>#</th><th>Step-Key</th><th>Name</th><th>Typ</th></tr>
+                </thead>
+                <tbody>
+                    {% for step in view.steps %}
+                        <tr>
+                            <td>{{ step.position }}</td>
+                            <td><code>{{ step.key }}</code></td>
+                            <td>{{ step.name ?? '—' }}</td>
+                            <td>{{ step.type }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+
+    {# 4. Übergänge #}
+    <div class="card">
+        <h2>Übergänge</h2>
+        {% if view.transitions is empty %}
+            <p class="muted">Keine expliziten Übergänge definiert (impliziter Reihenfolge-Modus).</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr><th>from</th><th>to</th><th>from bekannt?</th><th>to bekannt?</th></tr>
+                </thead>
+                <tbody>
+                    {% for t in view.transitions %}
+                        <tr>
+                            <td><code>{{ t.from }}</code></td>
+                            <td>{% if t.targetKind == 'step' %}<code>{{ t.toDisplay }}</code>{% else %}{{ t.toDisplay }}{% endif %}</td>
+                            <td><span class="as-badge {{ t.fromKnown ? 'as-ok' : 'as-error' }}">{{ t.fromKnown ? 'ja' : 'nein' }}</span></td>
+                            <td><span class="as-badge {{ t.toKnown ? 'as-ok' : 'as-error' }}">{{ t.toKnown ? 'ja' : 'nein' }}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+
+    {# 5. Technische Konsistenzprüfung #}
+    <div class="card">
+        <h2>Technische Konsistenzprüfung</h2>
+        <p class="muted">Strukturelle Prüfungen aus dem Template selbst. Ein Status „OK" bedeutet
+        nur technische Konsistenz – nicht, dass der Soll-Prozess fachlich vollständig ist.</p>
+        {% for check in view.checks %}
+            <div class="as-check">
+                <span class="as-badge as-{{ check.status }}">{{ statusLabels[check.status] }}</span>
+                <span class="as-title">{{ check.title }}</span>
+                {% if check.hasItems %}
+                    <span class="muted">({{ check.count }})</span>
+                    <ul>
+                        {% for item in check.items %}<li>{{ item }}</li>{% endfor %}
+                    </ul>
+                {% else %}
+                    <div class="muted">{{ check.okHint }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+        {% if not view.structuralChecksApplicable %}
+            <p class="muted">{{ view.structuralNote }}</p>
+        {% endif %}
+    </div>
+
+    {# 6. Fachliche Modellierungsentscheidungen #}
+    {% set suggestionStatusClass = { review: 'as-warning', optional: 'as-muted', critical: 'as-error' } %}
+    <div class="card">
+        <h2>Änderungsvorschläge / Modellierungsentscheidungen</h2>
+        <p class="muted">Fachliche Entscheidungspunkte aus den aktuell berechneten Informationen.
+        Diese werden nicht automatisch angewendet – sie machen sichtbar, wo der Soll-Prozess
+        weiterentwickelt werden könnte. Ein technischer Gesamtstatus „OK" heißt nicht „fachlich fertig".</p>
+
+        {% if not suggestions.withFindings %}
+            <p class="muted">Fachliche Vorschläge werden aus on-demand berechneten Findings abgeleitet
+            und sind aus Performance-Gründen nicht automatisch aktiv.</p>
+            <p><a class="pill-link" href="{{ path('app_templates_assistant', { key: view.key, withFindings: 1 }) }}">Findings berechnen &amp; Vorschläge anzeigen</a></p>
+        {% elseif not suggestions.hasSuggestions %}
+            <p class="muted">Keine offenen Modellierungsentscheidungen aus den aktuell berechneten Informationen abgeleitet.</p>
+            <p class="muted">Findings über {{ suggestions.processedDocuments }} Dokument(e) berechnet (nicht persistiert).</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr><th>Typ</th><th>Status</th><th>Beschreibung</th><th>Begründung</th><th>Dokumente</th></tr>
+                </thead>
+                <tbody>
+                    {% for suggestion in suggestions.suggestions %}
+                        <tr>
+                            <td>{{ suggestion.typeLabel }}</td>
+                            <td><span class="as-badge {{ suggestionStatusClass[suggestion.status] }}">{{ suggestion.statusLabel }}</span></td>
+                            <td>{{ suggestion.description }}</td>
+                            <td class="muted">{{ suggestion.rationale }}</td>
+                            <td>{% if suggestion.hasDocumentCount %}{{ suggestion.documentCount }}{% else %}—{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p class="muted">Findings über {{ suggestions.processedDocuments }} Dokument(e) berechnet (nicht persistiert).{% if suggestions.limitReached %} Hinweis: nur die ersten {{ suggestions.processedDocuments }} von {{ suggestions.totalDocuments }} Dokumenten.{% endif %}</p>
+        {% endif %}
+    </div>
+
+    {# 7. Hinweise zur Pflege #}
+    <div class="card">
+        <h2>Hinweise zur Pflege</h2>
+        <ul class="muted">
+            <li>Dieser Assistent nimmt keine automatischen Änderungen vor – er gibt ausschließlich fachliche Hinweise.</li>
+            <li>Ziel ist eine bessere Soll-Prozessqualität: eindeutige Schritte, gültige Übergänge und konsistente required_steps.</li>
+            <li>Fehler (rot) sollten vor dem produktiven Einsatz behoben werden; Warnungen (gelb) sind Hinweise zur Prüfung.</li>
+            <li>Änderungen erfolgen weiterhin manuell in der YAML-Vorlage; dieser MVP unterstützt nur das Lesen und Prüfen.</li>
+        </ul>
+    </div>
+{% endblock %}

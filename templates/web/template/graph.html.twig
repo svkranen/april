@@ -112,7 +112,48 @@
         </details>
     </div>
 
-    {# 4. Legende, prozessweite Findings und Schritt-Tabelle (barrierearmer Fallback) #}
+    {# 4. Übergangs-/Entscheidungs-Findings: an Gateway/Kante zugeordnet #}
+    {% if view.withFindings and view.hasTransitionDecisionFindings %}
+        <div class="card">
+            <h2>Übergangs-/Entscheidungs-Findings</h2>
+            <p class="muted">Soll-/Ist-Abweichungen, die eindeutig einem Entscheidungs-Gateway
+            oder einem beobachteten Übergang (Kante) zugeordnet werden konnten. Gateways mit
+            solchen Findings sind in der Grafik eingefärbt; Kanten bleiben unverändert.</p>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Zuordnung</th>
+                        <th>Status</th>
+                        <th>Kurztext</th>
+                        <th>Dokumente</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for finding in view.transitionDecisionFindings %}
+                        <tr>
+                            <td>{{ finding.targetLabel }}: <code>{{ finding.label }}</code></td>
+                            <td><span class="status-badge gs-{{ finding.severity }}">{{ finding.severityLabel }}</span></td>
+                            <td>{{ finding.message }}</td>
+                            <td>
+                                {% if finding.hasDocuments %}
+                                    {% if finding.isGateway %}
+                                        <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, decision: finding.decisionKey }) }}">{{ finding.documentCount }} – Dokumente anzeigen</a>
+                                    {% else %}
+                                        <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, transitionFrom: finding.transitionFrom, transitionTo: finding.transitionTo }) }}">{{ finding.documentCount }} – Dokumente anzeigen</a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="muted">{{ finding.documentCount }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    {# 5. Legende, prozessweite Findings und Schritt-Tabelle (barrierearmer Fallback) #}
     <div class="card">
         <h2>Schritte &amp; Status</h2>
         <p class="muted">Die Farbe entspricht der Einfärbung des jeweiligen Schritts in der Grafik.
@@ -128,12 +169,12 @@
 
         {% if view.withFindings %}
             {% if view.hasProcessFindings %}
-                <p class="meta-line">Prozessweite Soll-/Ist-Findings (nicht einzelnen Schritten zuordenbar):
+                <p class="meta-line">Nicht zuordenbare prozessweite Findings (weder Schritt, Gateway noch Kante):
                     {{ view.processDeviations }} Abweichung(en) ·
                     {{ view.processWarnings }} Warnung(en) ·
                     {{ view.processTechnical }} technisch</p>
             {% else %}
-                <p class="meta-line muted">Keine prozessweiten Soll-/Ist-Findings festgestellt.</p>
+                <p class="meta-line muted">Keine nicht zuordenbaren prozessweiten Findings festgestellt.</p>
             {% endif %}
         {% endif %}
 

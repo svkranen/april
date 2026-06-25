@@ -9,7 +9,9 @@ use App\Intelligence\Application\DocumentsIndexView;
 use App\Intelligence\Application\ProcessTemplateCatalog;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\TemplateAccessView;
+use App\Intelligence\Application\TemplateAssistantAnalyzer;
 use App\Intelligence\Application\TemplateDetailView;
+use App\Intelligence\Application\TemplateModelingSuggestionAnalyzer;
 use App\Intelligence\Application\TemplateGraphFindingsProvider;
 use App\Intelligence\Application\TemplateMermaidGraphBuilder;
 use App\Intelligence\Application\TemplateMermaidGraphView;
@@ -35,6 +37,8 @@ final class TemplateController
         private readonly DocumentListFindingsProvider $documentListFindingsProvider,
         private readonly TemplateGraphFindingsProvider $graphFindingsProvider,
         private readonly TemplateMermaidGraphBuilder $graphBuilder,
+        private readonly TemplateAssistantAnalyzer $assistantAnalyzer,
+        private readonly TemplateModelingSuggestionAnalyzer $modelingSuggestionAnalyzer,
         private readonly Environment $twig,
         private readonly string $processTemplateDirectory
     ) {
@@ -74,6 +78,37 @@ final class TemplateController
         ]));
     }
 
+    #[Route('/app/templates/{key}/assistant', name: 'app_templates_assistant', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
+    public function assistant(string $key, Request $request): Response
+    {
+        $template = $this->templateProvider->findByProcessKey($key);
+        if ($template === null) {
+            throw new NotFoundHttpException($this->notFoundMessage($key));
+        }
+
+        // Read-only assistance: derive the conventional YAML path for display only;
+        // no file is read or written here.
+        $filePath = rtrim($this->processTemplateDirectory, '/').'/'.$template->key.'.yaml';
+
+        // Modelling suggestions need on-demand findings and are opt-in: without
+        // withFindings=1 we never read any document - the page shows a hint/link.
+        $findings = null;
+        if ($request->query->getBoolean('withFindings')) {
+            $rows = $this->documentListProvider->documentsForProcess($template->key, 200);
+            $findings = $this->graphFindingsProvider->aggregate(
+                $template,
+                array_map(static fn ($row): string => $row->documentUuid, $rows),
+                self::FINDINGS_LIMIT
+            );
+        }
+
+        return new Response($this->twig->render('template/assistant.html.twig', [
+            'active_nav' => 'templates',
+            'view' => $this->assistantAnalyzer->analyze($template, $filePath),
+            'suggestions' => $this->modelingSuggestionAnalyzer->fromFindings($findings),
+        ]));
+    }
+
     #[Route('/app/templates/{key}/access', name: 'app_templates_access', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
     public function access(string $key): Response
     {
@@ -100,13 +135,29 @@ final class TemplateController
 
         $rows = $this->documentListProvider->documentsForProcess($template->key, 200);
 
-        // Optional step filter (coming from the process graph). Only declared steps
-        // are honoured; an unknown/empty step key is ignored. A step filter needs
-        // findings, so it implies withFindings - the smallest, clearest behaviour.
+        // Optional graph filters (coming from the process graph): step, decision
+        // gateway or observed transition. They are mutually exclusive (step wins,
+        // then decision, then transition); each only honours valid values and each
+        // implies withFindings - the smallest, clearest behaviour. Unknown values
+        // are ignored rather than producing an error.
         $stepKey = $this->resolveStepKey($template, $request->query->get('step'));
-        $stepLabel = $stepKey !== null ? $this->stepName($template, $stepKey) : null;
+        $decisionKey = $stepKey === null
+            ? $this->resolveDecisionKey($template, $request->query->get('decision'))
+            : null;
+        $transition = ($stepKey === null && $decisionKey === null)
+            ? $this->resolveTransition($request->query->get('transitionFrom'), $request->query->get('transitionTo'))
+            : null;
 
-        $withFindings = $request->query->getBoolean('withFindings') || $stepKey !== null;
+        $stepLabel = $stepKey !== null ? $this->stepName($template, $stepKey) : null;
+        $decisionLabel = $decisionKey;
+        $transitionLabel = $transition !== null
+            ? $this->stepName($template, $transition['from']).' → '.$this->stepName($template, $transition['to'])
+            : null;
+
+        $withFindings = $request->query->getBoolean('withFindings')
+            || $stepKey !== null
+            || $decisionKey !== null
+            || $transition !== null;
         $findings = [];
         if ($withFindings) {
             $findings = $this->documentListFindingsProvider->forDocuments(
@@ -127,7 +178,12 @@ final class TemplateController
                 $request->query->get('severity'),
                 self::FINDINGS_LIMIT,
                 $stepKey,
-                $stepLabel
+                $stepLabel,
+                $decisionKey,
+                $decisionLabel,
+                $transition['from'] ?? null,
+                $transition['to'] ?? null,
+                $transitionLabel
             ),
         ]));
     }
@@ -181,6 +237,44 @@ final class TemplateController
         }
 
         return null;
+    }
+
+    /**
+     * Returns the trimmed decision key only if the template declares a decision
+     * point with that key, otherwise null (conservative: unknown -> ignored).
+     */
+    private function resolveDecisionKey(ProcessTemplate $template, ?string $rawDecision): ?string
+    {
+        $decisionKey = $rawDecision !== null ? trim($rawDecision) : '';
+        if ($decisionKey === '') {
+            return null;
+        }
+
+        foreach ($template->decisionPoints as $decisionPoint) {
+            if ($decisionPoint->key === $decisionKey) {
+                return $decisionKey;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Returns the observed transition only if both endpoints are present; the
+     * actual (Ist) target may be an unexpected step, so it is not validated against
+     * the template - matching is done structurally against the findings.
+     *
+     * @return array{from: string, to: string}|null
+     */
+    private function resolveTransition(?string $rawFrom, ?string $rawTo): ?array
+    {
+        $from = $rawFrom !== null ? trim($rawFrom) : '';
+        $to = $rawTo !== null ? trim($rawTo) : '';
+        if ($from === '' || $to === '') {
+            return null;
+        }
+
+        return ['from' => $from, 'to' => $to];
     }
 
     private function stepName(ProcessTemplate $template, string $stepKey): string

@@ -78,7 +78,15 @@ final class TemplateMermaidGraphBuilder
      */
     private function nodeStatus(ProcessGraphNode $node, ?TemplateGraphFindings $findings): array
     {
-        // Only step (task) nodes carry findings; everything else is process structure.
+        // Decision gateways are coloured only when a decision finding was attributed
+        // to this exact gateway node (stable, id-based - no fragile edge styling).
+        if ($node->type === ProcessGraphNode::TYPE_EXCLUSIVE_GATEWAY) {
+            $gatewayStatus = $findings?->gatewayStatusFor($node->id);
+
+            return [$gatewayStatus ?? self::STRUCTURE_CLASS, null];
+        }
+
+        // Only step (task) nodes carry their own findings; other structure stays neutral.
         if ($node->type !== ProcessGraphNode::TYPE_TASK) {
             return [self::STRUCTURE_CLASS, null];
         }

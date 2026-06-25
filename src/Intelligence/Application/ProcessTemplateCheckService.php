@@ -2,6 +2,7 @@
 
 namespace App\Intelligence\Application;
 
+use App\Intelligence\Domain\ProcessDeviation;
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateArrayFactory;
 use App\Intelligence\Domain\ProcessTemplateDecisionPoint;
@@ -62,15 +63,18 @@ final class ProcessTemplateCheckService
             $actualStepEntries
         );
         $decisionCheck = $this->decisionDeviations($template, $actualStepEntries, $parallelGroups, $actualSteps);
+        $transitionDetails = [];
         $deviations = $this->deviations(
             $expectedSteps,
             $actualSteps,
             $parallelGroups,
             $knownSteps,
             $template->transitions,
-            $decisionCheck['activated_parallel_groups']
+            $decisionCheck['activated_parallel_groups'],
+            $transitionDetails
         );
         $deviations = array_merge($deviations, $decisionCheck['deviations']);
+        $deviationDetails = array_merge($transitionDetails, $decisionCheck['deviation_details']);
         $parallelGroupMessages = $this->parallelGroupMessages(
             $parallelGroups,
             $actualSteps,
@@ -85,7 +89,8 @@ final class ProcessTemplateCheckService
             $parallelGroupMessages,
             $decisionCheck['context_issues'],
             $decisionCheck['context_status'],
-            $this->signCheckResults($template, $actualStepEntries)
+            $this->signCheckResults($template, $actualStepEntries),
+            $deviationDetails
         );
     }
 
@@ -241,16 +246,17 @@ final class ProcessTemplateCheckService
      * @param array<int, array{step: string, context: array<string, mixed>|null, context_summary: array<string, mixed>|null, occurred_at: DateTimeImmutable}> $actualStepEntries
      * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
      * @param array<int, string> $actualSteps
-     * @return array{deviations: array<int, string>, context_issues: array<int, string>, context_status: string|null, activated_parallel_groups: array<int, string>}
+     * @return array{deviations: array<int, string>, deviation_details: array<int, ProcessDeviation>, context_issues: array<int, string>, context_status: string|null, activated_parallel_groups: array<int, string>}
      */
     private function decisionDeviations(ProcessTemplate $template, array $actualStepEntries, array $parallelGroups, array $actualSteps): array
     {
         $deviations = [];
+        $deviationDetails = [];
         $contextIssues = [];
         $contextStatus = null;
         $activatedParallelGroups = [];
         if ($template->decisionPoints === []) {
-            return ['deviations' => $deviations, 'context_issues' => $contextIssues, 'context_status' => $contextStatus, 'activated_parallel_groups' => $activatedParallelGroups];
+            return ['deviations' => $deviations, 'deviation_details' => $deviationDetails, 'context_issues' => $contextIssues, 'context_status' => $contextStatus, 'activated_parallel_groups' => $activatedParallelGroups];
         }
 
         $expectedDecisionStepKeys = [];
@@ -265,11 +271,13 @@ final class ProcessTemplateCheckService
                     continue;
                 }
 
-                $deviations[] = sprintf(
+                $message = sprintf(
                     'Decision rule violation: %s after step %s not found',
                     $decisionPoint->key,
                     $decisionPoint->after
                 );
+                $deviations[] = $message;
+                $deviationDetails[] = ProcessDeviation::decisionRuleViolation($message, $decisionPoint->key, $decisionPoint->after);
                 continue;
             }
 
@@ -284,11 +292,13 @@ final class ProcessTemplateCheckService
             $context = $this->contextForDecisionPoint($actualStepEntries, $position, $requiredFields);
             $missingContextFields = $this->missingContextFields($requiredFields, $context);
             if ($missingContextFields !== []) {
-                $deviations[] = sprintf(
+                $message = sprintf(
                     'Missing context for decision point %s: %s',
                     $decisionPoint->key,
                     implode(', ', $missingContextFields)
                 );
+                $deviations[] = $message;
+                $deviationDetails[] = ProcessDeviation::decisionRuleViolation($message, $decisionPoint->key, $decisionPoint->after);
                 continue;
             }
 
@@ -310,7 +320,7 @@ final class ProcessTemplateCheckService
                     continue;
                 }
 
-                $deviations[] = sprintf(
+                $message = sprintf(
                     'Decision rule violation: %s after %s expected parallel group %s but got %s. Context: %s. Rule: %s',
                     $decisionPoint->key,
                     $decisionPoint->after,
@@ -319,6 +329,8 @@ final class ProcessTemplateCheckService
                     $this->formatDecisionContext($decisionPoint, $context),
                     $this->formatDecisionRule($matchedRule)
                 );
+                $deviations[] = $message;
+                $deviationDetails[] = ProcessDeviation::decisionRuleViolation($message, $decisionPoint->key, $decisionPoint->after, $actualNextStepKey);
                 continue;
             }
 
@@ -334,7 +346,7 @@ final class ProcessTemplateCheckService
             }
 
             if ($actualNextStepKey !== $expectedNextStepKey) {
-                $deviations[] = sprintf(
+                $message = sprintf(
                     'Decision rule violation: %s after %s expected %s but got %s. Context: %s. Rule: %s',
                     $decisionPoint->key,
                     $decisionPoint->after,
@@ -343,11 +355,14 @@ final class ProcessTemplateCheckService
                     $this->formatDecisionContext($decisionPoint, $context),
                     $this->formatDecisionRule($matchedRule)
                 );
+                $deviations[] = $message;
+                $deviationDetails[] = ProcessDeviation::decisionRuleViolation($message, $decisionPoint->key, $decisionPoint->after, $actualNextStepKey);
             }
         }
 
         return [
             'deviations' => $deviations,
+            'deviation_details' => $deviationDetails,
             'context_issues' => $contextIssues,
             'context_status' => $contextStatus,
             'activated_parallel_groups' => array_values(array_unique($activatedParallelGroups)),
@@ -751,9 +766,10 @@ final class ProcessTemplateCheckService
      * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
      * @param array<int, string> $knownSteps
      * @param array<int, \App\Intelligence\Domain\ProcessTemplateTransition> $transitions
+     * @param array<int, ProcessDeviation> $deviationDetails out-param: structured companions for the transition violations found here
      * @return array<int, string>
      */
-    private function deviations(array $expectedSteps, array $actualSteps, array $parallelGroups, array $knownSteps, array $transitions, array $activatedParallelGroups = []): array
+    private function deviations(array $expectedSteps, array $actualSteps, array $parallelGroups, array $knownSteps, array $transitions, array $activatedParallelGroups = [], array &$deviationDetails = []): array
     {
         $deviations = [];
 
@@ -770,7 +786,8 @@ final class ProcessTemplateCheckService
         }
 
         foreach ($this->transitionViolations($actualSteps, $parallelGroups, $transitions) as $transitionViolation) {
-            $deviations[] = $transitionViolation;
+            $deviations[] = $transitionViolation->message;
+            $deviationDetails[] = $transitionViolation;
         }
 
         foreach ($parallelGroups as $group) {
@@ -805,7 +822,7 @@ final class ProcessTemplateCheckService
      * @param array<int, string> $actualSteps
      * @param array<int, ProcessTemplateParallelGroup> $parallelGroups
      * @param array<int, \App\Intelligence\Domain\ProcessTemplateTransition> $transitions
-     * @return array<int, string>
+     * @return array<int, ProcessDeviation>
      */
     private function transitionViolations(array $actualSteps, array $parallelGroups, array $transitions): array
     {
@@ -837,11 +854,16 @@ final class ProcessTemplateCheckService
                 continue;
             }
 
-            $violations[] = sprintf(
-                'Transition violation: %s expected one of %s but got %s',
+            $violations[] = ProcessDeviation::transitionViolation(
+                sprintf(
+                    'Transition violation: %s expected one of %s but got %s',
+                    $from,
+                    implode(', ', $allowedTargets),
+                    $actualNext
+                ),
                 $from,
-                implode(', ', $allowedTargets),
-                $actualNext
+                $actualNext,
+                $allowedTargets
             );
         }
 

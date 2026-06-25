@@ -18,7 +18,8 @@ final readonly class DocumentListFindingsProvider
 {
     public function __construct(
         private DocumentCheckResultProvider $checkResultProvider,
-        private VisibilityCheckResultProvider $visibilityResultProvider
+        private VisibilityCheckResultProvider $visibilityResultProvider,
+        private GraphFindingAttribution $attribution = new GraphFindingAttribution()
     ) {
     }
 
@@ -31,6 +32,13 @@ final readonly class DocumentListFindingsProvider
         $result = [];
         $computed = 0;
 
+        // Decision gateways the graph draws; transition/decision attribution targets
+        // only these, identical to the graph page (no free-text parsing).
+        $gatewayNodeIds = [];
+        foreach ($template->decisionPoints as $decisionPoint) {
+            $gatewayNodeIds[ProcessTemplateGraphFactory::gatewayNodeId($decisionPoint->key)] = true;
+        }
+
         foreach ($documentUuids as $documentUuid) {
             if ($computed >= $limit) {
                 break;
@@ -40,9 +48,12 @@ final readonly class DocumentListFindingsProvider
             try {
                 $check = $this->checkResultProvider->forDocument($template, $documentUuid);
                 $records = $this->visibilityResultProvider->findByDocument($documentUuid, $template->key);
+                [$decisionKeys, $transitionKeys] = $this->attributedKeys($check, $gatewayNodeIds);
                 $result[$documentUuid] = DocumentListFindingView::fromFindings(
                     $documentUuid,
-                    DocumentFindingsView::fromData($check, $records)
+                    DocumentFindingsView::fromData($check, $records),
+                    $decisionKeys,
+                    $transitionKeys
                 );
             } catch (Throwable $exception) {
                 $result[$documentUuid] = DocumentListFindingView::failed($documentUuid, $exception->getMessage());
@@ -50,5 +61,34 @@ final readonly class DocumentListFindingsProvider
         }
 
         return $result;
+    }
+
+    /**
+     * Distinct decision keys and transition keys attributable to this document,
+     * derived from the structured deviation details only.
+     *
+     * @param array<string, bool> $gatewayNodeIds
+     * @return array{0: array<int, string>, 1: array<int, string>} [decisionKeys, transitionKeys]
+     */
+    private function attributedKeys(DocumentCheckResultView $check, array $gatewayNodeIds): array
+    {
+        $decisionKeys = [];
+        $transitionKeys = [];
+        foreach ($check->deviationDetails as $deviation) {
+            $attribution = $this->attribution->attribute($deviation, $gatewayNodeIds);
+
+            if ($attribution->target === FindingAttribution::TARGET_GATEWAY && $deviation->decisionKey !== null) {
+                if (!in_array($deviation->decisionKey, $decisionKeys, true)) {
+                    $decisionKeys[] = $deviation->decisionKey;
+                }
+            } elseif ($attribution->target === FindingAttribution::TARGET_TRANSITION) {
+                $key = DocumentListFindingView::transitionKey($attribution->from, $attribution->actual);
+                if (!in_array($key, $transitionKeys, true)) {
+                    $transitionKeys[] = $key;
+                }
+            }
+        }
+
+        return [$decisionKeys, $transitionKeys];
     }
 }

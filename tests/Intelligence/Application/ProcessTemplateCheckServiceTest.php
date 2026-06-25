@@ -6,8 +6,10 @@ use App\Intelligence\Application\DocumentTimelineEventRow;
 use App\Intelligence\Application\DocumentTimelineProvider;
 use App\Intelligence\Application\DocumentTimelineReport;
 use App\Intelligence\Application\EventTimelineOrder;
+use App\Intelligence\Application\ProcessTemplateCheckResult;
 use App\Intelligence\Application\ProcessTemplateCheckService;
 use App\Intelligence\Domain\ContextSnapshot;
+use App\Intelligence\Domain\ProcessDeviation;
 use App\Intelligence\Domain\DocumentRef;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Domain\ProcessTemplate;
@@ -169,6 +171,15 @@ class ProcessTemplateCheckServiceTest extends TestCase
         );
 
         self::assertContains('Transition violation: sent expected one of booked but got manual_review', $result->deviations);
+
+        // Structured companion is emitted alongside the (unchanged) message so the
+        // graph can attribute it to the sent -> manual_review edge without parsing text.
+        $detail = $this->onlyDeviationDetail($result);
+        self::assertSame(ProcessDeviation::TYPE_TRANSITION_VIOLATION, $detail->type);
+        self::assertSame('Transition violation: sent expected one of booked but got manual_review', $detail->message);
+        self::assertSame('sent', $detail->from);
+        self::assertSame('manual_review', $detail->actual);
+        self::assertSame(['booked'], $detail->expected);
     }
 
     public function testTransitionToParallelGroupActivatesRequiredSteps(): void
@@ -513,6 +524,14 @@ class ProcessTemplateCheckServiceTest extends TestCase
             'Decision rule violation: approval_route after invoice_checked expected gf_approval but got department_approval. Context: amount=12000. Rule: when amount gt 10000',
             $result->deviations
         );
+
+        // Structured companion carries the decision point so the graph can colour
+        // the approval_route gateway without parsing the message.
+        $detail = $this->onlyDeviationDetail($result);
+        self::assertSame(ProcessDeviation::TYPE_DECISION_RULE_VIOLATION, $detail->type);
+        self::assertSame('approval_route', $detail->decisionKey);
+        self::assertSame('invoice_checked', $detail->after);
+        self::assertSame('department_approval', $detail->actual);
     }
 
     public function testCheckDocumentUsesDecisionElseFallback(): void
@@ -1663,5 +1682,12 @@ class ProcessTemplateCheckServiceTest extends TestCase
             $loadedAt->getTimestamp() - $occurredAt->getTimestamp(),
             $isFresh
         );
+    }
+
+    private function onlyDeviationDetail(ProcessTemplateCheckResult $result): ProcessDeviation
+    {
+        self::assertCount(1, $result->deviationDetails);
+
+        return $result->deviationDetails[0];
     }
 }

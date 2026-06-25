@@ -11,6 +11,8 @@ final readonly class TemplateGraphFindings
 {
     /**
      * @param array<string, StepFindingSummary> $stepSummaries keyed by step key
+     * @param array<string, string> $gatewayStatusByNodeId decision gateway node id => worst FindingSeverityFilter status, for node colouring
+     * @param array<int, AttributedFinding> $attributedFindings transition/decision findings attributed to a gateway or edge, for the dedicated section
      */
     public function __construct(
         public array $stepSummaries,
@@ -19,7 +21,9 @@ final readonly class TemplateGraphFindings
         public bool $limitReached,
         public int $processDeviations,
         public int $processWarnings,
-        public int $processTechnical
+        public int $processTechnical,
+        public array $gatewayStatusByNodeId = [],
+        public array $attributedFindings = []
     ) {
     }
 
@@ -28,6 +32,24 @@ final readonly class TemplateGraphFindings
         return $this->stepSummaries[$stepKey] ?? null;
     }
 
+    /**
+     * Worst severity attributed to a decision gateway node, or null if none.
+     * Used by the graph builder to colour the gateway instead of leaving it neutral.
+     */
+    public function gatewayStatusFor(string $nodeId): ?string
+    {
+        return $this->gatewayStatusByNodeId[$nodeId] ?? null;
+    }
+
+    public function hasAttributedFindings(): bool
+    {
+        return $this->attributedFindings !== [];
+    }
+
+    /**
+     * True when there are deviations/warnings that could NOT be attributed to a
+     * step, gateway or edge and therefore remain process-wide.
+     */
     public function hasProcessFindings(): bool
     {
         return $this->processDeviations > 0 || $this->processWarnings > 0 || $this->processTechnical > 0;

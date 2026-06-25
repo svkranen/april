@@ -14,6 +14,10 @@ namespace App\Intelligence\Application;
  */
 final readonly class DocumentsIndexView
 {
+    public const FILTER_STEP = 'step';
+    public const FILTER_DECISION = 'decision';
+    public const FILTER_TRANSITION = 'transition';
+
     /**
      * @param array<int, array{row: DocumentListRow, finding: ?DocumentListFindingView, category: string}> $entries
      * @param array<string, string> $severityOptions
@@ -29,7 +33,12 @@ final readonly class DocumentsIndexView
         public array $entries,
         public array $severityOptions,
         public ?string $stepKey = null,
-        public ?string $stepLabel = null
+        public ?string $stepLabel = null,
+        public ?string $decisionKey = null,
+        public ?string $decisionLabel = null,
+        public ?string $transitionFrom = null,
+        public ?string $transitionTo = null,
+        public ?string $transitionLabel = null
     ) {
     }
 
@@ -38,6 +47,9 @@ final readonly class DocumentsIndexView
      * @param array<string, DocumentListFindingView> $findings keyed by document UUID
      * @param ?string $stepKey when set (and findings are computed) the list is additionally
      *                         restricted to documents with a step-attributable finding for that step
+     *
+     * The graph filters (step / decision / transition) are mutually exclusive - the
+     * caller passes at most one - and each combines with the severity filter (AND).
      */
     public static function build(
         array $rows,
@@ -46,7 +58,12 @@ final readonly class DocumentsIndexView
         ?string $rawSeverity,
         int $findingsLimit,
         ?string $stepKey = null,
-        ?string $stepLabel = null
+        ?string $stepLabel = null,
+        ?string $decisionKey = null,
+        ?string $decisionLabel = null,
+        ?string $transitionFrom = null,
+        ?string $transitionTo = null,
+        ?string $transitionLabel = null
     ): self {
         $severity = FindingSeverityFilter::normalize($rawSeverity);
         $limitReached = $withFindings && count($rows) > $findingsLimit;
@@ -68,12 +85,26 @@ final readonly class DocumentsIndexView
             ));
         }
 
-        // Step filter acts only on findings that actually carry the requested step;
-        // process-wide findings (no stepKey) are never matched here.
+        // Graph filters act only on findings that actually carry the requested
+        // step / gateway / transition; process-wide findings are never matched.
         if ($withFindings && $stepKey !== null) {
             $entries = array_values(array_filter(
                 $entries,
                 static fn (array $entry): bool => $entry['finding'] !== null && $entry['finding']->hasStep($stepKey)
+            ));
+        }
+
+        if ($withFindings && $decisionKey !== null) {
+            $entries = array_values(array_filter(
+                $entries,
+                static fn (array $entry): bool => $entry['finding'] !== null && $entry['finding']->hasDecision($decisionKey)
+            ));
+        }
+
+        if ($withFindings && $transitionFrom !== null && $transitionTo !== null) {
+            $entries = array_values(array_filter(
+                $entries,
+                static fn (array $entry): bool => $entry['finding'] !== null && $entry['finding']->hasTransition($transitionFrom, $transitionTo)
             ));
         }
 
@@ -88,7 +119,74 @@ final readonly class DocumentsIndexView
             $entries,
             FindingSeverityFilter::OPTIONS,
             $withFindings ? $stepKey : null,
-            $withFindings ? $stepLabel : null
+            $withFindings ? $stepLabel : null,
+            $withFindings ? $decisionKey : null,
+            $withFindings ? $decisionLabel : null,
+            $withFindings ? $transitionFrom : null,
+            $withFindings ? $transitionTo : null,
+            $withFindings ? $transitionLabel : null
         );
+    }
+
+    /**
+     * Query params that reproduce the active graph filter (step / decision /
+     * transition), so Twig can compose URLs without branching logic.
+     *
+     * @return array<string, string>
+     */
+    public function filterParams(): array
+    {
+        if ($this->stepKey !== null) {
+            return ['step' => $this->stepKey];
+        }
+        if ($this->decisionKey !== null) {
+            return ['decision' => $this->decisionKey];
+        }
+        if ($this->transitionFrom !== null && $this->transitionTo !== null) {
+            return ['transitionFrom' => $this->transitionFrom, 'transitionTo' => $this->transitionTo];
+        }
+
+        return [];
+    }
+
+    public function hasGraphFilter(): bool
+    {
+        return $this->graphFilterKind() !== null;
+    }
+
+    public function graphFilterKind(): ?string
+    {
+        if ($this->stepKey !== null) {
+            return self::FILTER_STEP;
+        }
+        if ($this->decisionKey !== null) {
+            return self::FILTER_DECISION;
+        }
+        if ($this->transitionFrom !== null && $this->transitionTo !== null) {
+            return self::FILTER_TRANSITION;
+        }
+
+        return null;
+    }
+
+    public function graphFilterLabel(): ?string
+    {
+        return match ($this->graphFilterKind()) {
+            self::FILTER_STEP => $this->stepLabel,
+            self::FILTER_DECISION => $this->decisionLabel,
+            self::FILTER_TRANSITION => $this->transitionLabel,
+            default => null,
+        };
+    }
+
+    /** Raw key(s) for the expert view, e.g. the step/decision key or "from → to". */
+    public function graphFilterExpertValue(): ?string
+    {
+        return match ($this->graphFilterKind()) {
+            self::FILTER_STEP => $this->stepKey,
+            self::FILTER_DECISION => $this->decisionKey,
+            self::FILTER_TRANSITION => $this->transitionFrom.' → '.$this->transitionTo,
+            default => null,
+        };
     }
 }

@@ -11,6 +11,8 @@ final readonly class DocumentListFindingView
     /**
      * @param array<string, int> $countsByCategory
      * @param array<int, string> $stepKeys distinct step keys with a step-attributable finding
+     * @param array<int, string> $decisionKeys distinct decision keys whose gateway carries an attributed finding
+     * @param array<int, string> $transitionKeys distinct attributed transitions, each as "from\0to"
      */
     public function __construct(
         public string $documentUuid,
@@ -20,12 +22,22 @@ final readonly class DocumentListFindingView
         public int $total,
         public array $countsByCategory,
         public ?string $error,
-        public array $stepKeys = []
+        public array $stepKeys = [],
+        public array $decisionKeys = [],
+        public array $transitionKeys = []
     ) {
     }
 
-    public static function fromFindings(string $documentUuid, DocumentFindingsView $findings): self
-    {
+    /**
+     * @param array<int, string> $decisionKeys
+     * @param array<int, string> $transitionKeys
+     */
+    public static function fromFindings(
+        string $documentUuid,
+        DocumentFindingsView $findings,
+        array $decisionKeys = [],
+        array $transitionKeys = []
+    ): self {
         return new self(
             $documentUuid,
             $findings->overallSeverity,
@@ -34,7 +46,9 @@ final readonly class DocumentListFindingView
             $findings->total,
             $findings->countsByCategory,
             null,
-            self::distinctStepKeys($findings)
+            self::distinctStepKeys($findings),
+            $decisionKeys,
+            $transitionKeys
         );
     }
 
@@ -54,6 +68,25 @@ final readonly class DocumentListFindingView
     public function hasStep(string $stepKey): bool
     {
         return in_array($stepKey, $this->stepKeys, true);
+    }
+
+    public function hasDecision(string $decisionKey): bool
+    {
+        return in_array($decisionKey, $this->decisionKeys, true);
+    }
+
+    public function hasTransition(string $from, string $to): bool
+    {
+        return in_array(self::transitionKey($from, $to), $this->transitionKeys, true);
+    }
+
+    /**
+     * Stable key for an attributed transition; the null byte cannot occur in a
+     * step key, so it is a safe separator.
+     */
+    public static function transitionKey(string $from, string $to): string
+    {
+        return $from."\0".$to;
     }
 
     /**

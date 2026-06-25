@@ -224,4 +224,66 @@ class TemplateControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('a[href="/app/templates/ai-rechnungen/docs"]');
     }
+
+    public function testAssistantPageReturns200AndShowsSections(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/assistant');
+
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Template-Assistent', $html);
+        self::assertStringContainsString('Übersicht', $html);
+        self::assertStringContainsString('Schritte', $html);
+        self::assertStringContainsString('Übergänge', $html);
+        self::assertStringContainsString('Konsistenzprüfung', $html);
+        // A real step from the template is listed.
+        self::assertStringContainsString('01 Rechnungen pruefen', $html);
+        // Read-only assurance is communicated.
+        self::assertStringContainsString('keine automatischen Änderungen', $html);
+    }
+
+    public function testAssistantPageUnknownKeyReturns404(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/does-not-exist-xyz/assistant');
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    public function testDetailPageHasAssistantLink(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/assistant"]');
+    }
+
+    public function testAssistantSeparatesTechnicalChecksFromModellingSuggestions(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/assistant');
+
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+        // Both distinct sections exist and are clearly separated.
+        self::assertStringContainsString('Technische Konsistenzprüfung', $html);
+        self::assertStringContainsString('Änderungsvorschläge / Modellierungsentscheidungen', $html);
+    }
+
+    public function testAssistantWithoutFindingsOffersComputeLinkAndDoesNotRunChecks(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/assistant');
+
+        self::assertResponseIsSuccessful();
+        // Smaller clean solution: a link to compute findings instead of a runtime check.
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/assistant?withFindings=1"]');
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('nicht automatisch aktiv', $html);
+    }
 }
