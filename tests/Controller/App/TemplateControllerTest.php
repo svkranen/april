@@ -260,4 +260,30 @@ class TemplateControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/assistant"]');
     }
+
+    public function testAssistantSeparatesTechnicalChecksFromModellingSuggestions(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/assistant');
+
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+        // Both distinct sections exist and are clearly separated.
+        self::assertStringContainsString('Technische Konsistenzprüfung', $html);
+        self::assertStringContainsString('Änderungsvorschläge / Modellierungsentscheidungen', $html);
+    }
+
+    public function testAssistantWithoutFindingsOffersComputeLinkAndDoesNotRunChecks(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/assistant');
+
+        self::assertResponseIsSuccessful();
+        // Smaller clean solution: a link to compute findings instead of a runtime check.
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/assistant?withFindings=1"]');
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('nicht automatisch aktiv', $html);
+    }
 }

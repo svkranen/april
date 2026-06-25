@@ -104,9 +104,11 @@
         {% endif %}
     </div>
 
-    {# 5. Konsistenzprüfung #}
+    {# 5. Technische Konsistenzprüfung #}
     <div class="card">
-        <h2>Konsistenzprüfung</h2>
+        <h2>Technische Konsistenzprüfung</h2>
+        <p class="muted">Strukturelle Prüfungen aus dem Template selbst. Ein Status „OK" bedeutet
+        nur technische Konsistenz – nicht, dass der Soll-Prozess fachlich vollständig ist.</p>
         {% for check in view.checks %}
             <div class="as-check">
                 <span class="as-badge as-{{ check.status }}">{{ statusLabels[check.status] }}</span>
@@ -126,7 +128,43 @@
         {% endif %}
     </div>
 
-    {# 6. Hinweise zur Pflege #}
+    {# 6. Fachliche Modellierungsentscheidungen #}
+    {% set suggestionStatusClass = { review: 'as-warning', optional: 'as-muted', critical: 'as-error' } %}
+    <div class="card">
+        <h2>Änderungsvorschläge / Modellierungsentscheidungen</h2>
+        <p class="muted">Fachliche Entscheidungspunkte aus den aktuell berechneten Informationen.
+        Diese werden nicht automatisch angewendet – sie machen sichtbar, wo der Soll-Prozess
+        weiterentwickelt werden könnte. Ein technischer Gesamtstatus „OK" heißt nicht „fachlich fertig".</p>
+
+        {% if not suggestions.withFindings %}
+            <p class="muted">Fachliche Vorschläge werden aus on-demand berechneten Findings abgeleitet
+            und sind aus Performance-Gründen nicht automatisch aktiv.</p>
+            <p><a class="pill-link" href="{{ path('app_templates_assistant', { key: view.key, withFindings: 1 }) }}">Findings berechnen &amp; Vorschläge anzeigen</a></p>
+        {% elseif not suggestions.hasSuggestions %}
+            <p class="muted">Keine offenen Modellierungsentscheidungen aus den aktuell berechneten Informationen abgeleitet.</p>
+            <p class="muted">Findings über {{ suggestions.processedDocuments }} Dokument(e) berechnet (nicht persistiert).</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr><th>Typ</th><th>Status</th><th>Beschreibung</th><th>Begründung</th><th>Dokumente</th></tr>
+                </thead>
+                <tbody>
+                    {% for suggestion in suggestions.suggestions %}
+                        <tr>
+                            <td>{{ suggestion.typeLabel }}</td>
+                            <td><span class="as-badge {{ suggestionStatusClass[suggestion.status] }}">{{ suggestion.statusLabel }}</span></td>
+                            <td>{{ suggestion.description }}</td>
+                            <td class="muted">{{ suggestion.rationale }}</td>
+                            <td>{% if suggestion.hasDocumentCount %}{{ suggestion.documentCount }}{% else %}—{% endif %}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <p class="muted">Findings über {{ suggestions.processedDocuments }} Dokument(e) berechnet (nicht persistiert).{% if suggestions.limitReached %} Hinweis: nur die ersten {{ suggestions.processedDocuments }} von {{ suggestions.totalDocuments }} Dokumenten.{% endif %}</p>
+        {% endif %}
+    </div>
+
+    {# 7. Hinweise zur Pflege #}
     <div class="card">
         <h2>Hinweise zur Pflege</h2>
         <ul class="muted">

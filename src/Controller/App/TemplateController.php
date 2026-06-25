@@ -11,6 +11,7 @@ use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\TemplateAccessView;
 use App\Intelligence\Application\TemplateAssistantAnalyzer;
 use App\Intelligence\Application\TemplateDetailView;
+use App\Intelligence\Application\TemplateModelingSuggestionAnalyzer;
 use App\Intelligence\Application\TemplateGraphFindingsProvider;
 use App\Intelligence\Application\TemplateMermaidGraphBuilder;
 use App\Intelligence\Application\TemplateMermaidGraphView;
@@ -37,6 +38,7 @@ final class TemplateController
         private readonly TemplateGraphFindingsProvider $graphFindingsProvider,
         private readonly TemplateMermaidGraphBuilder $graphBuilder,
         private readonly TemplateAssistantAnalyzer $assistantAnalyzer,
+        private readonly TemplateModelingSuggestionAnalyzer $modelingSuggestionAnalyzer,
         private readonly Environment $twig,
         private readonly string $processTemplateDirectory
     ) {
@@ -77,7 +79,7 @@ final class TemplateController
     }
 
     #[Route('/app/templates/{key}/assistant', name: 'app_templates_assistant', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
-    public function assistant(string $key): Response
+    public function assistant(string $key, Request $request): Response
     {
         $template = $this->templateProvider->findByProcessKey($key);
         if ($template === null) {
@@ -88,9 +90,22 @@ final class TemplateController
         // no file is read or written here.
         $filePath = rtrim($this->processTemplateDirectory, '/').'/'.$template->key.'.yaml';
 
+        // Modelling suggestions need on-demand findings and are opt-in: without
+        // withFindings=1 we never read any document - the page shows a hint/link.
+        $findings = null;
+        if ($request->query->getBoolean('withFindings')) {
+            $rows = $this->documentListProvider->documentsForProcess($template->key, 200);
+            $findings = $this->graphFindingsProvider->aggregate(
+                $template,
+                array_map(static fn ($row): string => $row->documentUuid, $rows),
+                self::FINDINGS_LIMIT
+            );
+        }
+
         return new Response($this->twig->render('template/assistant.html.twig', [
             'active_nav' => 'templates',
             'view' => $this->assistantAnalyzer->analyze($template, $filePath),
+            'suggestions' => $this->modelingSuggestionAnalyzer->fromFindings($findings),
         ]));
     }
 
