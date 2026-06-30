@@ -14,15 +14,14 @@ use App\Intelligence\Application\VisibilityCheckResultRecord;
 use App\Intelligence\Domain\ProcessTemplate;
 use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class TemplateDocumentTest extends WebTestCase
+class TemplateDocumentTest extends AppWebTestCase
 {
     private const UUID = 'doc-uuid-xyz';
 
     public function testDocumentDetailReturns200WithTimelineAndVisibility(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders(
             $client,
             $this->timelineWithEvents(),
@@ -48,7 +47,7 @@ class TemplateDocumentTest extends WebTestCase
 
     public function testEmptyTimelineState(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders($client, new DocumentTimelineReport(self::UUID, [], []), []);
 
         $client->request('GET', '/app/templates/ai-rechnungen/documents/'.self::UUID);
@@ -59,7 +58,7 @@ class TemplateDocumentTest extends WebTestCase
 
     public function testNoVisibilityResultsHint(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders($client, $this->timelineWithEvents(), []);
 
         $client->request('GET', '/app/templates/ai-rechnungen/documents/'.self::UUID);
@@ -70,7 +69,7 @@ class TemplateDocumentTest extends WebTestCase
 
     public function testUnknownTemplateReturns404(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/does-not-exist-xyz/documents/'.self::UUID);
 
         self::assertResponseStatusCodeSame(404);
@@ -78,7 +77,7 @@ class TemplateDocumentTest extends WebTestCase
 
     public function testBusinessViewHidesTechnicalDetails(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders($client, $this->timelineWithEvents(), []);
         $client->request('GET', '/app/templates/ai-rechnungen/documents/'.self::UUID.'?view=business');
 
@@ -88,7 +87,7 @@ class TemplateDocumentTest extends WebTestCase
 
     public function testExpertViewShowsTechnicalDetails(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders($client, $this->timelineWithEvents(), []);
         $client->request('GET', '/app/templates/ai-rechnungen/documents/'.self::UUID.'?view=expert');
 

@@ -7,6 +7,8 @@
         <server name="APP_DEBUG" value="1" />
         <server name="KERNEL_CLASS" value="App\Kernel" />
         <server name="SHELL_VERBOSITY" value="-1" />
+        <server name="APRIL_APP_USERNAME" value="april-test" />
+        <server name="APRIL_APP_PASSWORD_HASH" value="test-password" />
     </php>
     <testsuites>
         <testsuite name="Project Test Suite">

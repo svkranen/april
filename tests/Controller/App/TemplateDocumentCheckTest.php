@@ -11,15 +11,14 @@ use App\Intelligence\Application\ProcessTemplateCheckResult;
 use App\Intelligence\Application\VisibilityCheckResultProvider;
 use App\Intelligence\Domain\ProcessTemplate;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class TemplateDocumentCheckTest extends WebTestCase
+class TemplateDocumentCheckTest extends AppWebTestCase
 {
     private const URL = '/app/templates/ai-rechnungen/documents/doc-1';
 
     public function testCheckSectionShowsStatusStepsAndDeviations(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(
             ['01 Rechnungseingang', '02 Freigabe'],
             ['01 Rechnungseingang'],
@@ -46,7 +45,7 @@ class TemplateDocumentCheckTest extends WebTestCase
 
     public function testCheckUnavailableShowsHintAndStays200(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders($client, DocumentCheckResultView::unavailable('decision field missing stability'));
 
         $client->request('GET', self::URL);

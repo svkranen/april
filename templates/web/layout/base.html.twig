@@ -121,6 +121,22 @@
         .step-head { color: var(--accent-deep); margin: 1.4rem 0 0.4rem; font-size: 1.1rem; }
         .phase-block { margin: 0.2rem 0 0.6rem 0.4rem; padding-left: 0.8rem; border-left: 3px solid var(--line); }
         .phase-label { font-weight: 700; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .login-card { max-width: 28rem; margin: 3rem auto; }
+        .login-form { display: grid; gap: 0.65rem; margin-top: 1rem; }
+        .login-form label { font-weight: 700; color: var(--accent-deep); }
+        .login-form input {
+            width: 100%; border: 1px solid var(--line); border-radius: 0.5rem;
+            padding: 0.7rem 0.8rem; font: inherit; background: #fff;
+        }
+        .login-form button {
+            margin-top: 0.35rem; border: 0; border-radius: 0.5rem;
+            padding: 0.75rem 1rem; font: inherit; font-weight: 800;
+            color: #fff; background: var(--accent); cursor: pointer;
+        }
+        .login-error {
+            border: 1px solid rgba(155,34,38,0.45); border-radius: 0.5rem;
+            background: rgba(155,34,38,0.1); color: #8a2226; padding: 0.65rem 0.8rem;
+        }
         footer.app-footer {
             width: min(1180px, calc(100% - 2.5rem));
             margin: 0 auto; padding: 2rem 0 3rem; color: var(--muted); font-size: 0.9rem;
@@ -135,6 +151,9 @@
             <div class="bar-right">
                 <nav class="app-nav">
                     <a href="{{ path('app_templates_index') }}" class="{{ active_nav|default('') == 'templates' ? 'is-active' : '' }}">Templates</a>
+                    {% if app.user %}
+                        <a href="{{ path('app_logout') }}">Logout</a>
+                    {% endif %}
                 </nav>
                 {{ include('_partials/_view_mode_toggle.html.twig') }}
             </div>

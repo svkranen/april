@@ -25,6 +25,8 @@ parameters:
     april.generated_dir: '%kernel.project_dir%/var/april/generated'
     april.heatmap_output_dir: '%kernel.project_dir%/var/april/generated/heatmaps'
     april.diagram_output_dir: '%kernel.project_dir%/var/april/generated/diagrams'
+    april.app_username: '%env(string:APRIL_APP_USERNAME)%'
+    april.app_password_hash: '%env(string:APRIL_APP_PASSWORD_HASH)%'
 
 services:
     # default configuration for services in *this* file
@@ -42,6 +44,11 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+
+    App\Security\EnvUserProvider:
+        arguments:
+            $aprilAppUsername: '%april.app_username%'
+            $aprilAppPasswordHash: '%april.app_password_hash%'
 
     App\Service\Amagno\ConnectionConfigLoader:
         arguments:

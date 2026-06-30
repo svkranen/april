@@ -13,15 +13,14 @@ use App\Intelligence\Application\VisibilityCheckResultRecord;
 use App\Intelligence\Domain\ProcessTemplate;
 use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class TemplateDocumentFindingsTest extends WebTestCase
+class TemplateDocumentFindingsTest extends AppWebTestCase
 {
     private const URL = '/app/templates/ai-rechnungen/documents/doc-1';
 
     public function testPanelShowsOkWhenNoFindings(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders($client, $this->okCheck(), []);
 
         $client->request('GET', self::URL);
@@ -34,7 +33,7 @@ class TemplateDocumentFindingsTest extends WebTestCase
 
     public function testAccessViolationShowsCriticalInPanel(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders($client, $this->okCheck(), [$this->record('violation')]);
 
         $client->request('GET', self::URL.'?view=business');
@@ -51,7 +50,7 @@ class TemplateDocumentFindingsTest extends WebTestCase
 
     public function testExpertViewShowsTechnicalKeysInPanel(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders($client, $this->okCheck(), [$this->record('violation')]);
 
         $client->request('GET', self::URL.'?view=expert');
@@ -64,7 +63,7 @@ class TemplateDocumentFindingsTest extends WebTestCase
 
     public function testProcessDeviationShowsAbweichungInPanel(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(
             ['01', '02'], ['01'], ['Pflichtschritt 02 fehlt'], [], [], null, []
         ));

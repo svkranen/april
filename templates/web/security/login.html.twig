@@ -1,0 +1,23 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}Login · APRIL{% endblock %}
+
+{% block body %}
+    <div class="card login-card">
+        <h1>APRIL Login</h1>
+
+        {% if error %}
+            <p class="login-error">Anmeldung fehlgeschlagen.</p>
+        {% endif %}
+
+        <form method="post" action="{{ path('app_login') }}" class="login-form">
+            <label for="username">Benutzer</label>
+            <input type="text" id="username" name="username" value="{{ last_username }}" autocomplete="username" required autofocus>
+
+            <label for="password">Passwort</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required>
+
+            <button type="submit">Anmelden</button>
+        </form>
+    </div>
+{% endblock %}

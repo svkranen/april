@@ -2,14 +2,13 @@
 
 namespace App\Tests\Controller\App;
 
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-class TemplateControllerTest extends WebTestCase
+class TemplateControllerTest extends AppWebTestCase
 {
     public function testTemplatesIndexReturns200AndRendersBaseLayout(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates');
 
         self::assertResponseIsSuccessful();
@@ -28,7 +27,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testHomeRedirectsToTemplates(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app');
 
         self::assertResponseRedirects('/app/templates');
@@ -36,7 +35,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testUnknownTemplateSubrouteReturns404(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/this-does-not-exist');
 
         self::assertResponseStatusCodeSame(404);
@@ -44,7 +43,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testTemplateDetailReturns200AndShowsTemplate(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen');
 
         self::assertResponseIsSuccessful();
@@ -64,7 +63,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testTemplateDetailUnknownKeyReturns404(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/does-not-exist-xyz');
 
         self::assertResponseStatusCodeSame(404);
@@ -72,7 +71,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testTemplateDetailUnknownKeyReportsProcessTemplateDirectory(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->catchExceptions(false);
 
         try {
@@ -89,7 +88,7 @@ class TemplateControllerTest extends WebTestCase
         self::assertFileExists(dirname(__DIR__, 3).'/config/april/process-templates/ai-rechnungen.yaml');
         self::assertFileDoesNotExist(dirname(__DIR__, 3).'/templates/ai-rechnungen.yaml');
 
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen');
 
         self::assertResponseIsSuccessful();
@@ -97,7 +96,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testTemplateDetailHasActiveAccessLink(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen');
 
         self::assertResponseIsSuccessful();
@@ -107,7 +106,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testAccessPageReturns200AndShowsSections(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/access');
 
         self::assertResponseIsSuccessful();
@@ -126,7 +125,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testAccessPageUnknownKeyReturns404(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/does-not-exist-xyz/access');
 
         self::assertResponseStatusCodeSame(404);
@@ -134,7 +133,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testDocsPageReturns200WithIframeAndDownloads(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/docs');
 
         self::assertResponseIsSuccessful();
@@ -149,7 +148,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testDocsPreviewReturnsStandaloneHtml(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/docs/preview');
 
         self::assertResponseIsSuccessful();
@@ -159,7 +158,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testDocsDownloadMarkdown(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/docs/download?format=md');
 
         self::assertResponseIsSuccessful();
@@ -173,7 +172,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testDocsDownloadHtml(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/docs/download?format=html');
 
         self::assertResponseIsSuccessful();
@@ -187,7 +186,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testDocsDownloadInvalidFormatReturns400(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/docs/download?format=pdf');
 
         self::assertResponseStatusCodeSame(400);
@@ -195,7 +194,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testDocsRoutesUnknownKeyReturn404(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
 
         $client->request('GET', '/app/templates/does-not-exist-xyz/docs');
         self::assertResponseStatusCodeSame(404);
@@ -209,7 +208,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testDetailPageHasActiveDocsLink(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen');
 
         self::assertResponseIsSuccessful();
@@ -218,7 +217,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testAccessPageHasDocsLink(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/access');
 
         self::assertResponseIsSuccessful();
@@ -227,7 +226,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testAssistantPageReturns200AndShowsSections(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/assistant');
 
         self::assertResponseIsSuccessful();
@@ -246,7 +245,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testAssistantPageUnknownKeyReturns404(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/does-not-exist-xyz/assistant');
 
         self::assertResponseStatusCodeSame(404);
@@ -254,7 +253,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testDetailPageHasAssistantLink(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen');
 
         self::assertResponseIsSuccessful();
@@ -263,7 +262,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testAssistantSeparatesTechnicalChecksFromModellingSuggestions(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/assistant');
 
         self::assertResponseIsSuccessful();
@@ -276,7 +275,7 @@ class TemplateControllerTest extends WebTestCase
 
     public function testAssistantWithoutFindingsOffersComputeLinkAndDoesNotRunChecks(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen/assistant');
 
         self::assertResponseIsSuccessful();

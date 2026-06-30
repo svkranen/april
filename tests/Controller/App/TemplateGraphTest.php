@@ -12,15 +12,14 @@ use App\Intelligence\Application\VisibilityCheckResultRecord;
 use App\Intelligence\Domain\ProcessTemplate;
 use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class TemplateGraphTest extends WebTestCase
+class TemplateGraphTest extends AppWebTestCase
 {
     private const STEP = '01 Rechnungen pruefen';
 
     public function testGraphPageRendersMermaidSourceWithoutFindings(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
 
         // No DocumentListProvider fake: a 200 here proves no documents were read
         // (the real provider would hit a non-existent test DB).
@@ -37,7 +36,7 @@ class TemplateGraphTest extends WebTestCase
 
     public function testGraphPageAggregatesFindingsPerStepWithOptIn(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeProviders(
             $client,
             [new DocumentListRow('doc-1', null, 1, 3, new DateTimeImmutable('2026-06-15T09:30:00+00:00'))],
@@ -55,7 +54,7 @@ class TemplateGraphTest extends WebTestCase
 
     public function testUnknownTemplateReturns404(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/does-not-exist-xyz/graph');
 
         self::assertResponseStatusCodeSame(404);
@@ -63,7 +62,7 @@ class TemplateGraphTest extends WebTestCase
 
     public function testDetailPageLinksToGraph(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen');
 
         self::assertResponseIsSuccessful();

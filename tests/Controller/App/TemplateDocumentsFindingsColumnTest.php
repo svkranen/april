@@ -13,15 +13,14 @@ use App\Intelligence\Domain\ProcessTemplate;
 use DateTimeImmutable;
 use RuntimeException;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class TemplateDocumentsFindingsColumnTest extends WebTestCase
+class TemplateDocumentsFindingsColumnTest extends AppWebTestCase
 {
     private const BASE = '/app/templates/ai-rechnungen/documents';
 
     public function testWithoutFindingsShowsNotComputedAndActivationLink(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('uuid-1')], $this->okCheck(), []);
 
         $client->request('GET', self::BASE);
@@ -35,7 +34,7 @@ class TemplateDocumentsFindingsColumnTest extends WebTestCase
 
     public function testWithFindingsAccessViolationShowsKritisch(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('uuid-1')], $this->okCheck(), [$this->record('violation')]);
 
         $client->request('GET', self::BASE.'?withFindings=1');
@@ -48,7 +47,7 @@ class TemplateDocumentsFindingsColumnTest extends WebTestCase
 
     public function testWithFindingsProcessDeviationShowsAbweichung(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $check = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(['01', '02'], ['01'], ['fehlt 02'], [], [], null, []));
         $this->fakes($client, [$this->row('uuid-1')], $check, []);
 
@@ -60,7 +59,7 @@ class TemplateDocumentsFindingsColumnTest extends WebTestCase
 
     public function testCheckErrorDoesNotCause500AndShowsTechnical(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
 
         $visibility = new class implements VisibilityCheckResultProvider {
             public function findByDocument(string $documentUuid, ?string $processKey = null): array
@@ -78,7 +77,7 @@ class TemplateDocumentsFindingsColumnTest extends WebTestCase
 
     public function testLimitHintShownWhenMoreThanLimitDocuments(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $rows = [];
         for ($i = 0; $i < 51; $i++) {
             $rows[] = $this->row('uuid-'.$i);
@@ -93,7 +92,7 @@ class TemplateDocumentsFindingsColumnTest extends WebTestCase
 
     public function testBusinessViewHidesBreakdown(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('uuid-1')], $this->okCheck(), [$this->record('violation')]);
         $client->request('GET', self::BASE.'?withFindings=1&view=business');
 
@@ -103,7 +102,7 @@ class TemplateDocumentsFindingsColumnTest extends WebTestCase
 
     public function testExpertViewShowsBreakdown(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('uuid-1')], $this->okCheck(), [$this->record('violation')]);
         $client->request('GET', self::BASE.'?withFindings=1&view=expert');
 

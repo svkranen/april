@@ -29,6 +29,12 @@ APRIL-Prozess-Templates liegen typischerweise unter
 ist fuer Symfony/Twig- und Frontend-Templates reserviert und darf nicht fuer
 APRIL-Prozess-YAMLs verwendet werden.
 
+Die Web-App unter `/app` ist per Form-Login geschuetzt. Der initiale Benutzer
+wird ueber `APRIL_APP_USERNAME` und `APRIL_APP_PASSWORD_HASH` konfiguriert; der
+Passwort-Hash gehoert in `.env.local`, echte Umgebungsvariablen oder Symfony
+Secrets. Der Event-Endpoint `POST /api/intelligence/events` bleibt davon
+unabhaengig und wird weiterhin ueber die vorhandene Signaturpruefung abgesichert.
+
 Verfuegbare Templates anzeigen:
 
 ```bash

@@ -3,15 +3,14 @@
 namespace App\Tests\Controller\App;
 
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class ViewModeTest extends WebTestCase
+class ViewModeTest extends AppWebTestCase
 {
     private const EXPERT_MARKER = 'Check-Keys (technisch)';
 
     public function testDefaultIsBusiness(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen');
 
         self::assertResponseIsSuccessful();
@@ -20,7 +19,7 @@ class ViewModeTest extends WebTestCase
 
     public function testLayoutContainsToggleLinks(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates');
 
         self::assertSelectorExists('.view-toggle');
@@ -31,7 +30,7 @@ class ViewModeTest extends WebTestCase
 
     public function testViewExpertSetsCookie(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates?view=expert');
 
         self::assertSame('expert', $this->responseCookie($client, 'april_view_mode'));
@@ -39,7 +38,7 @@ class ViewModeTest extends WebTestCase
 
     public function testViewBusinessSetsCookie(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates?view=business');
 
         self::assertSame('business', $this->responseCookie($client, 'april_view_mode'));
@@ -47,7 +46,7 @@ class ViewModeTest extends WebTestCase
 
     public function testExpertQueryShowsExpertContent(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen?view=expert');
 
         self::assertResponseIsSuccessful();
@@ -56,7 +55,7 @@ class ViewModeTest extends WebTestCase
 
     public function testCookieDrivesExpertOnFollowupRequest(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         // First request sets the cookie via query parameter.
         $client->request('GET', '/app/templates?view=expert');
         self::assertSame('expert', $this->responseCookie($client, 'april_view_mode'));
@@ -69,7 +68,7 @@ class ViewModeTest extends WebTestCase
 
     public function testInvalidViewFallsBackToBusiness(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen?view=garbage');
 
         self::assertResponseIsSuccessful();

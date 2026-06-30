@@ -6,13 +6,12 @@ use App\Intelligence\Application\DocumentListProvider;
 use App\Intelligence\Application\DocumentListRow;
 use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class TemplateDocumentsTest extends WebTestCase
+class TemplateDocumentsTest extends AppWebTestCase
 {
     public function testDocumentsPageEmptyStateReturns200(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeDocuments($client, []);
 
         $client->request('GET', '/app/templates/ai-rechnungen/documents');
@@ -25,7 +24,7 @@ class TemplateDocumentsTest extends WebTestCase
 
     public function testDocumentsPageListsKnownDocument(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakeDocuments($client, [
             new DocumentListRow('uuid-known-123', 'DOC-77', 4, 6, new DateTimeImmutable('2026-06-15T09:30:00+00:00')),
         ]);
@@ -42,7 +41,7 @@ class TemplateDocumentsTest extends WebTestCase
 
     public function testUnknownTemplateReturns404(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/does-not-exist-xyz/documents');
 
         self::assertResponseStatusCodeSame(404);
@@ -50,7 +49,7 @@ class TemplateDocumentsTest extends WebTestCase
 
     public function testDetailPageHasActiveDocumentsLink(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $client->request('GET', '/app/templates/ai-rechnungen');
 
         self::assertResponseIsSuccessful();

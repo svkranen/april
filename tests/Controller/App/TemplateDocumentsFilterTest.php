@@ -12,15 +12,14 @@ use App\Intelligence\Application\VisibilityCheckResultRecord;
 use App\Intelligence\Domain\ProcessTemplate;
 use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
-class TemplateDocumentsFilterTest extends WebTestCase
+class TemplateDocumentsFilterTest extends AppWebTestCase
 {
     private const BASE = '/app/templates/ai-rechnungen/documents';
 
     public function testWithoutFindingsShowsFilterHint(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('doc-1')], [], []);
 
         $client->request('GET', self::BASE);
@@ -31,7 +30,7 @@ class TemplateDocumentsFilterTest extends WebTestCase
 
     public function testFilterCriticalShowsOnlyCriticalDocuments(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         // doc-crit -> access violation; doc-ok -> nothing.
         $this->fakes($client, [$this->row('doc-crit'), $this->row('doc-ok')], [], ['doc-crit' => [$this->record('violation')]]);
 
@@ -47,7 +46,7 @@ class TemplateDocumentsFilterTest extends WebTestCase
 
     public function testFilterDeviationShowsOnlyDeviationDocuments(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $deviationCheck = DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult(['01', '02'], ['01'], ['fehlt 02'], [], [], null, []));
         $this->fakes($client, [$this->row('doc-dev'), $this->row('doc-ok')], ['doc-dev' => $deviationCheck], []);
 
@@ -61,7 +60,7 @@ class TemplateDocumentsFilterTest extends WebTestCase
 
     public function testFilterWarningAndTechnical(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('doc-warn'), $this->row('doc-tech')], [], [
             'doc-warn' => [$this->record('warning')],
             'doc-tech' => [$this->record('unknown')],
@@ -73,7 +72,7 @@ class TemplateDocumentsFilterTest extends WebTestCase
 
     public function testFilterOkShowsUnremarkableDocuments(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('doc-ok'), $this->row('doc-crit')], [], ['doc-crit' => [$this->record('violation')]]);
 
         $client->request('GET', self::BASE.'?withFindings=1&severity=ok');
@@ -85,7 +84,7 @@ class TemplateDocumentsFilterTest extends WebTestCase
 
     public function testInvalidSeverityNormalisesToAll(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('doc-1'), $this->row('doc-2')], [], ['doc-1' => [$this->record('violation')]]);
 
         $client->request('GET', self::BASE.'?withFindings=1&severity=bogus');
@@ -98,7 +97,7 @@ class TemplateDocumentsFilterTest extends WebTestCase
 
     public function testActiveFilterIsMarkedAndLinksCarryWithFindings(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('doc-1')], [], ['doc-1' => [$this->record('violation')]]);
 
         $client->request('GET', self::BASE.'?withFindings=1&severity=critical');
@@ -109,7 +108,7 @@ class TemplateDocumentsFilterTest extends WebTestCase
 
     public function testEmptyStateWhenFilterMatchesNothing(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $this->fakes($client, [$this->row('doc-ok')], [], []);
 
         $client->request('GET', self::BASE.'?withFindings=1&severity=critical');
@@ -119,7 +118,7 @@ class TemplateDocumentsFilterTest extends WebTestCase
 
     public function testNotCalculatedFilterShowsOnlyLimitRows(): void
     {
-        $client = static::createClient();
+        $client = self::createAuthenticatedClient();
         $rows = [];
         for ($i = 0; $i < 51; $i++) {
             $rows[] = $this->row('uuid-'.$i);
