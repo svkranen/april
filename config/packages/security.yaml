@@ -28,6 +28,7 @@ security:
     access_control:
         - { path: ^/login$, roles: PUBLIC_ACCESS }
         - { path: ^/api/intelligence/events, roles: PUBLIC_ACCESS }
+        - { path: ^/docs, roles: ROLE_USER }
         - { path: ^/app, roles: ROLE_USER }
 
 when@test:
