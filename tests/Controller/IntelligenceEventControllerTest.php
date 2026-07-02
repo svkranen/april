@@ -319,10 +319,11 @@ class IntelligenceEventControllerTest extends TestCase
         $response = $controller($this->request($this->payload(['processKey' => 'unknown'])));
         $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(400, $response->getStatusCode());
+        self::assertSame(200, $response->getStatusCode());
         self::assertFalse($data['accepted']);
         self::assertSame('unknown_process_key', $data['error']);
         self::assertSame('processKey', $data['field']);
+        self::assertSame(0, $store->count());
     }
 
     public function testEmptyStepKeyReturnsValidationError(): void
@@ -355,8 +356,27 @@ class IntelligenceEventControllerTest extends TestCase
         self::assertTrue($data['accepted']);
     }
 
-    public function testApiKeyCanBeProvidedAsFormOrQueryParameter(): void
+    public function testSecretCanBeProvidedAsHeaderFormOrQueryParameter(): void
     {
+        $headerVerifier = new class implements SignatureVerifier {
+            public ?string $signature = null;
+
+            public function verify(string $payload, string $signature): bool
+            {
+                $this->signature = $signature;
+
+                return $signature !== '';
+            }
+        };
+        $headerStore = new InMemoryIncomingEventStore();
+        $headerController = new IntelligenceEventController($headerVerifier, $this->intake($headerStore));
+        $headerRequest = $this->request($this->payload([
+            'external_event_key' => 'evt-header-secret',
+        ]), null);
+        $headerRequest->headers->set('X-Intelligence-Secret', 'header-secret');
+
+        $headerResponse = $headerController($headerRequest);
+
         $formVerifier = new class implements SignatureVerifier {
             public ?string $signature = null;
 
@@ -371,8 +391,8 @@ class IntelligenceEventControllerTest extends TestCase
         $formController = new IntelligenceEventController($formVerifier, $this->intake($formStore));
 
         $formResponse = $formController($this->formRequest($this->payload([
-            'external_event_key' => 'evt-form-api-key',
-            'apiKey' => 'form-secret',
+            'external_event_key' => 'evt-form-secret',
+            'xIntelligenceSecret' => 'form-secret',
         ]), null));
 
         $queryVerifier = new class implements SignatureVerifier {
@@ -388,12 +408,14 @@ class IntelligenceEventControllerTest extends TestCase
         $queryStore = new InMemoryIncomingEventStore();
         $queryController = new IntelligenceEventController($queryVerifier, $this->intake($queryStore));
         $queryRequest = $this->request($this->payload([
-            'external_event_key' => 'evt-query-api-key',
+            'external_event_key' => 'evt-query-secret',
         ]), null);
-        $queryRequest->query->set('apiKey', 'query-secret');
+        $queryRequest->query->set('x_intelligence_secret', 'query-secret');
 
         $queryResponse = $queryController($queryRequest);
 
+        self::assertSame(200, $headerResponse->getStatusCode());
+        self::assertSame('header-secret', $headerVerifier->signature);
         self::assertSame(200, $formResponse->getStatusCode());
         self::assertSame('form-secret', $formVerifier->signature);
         self::assertSame(200, $queryResponse->getStatusCode());
@@ -411,9 +433,37 @@ class IntelligenceEventControllerTest extends TestCase
         $response = $controller($this->request($this->payload(), 'bad-signature'));
         $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(401, $response->getStatusCode());
+        self::assertSame(200, $response->getStatusCode());
         self::assertFalse($data['accepted']);
         self::assertSame('invalid_signature', $data['error']);
+        self::assertSame(0, $store->count());
+    }
+
+    public function testInvalidJsonReturnsAlways200WithoutAppendingEvent(): void
+    {
+        $store = new InMemoryIncomingEventStore();
+        $controller = new IntelligenceEventController(
+            new FakeSignatureVerifier(true),
+            $this->intake($store)
+        );
+
+        $response = $controller(Request::create(
+            '/api/intelligence/events',
+            'POST',
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_X_INTELLIGENCE_SIGNATURE' => 'valid-signature',
+            ],
+            '{invalid'
+        ));
+        $data = json_decode((string) $response->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertFalse($data['accepted']);
+        self::assertSame('invalid_json', $data['error']);
         self::assertSame(0, $store->count());
     }
 
@@ -468,6 +518,7 @@ class IntelligenceEventControllerTest extends TestCase
         $request->request->set('apiKey', 'form-secret-api-key');
         $request->headers->set('X-Api-Key', 'secret-api-key');
         $request->headers->set('Authorization', 'Bearer secret-token');
+        $request->headers->set('X-Intelligence-Secret', 'secret-intelligence-token');
 
         $controller($request);
 
@@ -479,9 +530,11 @@ class IntelligenceEventControllerTest extends TestCase
         self::assertSame(['form_field' => 'form-value', 'apiKey' => 'present'], $context['request_parameters']);
         self::assertSame('present', $context['headers']['x-api-key']);
         self::assertSame('present', $context['headers']['authorization']);
+        self::assertSame('present', $context['headers']['x-intelligence-secret']);
         self::assertSame('present', $context['headers']['x-intelligence-signature']);
         self::assertStringNotContainsString('secret-api-key', json_encode($context['headers'], JSON_THROW_ON_ERROR));
         self::assertStringNotContainsString('secret-token', json_encode($context['headers'], JSON_THROW_ON_ERROR));
+        self::assertStringNotContainsString('secret-intelligence-token', json_encode($context['headers'], JSON_THROW_ON_ERROR));
         self::assertStringNotContainsString('valid-signature', json_encode($context['headers'], JSON_THROW_ON_ERROR));
         self::assertStringNotContainsString('query-secret-api-key', json_encode($context, JSON_THROW_ON_ERROR));
         self::assertStringNotContainsString('form-secret-api-key', json_encode($context, JSON_THROW_ON_ERROR));

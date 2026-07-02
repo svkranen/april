@@ -21,6 +21,10 @@ final class HmacSignatureVerifier implements SignatureVerifier
             return false;
         }
 
+        if (hash_equals($this->secret, $signature)) {
+            return true;
+        }
+
         $expected = hash_hmac('sha256', $payload, $this->secret);
         $normalizedSignature = str_starts_with($signature, 'sha256=')
             ? substr($signature, strlen('sha256='))

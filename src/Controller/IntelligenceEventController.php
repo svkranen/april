@@ -26,29 +26,30 @@ final class IntelligenceEventController
         $rawPayload = $request->getContent();
         $this->debugLogRequest($request, $rawPayload);
 
-        $signature = $request->headers->get('X-Intelligence-Signature')
+        $signature = $request->headers->get('X-Intelligence-Secret')
+            ?? $request->headers->get('X-Intelligence-Signature')
             ?? $request->headers->get('X-Amagno-Signature')
             ?? $request->headers->get('Signature')
-            ?? $this->apiKeyFromRequest($request)
+            ?? $this->secretFromRequest($request)
             ?? '';
 
         if (!$this->signatureVerifier->verify($rawPayload, $signature)) {
-            return new JsonResponse(['accepted' => false, 'error' => 'invalid_signature'], 401);
+            return new JsonResponse(['accepted' => false, 'error' => 'invalid_signature'], 200);
         }
 
         try {
             $payload = $this->payloadFromRequest($request, $rawPayload);
         } catch (JsonException) {
-            return new JsonResponse(['accepted' => false, 'error' => 'invalid_json'], 400);
+            return new JsonResponse(['accepted' => false, 'error' => 'invalid_json'], 200);
         }
 
         if ($payload === null) {
-            return new JsonResponse(['accepted' => false, 'error' => 'invalid_payload'], 400);
+            return new JsonResponse(['accepted' => false, 'error' => 'invalid_payload'], 200);
         }
 
         $validationError = $this->validatePayload($payload);
         if ($validationError !== null) {
-            return new JsonResponse(['accepted' => false] + $validationError, 400);
+            return new JsonResponse(['accepted' => false] + $validationError, 200);
         }
 
         $event = $this->incomingEventIntake->accept($payload, $rawPayload, $request->headers->get('Content-Type'));
@@ -136,10 +137,10 @@ final class IntelligenceEventController
         return array_replace($queryPayload, $decoded);
     }
 
-    private function apiKeyFromRequest(Request $request): ?string
+    private function secretFromRequest(Request $request): ?string
     {
         foreach ([$request->request->all(), $request->query->all()] as $parameters) {
-            foreach (['apiKey', 'api_key'] as $key) {
+            foreach (['xIntelligenceSecret', 'x_intelligence_secret', 'X-Intelligence-Secret', 'apiKey', 'api_key'] as $key) {
                 if (isset($parameters[$key]) && is_scalar($parameters[$key]) && trim((string) $parameters[$key]) !== '') {
                     return (string) $parameters[$key];
                 }
@@ -195,7 +196,7 @@ final class IntelligenceEventController
         $safe = [];
         foreach ($parameters as $name => $value) {
             $normalizedName = strtolower((string) $name);
-            if (in_array($normalizedName, ['apikey', 'api_key', 'token', 'secret', 'password', 'signature'], true)) {
+            if (in_array($normalizedName, ['apikey', 'api_key', 'xintelligencesecret', 'x_intelligence_secret', 'x-intelligence-secret', 'token', 'secret', 'password', 'signature'], true)) {
                 $safe[$name] = $value === null || $value === '' ? 'missing' : 'present';
                 continue;
             }
@@ -226,6 +227,7 @@ final class IntelligenceEventController
                 'set-cookie',
                 'signature',
                 'x-amagno-signature',
+                'x-intelligence-secret',
                 'x-intelligence-signature',
             ], true)) {
                 $headers[$name] = $values === [] ? 'missing' : 'present';

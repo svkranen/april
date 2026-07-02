@@ -23,20 +23,25 @@ gewinnt der JSON-Body bzw. das Form-Feld gegen den Query-Parameter.
 
 ## Authentifizierung / Signatur
 
-Die Signatur kann ueber einen dieser Header gesendet werden:
+Das Secret bzw. die Signatur kann ueber einen dieser Header gesendet werden:
 
+- `X-Intelligence-Secret`
 - `X-Intelligence-Signature`
 - `X-Amagno-Signature`
 - `Signature`
 
-Alternativ kann ein API-Key als Parameter gesendet werden:
+Alternativ kann das Secret als Parameter gesendet werden:
 
+- `xIntelligenceSecret`
+- `x_intelligence_secret`
+- `X-Intelligence-Secret`
 - `apiKey`
 - `api_key`
 
-Wenn `INTELLIGENCE_EVENT_SECRET` gesetzt ist, wird die Signatur als
-HMAC-SHA256 ueber den rohen Request-Body geprueft. Akzeptiert wird der reine
-Hex-Digest oder das Format `sha256=<digest>`.
+Wenn `INTELLIGENCE_EVENT_SECRET` gesetzt ist, akzeptiert der lokale Verifier
+entweder den identischen Secret-Wert oder eine HMAC-SHA256-Signatur ueber den
+rohen Request-Body. Fuer HMAC wird der reine Hex-Digest oder das Format
+`sha256=<digest>` akzeptiert.
 
 Ist kein Secret konfiguriert, akzeptiert der lokale Verifier alle Requests.
 
@@ -80,12 +85,12 @@ Ist kein Secret konfiguriert, akzeptiert der lokale Verifier alle Requests.
 | `actorRef` | `actor_ref`, `actor`, `user` | Optional | Benutzer-, Rollen- oder Systemreferenz des Ausloesers. |
 | `occurredAt` | `occurred_at`, `occured_at`, `occuredAt`, `timestamp`, `changeDate` | Empfohlen | Ereigniszeitpunkt. ISO-8601 mit Offset ist bevorzugt. Offsetlose Amagno-Zeiten werden als Berliner Lokalzeit interpretiert und intern nach UTC normalisiert. |
 | `attributes` | - | Optional | Freie fachliche Zusatzdaten als Objekt. |
-| `apiKey` | `api_key` | Optional | Alternative zur Signaturuebergabe, wenn der konkrete Verifier dies akzeptiert. |
+| `xIntelligenceSecret` | `x_intelligence_secret`, `X-Intelligence-Secret`, `apiKey`, `api_key` | Optional | Alternative zur Signaturuebergabe, wenn der konkrete Verifier dies akzeptiert. |
 
 ## Minimalbeispiel als URL/Form-Parameter
 
 ```bash
-curl -X POST 'https://example.test/api/intelligence/events?apiKey=<secret>' \
+curl -X POST 'https://example.test/api/intelligence/events?xIntelligenceSecret=<secret>' \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'processKey=invoice' \
   --data-urlencode 'eventKey=invoice.received' \
@@ -116,12 +121,13 @@ Erfolgreich angenommener Request:
 }
 ```
 
-Moegliche Fehler:
+Der Endpoint antwortet fuer den Ingest-POST immer mit HTTP 200. Fehler werden
+im JSON-Body ueber `accepted: false` und `error` transportiert:
 
-- `401 invalid_signature`: Signatur/API-Key wurde vom Verifier abgelehnt.
-- `400 invalid_json`: JSON-Body ist syntaktisch ungueltig.
-- `400 invalid_payload`: JSON-Body ist kein Objekt.
-- `400 unknown_process_key`: `processKey` fehlt, ist leer oder ist `unknown`.
+- `invalid_signature`: Signatur/API-Key wurde vom Verifier abgelehnt.
+- `invalid_json`: JSON-Body ist syntaktisch ungueltig.
+- `invalid_payload`: JSON-Body ist kein Objekt.
+- `unknown_process_key`: `processKey` fehlt, ist leer oder ist `unknown`.
 
 ## Idempotenz und Prozessinstanzen
 
