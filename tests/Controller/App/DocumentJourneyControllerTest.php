@@ -105,6 +105,7 @@ final class DocumentJourneyControllerTest extends AppWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('nav.app-nav a[href="/app/intelligence/documents"]');
+        self::assertSelectorExists('a.brand[href="/app"]');
     }
 
     /**

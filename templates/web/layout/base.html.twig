@@ -35,7 +35,11 @@
             display: flex; align-items: center; justify-content: space-between;
             gap: 1rem; padding: 1rem 0; flex-wrap: wrap;
         }
-        .brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 700; }
+        .brand {
+            display: flex; align-items: center; gap: 0.6rem; font-weight: 700;
+            color: #eef9fa; text-decoration: none;
+        }
+        .brand:hover { color: #fff; }
         .brand .logo {
             width: 2rem; height: 2rem; border-radius: 0.55rem;
             background: linear-gradient(135deg, #0a9396, #0a2342);
@@ -147,7 +151,7 @@
 <body class="view-{{ view_mode() }}">
     <header class="app-header">
         <div class="bar">
-            <div class="brand"><span class="logo">AI</span> APRIL · Amagno Intelligence Tool</div>
+            <a class="brand" href="{{ path('app_home') }}"><span class="logo">AI</span> APRIL · Amagno Intelligence Tool</a>
             <div class="bar-right">
                 <nav class="app-nav">
                     <a href="{{ path('app_templates_index') }}" class="{{ active_nav|default('') == 'templates' ? 'is-active' : '' }}">Templates</a>
