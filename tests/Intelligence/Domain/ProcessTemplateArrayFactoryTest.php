@@ -29,6 +29,29 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame('SignedBy', $template->signChecks[0]->actualSetField);
     }
 
+    public function testParsesCrossProcessRoutingRules(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'debitoren_intake',
+            'cross_process_routing' => [
+                [
+                    'key' => 'route_to_aufmass',
+                    'after_step' => '10 Intake abgeschlossen',
+                    'when' => [
+                        'document_type' => 'aufmass',
+                    ],
+                    'expected_process' => 'aufmass_workflow',
+                ],
+            ],
+        ]);
+
+        self::assertCount(1, $template->crossProcessRoutingRules);
+        self::assertSame('route_to_aufmass', $template->crossProcessRoutingRules[0]->key);
+        self::assertSame('10 Intake abgeschlossen', $template->crossProcessRoutingRules[0]->afterStep);
+        self::assertSame(['document_type' => 'aufmass'], $template->crossProcessRoutingRules[0]->when);
+        self::assertSame('aufmass_workflow', $template->crossProcessRoutingRules[0]->expectedProcess);
+    }
+
     public function testParsesTypedChecksSignCheck(): void
     {
         $template = ProcessTemplateArrayFactory::fromArray([

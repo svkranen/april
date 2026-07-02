@@ -454,6 +454,33 @@ field_mapping:
     value_type: number
 ```
 
+## Cross-Process-Routing pruefen
+
+Ein Source-Template kann read-only beschreiben, welcher Zielprozess nach einem
+Routing-Schritt erwartet wird. Das modelliert Cross-Process-Routing: Prozess A
+entscheidet oder erwartet Zielprozess B. Eine Journey ist nur die fachliche
+Klammer ueber mehrere Prozesse. Ein Subprozess wird damit nicht modelliert.
+
+```yaml
+cross_process_routing:
+  - key: route_to_aufmass
+    after_step: "10 Intake abgeschlossen"
+    when:
+      document_type: "aufmass"
+    expected_process: "aufmass_workflow"
+```
+
+`when` ist im MVP ein Equality-Shorthand: alle angegebenen Context-Felder
+muessen am Routing-Zeitpunkt exakt passen.
+
+```bash
+bin/console intelligence:template:check-journey uuid-1 debitoren_intake \
+  --template=config/april/process-templates/debitoren_intake.yaml
+```
+
+Der Check liest nur vorhandene Timelines, Prozessinstanzen und Context Snapshots.
+Er startet keine Prozesse, nutzt keine Queue und schreibt keine Daten.
+
 ## Architektur
 
 Zielrichtung:

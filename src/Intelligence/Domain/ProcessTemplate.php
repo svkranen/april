@@ -18,6 +18,7 @@ final readonly class ProcessTemplate
      * @param array<string, ProcessTemplateVisibilityProfileResolver> $visibilityProfileResolvers
      * @param array<string, ProcessTemplateVisibilityRetryPolicy> $visibilityRetryPolicies
      * @param array<int, ProcessTemplateManualAccessTest> $manualAccessTests
+     * @param array<int, ProcessTemplateCrossProcessRoutingRule> $crossProcessRoutingRules
      */
     public function __construct(
         public string $key,
@@ -39,6 +40,7 @@ final readonly class ProcessTemplate
         public array $visibilityProfileResolvers = [],
         public array $visibilityRetryPolicies = [],
         public array $manualAccessTests = [],
+        public array $crossProcessRoutingRules = [],
         public string $sourceSystem = 'amagno'
     ) {
     }

@@ -46,6 +46,7 @@ final class ProcessTemplateArrayFactory
             visibilityProfileResolvers: self::visibilityProfileResolvers($data['visibility_profile_resolvers'] ?? []),
             visibilityRetryPolicies: self::visibilityRetryPolicies($data['visibility_retry_policies'] ?? []),
             manualAccessTests: self::manualAccessTests($data['manual_access_tests'] ?? []),
+            crossProcessRoutingRules: self::crossProcessRoutingRules($data['cross_process_routing'] ?? []),
             sourceSystem: $sourceSystem
         );
     }
@@ -78,6 +79,52 @@ final class ProcessTemplateArrayFactory
             $maxDelaySeconds,
             self::stringValue($snapshot['stale_behavior'] ?? 'uncertain', 'uncertain')
         );
+    }
+
+    /**
+     * @return array<int, ProcessTemplateCrossProcessRoutingRule>
+     */
+    private static function crossProcessRoutingRules(mixed $rules): array
+    {
+        if (!is_array($rules)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($rules as $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+
+            $key = self::nullableString($rule['key'] ?? null);
+            $afterStep = self::nullableString($rule['after_step'] ?? $rule['afterStep'] ?? null);
+            $expectedProcess = self::nullableString($rule['expected_process'] ?? $rule['expectedProcess'] ?? null);
+            if ($key === null || $afterStep === null || $expectedProcess === null) {
+                continue;
+            }
+
+            $when = [];
+            if (is_array($rule['when'] ?? null)) {
+                foreach ($rule['when'] as $field => $value) {
+                    if (!is_scalar($field)) {
+                        continue;
+                    }
+
+                    $field = trim((string) $field);
+                    if ($field !== '') {
+                        $when[$field] = $value;
+                    }
+                }
+            }
+
+            if ($when === []) {
+                continue;
+            }
+
+            $result[] = new ProcessTemplateCrossProcessRoutingRule($key, $afterStep, $when, $expectedProcess);
+        }
+
+        return $result;
     }
 
     private static function connector(mixed $connector): ?ProcessTemplateConnector
