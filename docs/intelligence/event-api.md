@@ -21,6 +21,34 @@ Unterstuetzte Content Types:
 Query-Parameter werden mit dem Body zusammengefuehrt. Bei gleichen Feldnamen
 gewinnt der JSON-Body bzw. das Form-Feld gegen den Query-Parameter.
 
+## Kurzantwort: Welche Felder muss eine Amagno-Stempelaktion liefern?
+
+Eine Stempelaktion muss nicht den kompletten Dokumentkontext senden. Fuer die
+Prozessanalyse braucht der Intake vor allem ein stabiles Ereignis mit
+Dokumentbezug:
+
+| Feld | Pflicht im Betrieb | Zweck |
+| --- | --- | --- |
+| `processKey` | Ja | Ordnet das Event dem fachlichen Prozess und Template zu, z. B. `ai-rechnungen`. |
+| `stepKey` | Ja, empfohlen | Der fachliche Schritt, der in Timeline, Template-Check und Heatmap erscheint. |
+| `eventKey` | Empfohlen | Ereignisart, z. B. `stamp.applied` oder identisch zu `stepKey`. |
+| `eventPhase` | Empfohlen | `after` fuer "Schritt wurde erreicht/ausgefuehrt"; `before` fuer Sichtbarkeits-/Vorher-Pruefungen. |
+| `documentUuid` | Ja, wenn Kontext aus Amagno geladen werden soll | Stabile Amagno-Dokument-UUID fuer Timeline und Kontextaufladung. |
+| `documentId` | Empfohlen | Lesbare/externe Dokument-ID aus Amagno. |
+| `documentVersion` | Empfohlen | Dokumentversion. Fehlt der Wert, wird `1` verwendet. Eine neue Version erzeugt eine eigene Prozessinstanz. |
+| `occurredAt` | Empfohlen | Fachlicher Ereigniszeitpunkt aus Amagno. Fehlt der Wert, nutzt die Verarbeitung den aktuellen Zeitpunkt. |
+| `externalEventKey` | Stark empfohlen | Idempotenz-Schluessel. Muss fuer dasselbe Amagno-Ereignis stabil gleich bleiben. |
+| Secret/API-Key | Ja, wenn `INTELLIGENCE_EVENT_SECRET` gesetzt ist | Authentifiziert die Stempelaktion gegen den Intake. |
+
+Fachliche Merkmale wie Betrag, Dokumentart, Projektnummer, Kostenstelle,
+Freigaben oder Signaturen werden im Normalfall **nicht** als Event-Parameter
+gesendet. Sie werden nach Annahme des Events ueber `documentUuid`,
+`context_profile.required` und `field_mapping` aus Amagno nachgeladen und als
+unveraenderlicher `ContextSnapshot` gespeichert.
+
+`attributes` ist nur fuer Zusatzdaten gedacht, die Amagno nicht spaeter
+zuverlaessig liefern kann oder die ausschliesslich zum Event gehoeren.
+
 ## Authentifizierung / Signatur
 
 Das Secret bzw. die Signatur kann ueber einen dieser Header gesendet werden:
@@ -67,6 +95,51 @@ Ist kein Secret konfiguriert, akzeptiert der lokale Verifier alle Requests.
 }
 ```
 
+## Beispiel fuer Amagno-Stempelaktion als URL/Form-Parameter
+
+Wenn Amagno beim Stempelsetzen einen HTTP-POST mit
+`application/x-www-form-urlencoded` ausloest, sollte die Aktion mindestens die
+folgenden Parameter uebergeben. Die konkreten Platzhalter-Namen muessen an die
+in Amagno verfuegbaren Stempel-/Dokumentvariablen angepasst werden:
+
+```text
+POST https://example.test/api/intelligence/events
+Content-Type: application/x-www-form-urlencoded
+
+processKey=ai-rechnungen
+stepKey=01%20Rechnungen%20pruefen
+eventKey=stamp.applied
+eventPhase=after
+sourceSystem=amagno
+documentId=<Amagno-Dokumentnummer-oder-ID>
+documentUuid=<Amagno-Dokument-UUID>
+documentVersion=<Amagno-Dokumentversion>
+occurredAt=<Stempelzeitpunkt-ISO-8601>
+externalEventKey=amagno:<documentUuid>:<documentVersion>:<stepKey>:<occurredAt>
+xIntelligenceSecret=<secret>
+```
+
+Pragmatische Vorgabe fuer die Stempelaktion:
+
+- `processKey` ist meist fest je Stempelaktion, z. B. `ai-rechnungen`.
+- `stepKey` ist der fachliche Schritt dieses Stempels, exakt wie im Template
+  oder bewusst normalisiert.
+- `eventKey` darf generisch sein, z. B. `stamp.applied`; fuer die Analyse ist
+  `stepKey` wichtiger.
+- `eventPhase=after` verwenden, wenn der Stempel den Schritt markiert.
+- `documentUuid` ist wichtiger als `documentId`, weil Kontext und Timelines
+  darueber stabil geladen werden.
+- `documentVersion` immer mitsenden, sobald Amagno den Wert liefern kann.
+- `externalEventKey` aus stabilen Bestandteilen bauen. Nicht bei jedem Retry
+  neu zufaellig erzeugen.
+- Den Secret bevorzugt per Header `X-Intelligence-Secret` senden. Wenn die
+  Stempelaktion keine Header setzen kann, `xIntelligenceSecret` oder `apiKey`
+  als Parameter nutzen.
+
+Bei Form-Requests muessen Sonderzeichen URL-encoded werden. Das betrifft vor
+allem Leerzeichen in `stepKey` und Plus-Zeichen in Zeitzonen, z. B.
+`2026-05-29T10%3A00%3A00%2B02%3A00`.
+
 ## Parameter
 
 | Parameter | Aliasnamen | Pflicht | Bedeutung |
@@ -86,6 +159,78 @@ Ist kein Secret konfiguriert, akzeptiert der lokale Verifier alle Requests.
 | `occurredAt` | `occurred_at`, `occured_at`, `occuredAt`, `timestamp`, `changeDate` | Empfohlen | Ereigniszeitpunkt. ISO-8601 mit Offset ist bevorzugt. Offsetlose Amagno-Zeiten werden als Berliner Lokalzeit interpretiert und intern nach UTC normalisiert. |
 | `attributes` | - | Optional | Freie fachliche Zusatzdaten als Objekt. |
 | `xIntelligenceSecret` | `x_intelligence_secret`, `X-Intelligence-Secret`, `apiKey`, `api_key` | Optional | Alternative zur Signaturuebergabe, wenn der konkrete Verifier dies akzeptiert. |
+
+## Verschachteltes Dokumentobjekt
+
+JSON-Sender koennen Dokumentfelder alternativ unter `document` senden. Die
+Normalizer lesen diese Werte ebenfalls:
+
+```json
+{
+  "processKey": "ai-rechnungen",
+  "stepKey": "01 Rechnungen pruefen",
+  "eventKey": "stamp.applied",
+  "document": {
+    "id": "4711",
+    "uuid": "6f4a2c1e-9d2b-4d74-9d1e-0f18d6b1a234",
+    "version": 2
+  }
+}
+```
+
+Fuer Amagno-Stempelaktionen ist die flache Form meist einfacher.
+
+## Kontextfelder und Template-Konfiguration
+
+Welche Merkmale fuer Analyse, Decision Rules und SLA-/Konformitaetspruefung
+benoetigt werden, steht nicht in der Stempelaktion, sondern im Prozess-Template:
+
+```yaml
+context_profile:
+  required:
+    - invoice_direction
+    - amount_net
+    - documentVersion
+
+field_mapping:
+  invoice_direction:
+    source: amagno
+    tag_id: "d9a8a028-f5ec-4c17-d0f3-08db1e05182d"
+    stability: immutable
+
+  amount_net:
+    source: amagno
+    tag_name: "Nettobetrag"
+    value_type: number
+    stability: snapshot_required
+```
+
+Unterstuetzte eingebaute Kontextfelder des Amagno-Context-Providers:
+
+| Kontextfeld | Herkunft |
+| --- | --- |
+| `documentVersion` | Version aus dem Event bzw. `DocumentRef`. |
+| `documentId` | Externe Dokument-ID aus dem Event. |
+| `documentUuid` | Dokument-UUID aus dem Event. |
+| `approvals` | Platzhalter fuer Freigaben, aktuell leer sofern nicht spezifisch angebunden. |
+| `signatures` | Platzhalter fuer Signaturen, aktuell leer sofern nicht spezifisch angebunden. |
+
+Alle anderen Felder werden ueber `field_mapping` auf Amagno-Merkmale abgebildet.
+Robuster ist `tag_id`; `tag_name` ist lesbarer, kann aber bei umbenannten oder
+mehrdeutigen Merkmalen Warnungen erzeugen.
+
+Typische fachliche Felder:
+
+- `amount_net`: Nettobetrag fuer Betragsgrenzen und SLA-/Freigabevarianten.
+- `invoice_direction` oder `document_type`: Dokumentart bzw. Eingangs-/Ausgangsrichtung.
+- `project_number`: Projektnummer.
+- `cost_center` oder `project_location`: Kostenstelle, Standort oder Organisationseinheit.
+- `approvals` / `signatures`: Freigabe- und Signaturinformationen, sobald der konkrete Adapter sie liefert.
+
+Der `ContextSnapshot` wird zum Zeitpunkt der Eventverarbeitung gespeichert und
+spaeter nicht nachtraeglich veraendert. Wenn ein Feld fuer eine Decision Rule
+benoetigt wird, muss es in `context_profile.required` stehen und technisch ueber
+`field_mapping` aufloesbar sein.
 
 ## Minimalbeispiel als URL/Form-Parameter
 

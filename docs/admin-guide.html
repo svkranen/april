@@ -263,6 +263,7 @@
             <p>Historische Export-/Sync-Abl&auml;ufe sind weiterhin dokumentiert, gelten aber als Legacy-Bereich und nicht mehr als Produktkern.</p>
             <div class="meta">
                 <a class="pill" href="#start">Schnellstart</a>
+                <a class="pill" href="#event-intake">Event-API</a>
                 <a class="pill" href="#analyse">Prozessanalyse</a>
                 <a class="pill" href="#konfiguration">Konfiguration</a>
                 <a class="pill" href="#jobs">Jobs</a>
@@ -276,15 +277,16 @@
             <aside class="toc">
                 <h2>Inhalt</h2>
                 <a href="#start">1. Schnellstart</a>
-                <a href="#analyse">2. Prozessanalyse</a>
-                <a href="#konfiguration">3. Betriebsrelevante Dateien</a>
-                <a href="#einrichtung">4. Einrichtung</a>
-                <a href="#jobs">5. Regelbetrieb und Jobs</a>
-                <a href="#signatur">6. Signaturpruefung</a>
-                <a href="#checkpoint">7. Checkpoints</a>
-                <a href="#logs">8. Logs und Kontrolle</a>
-                <a href="#fehler">9. Typische Fehlerbilder</a>
-                <a href="#routine">10. Regelmaessige Aufgaben</a>
+                <a href="#event-intake">2. Event-API und Stempelaktionen</a>
+                <a href="#analyse">3. Prozessanalyse</a>
+                <a href="#konfiguration">4. Betriebsrelevante Dateien</a>
+                <a href="#einrichtung">5. Einrichtung</a>
+                <a href="#jobs">6. Regelbetrieb und Jobs</a>
+                <a href="#signatur">7. Signaturpruefung</a>
+                <a href="#checkpoint">8. Checkpoints</a>
+                <a href="#logs">9. Logs und Kontrolle</a>
+                <a href="#fehler">10. Typische Fehlerbilder</a>
+                <a href="#routine">11. Regelmaessige Aufgaben</a>
             </aside>
 
             <main class="content">
@@ -306,8 +308,82 @@
                     <p><strong>Template-Pfad:</strong> APRIL-Prozess-Templates liegen unter <code>config/april/process-templates/</code>. Das Projektverzeichnis <code>templates/</code> ist fuer Symfony/Twig- und Frontend-Templates reserviert.</p>
                 </section>
 
+                <section class="card" id="event-intake">
+                    <h2>2. Event-API und Stempelaktionen</h2>
+                    <p class="lead">Amagno-Stempelaktionen koennen Prozessereignisse per HTTP an <code>POST /api/intelligence/events</code> senden. Die vollstaendige Feldreferenz steht in <a href="./intelligence/event-api.md">docs/intelligence/event-api.md</a>.</p>
+
+                    <h3>Minimal benoetigte Parameter</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Empfehlung fuer Stempelaktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>processKey</code></td>
+                                <td>fest je Prozess, z. B. <code>ai-rechnungen</code>; darf nicht leer oder <code>unknown</code> sein</td>
+                            </tr>
+                            <tr>
+                                <td><code>stepKey</code></td>
+                                <td>fachlicher Schritt dieses Stempels, moeglichst identisch zum Template-Schritt</td>
+                            </tr>
+                            <tr>
+                                <td><code>eventKey</code></td>
+                                <td>Ereignisart, z. B. <code>stamp.applied</code>; kann auch dem <code>stepKey</code> entsprechen</td>
+                            </tr>
+                            <tr>
+                                <td><code>eventPhase</code></td>
+                                <td>meist <code>after</code>; <code>before</code> nur fuer Vorher-/Sichtbarkeitspruefungen</td>
+                            </tr>
+                            <tr>
+                                <td><code>documentUuid</code></td>
+                                <td>wichtigster Dokumentbezug fuer Timeline und Amagno-Kontextaufladung</td>
+                            </tr>
+                            <tr>
+                                <td><code>documentId</code></td>
+                                <td>lesbare Amagno-Dokumentnummer oder externe ID</td>
+                            </tr>
+                            <tr>
+                                <td><code>documentVersion</code></td>
+                                <td>wenn moeglich immer mitsenden; neue Versionen erzeugen eigene Prozessinstanzen</td>
+                            </tr>
+                            <tr>
+                                <td><code>occurredAt</code></td>
+                                <td>Stempel-/Ereigniszeitpunkt als ISO-8601 mit Zeitzone</td>
+                            </tr>
+                            <tr>
+                                <td><code>externalEventKey</code></td>
+                                <td>stabiler Idempotenz-Schluessel aus Dokument, Version, Schritt und Zeitpunkt</td>
+                            </tr>
+                            <tr>
+                                <td><code>xIntelligenceSecret</code> oder Header</td>
+                                <td>Secret nur mitsenden, wenn <code>INTELLIGENCE_EVENT_SECRET</code> gesetzt ist; Header <code>X-Intelligence-Secret</code> ist bevorzugt</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h3>Beispiel als Form-/URL-Parameter</h3>
+                    <pre><code>processKey=ai-rechnungen
+stepKey=01%20Rechnungen%20pruefen
+eventKey=stamp.applied
+eventPhase=after
+sourceSystem=amagno
+documentId=&lt;Amagno-Dokument-ID&gt;
+documentUuid=&lt;Amagno-Dokument-UUID&gt;
+documentVersion=&lt;Amagno-Dokumentversion&gt;
+occurredAt=&lt;Stempelzeitpunkt-ISO-8601&gt;
+externalEventKey=amagno:&lt;documentUuid&gt;:&lt;documentVersion&gt;:&lt;stepKey&gt;:&lt;occurredAt&gt;
+xIntelligenceSecret=&lt;secret&gt;</code></pre>
+
+                    <div class="status">
+                        <strong>Kontextfelder:</strong> Betrag, Dokumentart, Kostenstelle, Projektnummer, Multimerkmale, Freigaben und Signaturen werden im Normalfall nicht als Stempelparameter gesendet. Sie werden ueber <code>context_profile.required</code> und <code>field_mapping</code> aus Amagno nachgeladen und als Context Snapshot historisiert.
+                    </div>
+                </section>
+
                 <section class="card" id="analyse">
-                    <h2>2. Prozessanalyse</h2>
+                    <h2>3. Prozessanalyse</h2>
                     <p class="lead">Die neuen betrieblichen Hauptfunktionen liegen in den <code>intelligence:template</code>-Commands. Sie pruefen Dokumentlaeufe gegen Soll-Templates, erzeugen Vorschlaege, bauen Heatmaps und visualisieren Prozesse.</p>
                     <div class="grid-2">
                         <div class="mini">
@@ -395,7 +471,7 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                 </section>
 
                 <section class="card" id="konfiguration">
-                    <h2>3. Betriebsrelevante Dateien</h2>
+                    <h2>4. Betriebsrelevante Dateien</h2>
                     <table>
                         <thead>
                             <tr>
@@ -435,7 +511,7 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                 </section>
 
                 <section class="card" id="einrichtung">
-                    <h2>4. Einrichtung</h2>
+                    <h2>5. Einrichtung</h2>
                     <h3>Umgebungswerte</h3>
                     <pre><code>AMAGNO_BASE_URI=https://amagno.me
 AMAGNO_API_USERNAME=
@@ -523,7 +599,7 @@ AMAGNO_CHECKPOINT_DIR=var/checkpoints</code></pre>
                 </section>
 
                 <section class="card" id="jobs">
-                    <h2>5. Regelbetrieb und Jobs</h2>
+                    <h2>6. Regelbetrieb und Jobs</h2>
                     <div class="warning">
                         <strong>Legacy:</strong> Die folgenden <code>amagno:sync</code>-Jobs gehoeren zum alten AmagnoExporter. Fuer das Intelligence Tool sind vor allem Template-Vorschlag, Template-Pruefung und Heatmap-Reports relevant.
                     </div>
@@ -561,7 +637,7 @@ php bin\console amagno:sync --all-connections --use-checkpoint &gt;&gt; C:\logs\
                 </section>
 
                 <section class="card" id="signatur">
-                    <h2>6. Signaturpruefung</h2>
+                    <h2>7. Signaturpruefung</h2>
                     <p>Die Signaturpruefung ist optional und wird pro Verbindung ueber den Block <code>signature_check</code> aktiviert.</p>
                     <pre><code>"signature_check": {
   "required_tag": "GUID-ZU-PRUEFEN-DURCH",
@@ -591,7 +667,7 @@ bin/console amagno:verify-signatures --connection=nev-onprem --use-checkpoint</c
                 </section>
 
                 <section class="card" id="checkpoint">
-                    <h2>7. Checkpoints</h2>
+                    <h2>8. Checkpoints</h2>
                     <p>Checkpoints verhindern, dass bei jedem Lauf alle Dokumente erneut bearbeitet werden. Gespeichert wird der letzte bekannte <code>changeDate</code>-Wert als JSON-Datei im konfigurierten Checkpoint-Verzeichnis.</p>
                     <ul class="notes">
                         <li>Standardpfad laut Env: <code>var/checkpoints</code></li>
@@ -604,7 +680,7 @@ bin/console amagno:verify-signatures --connection=nev-onprem --use-checkpoint</c
                 </section>
 
                 <section class="card" id="logs">
-                    <h2>8. Logs und Kontrolle</h2>
+                    <h2>9. Logs und Kontrolle</h2>
                     <h3>Was beobachten?</h3>
                     <ul class="notes">
                         <li>Exit-Code des Batch- oder Console-Laufs</li>
@@ -623,7 +699,7 @@ bin/console amagno:sync --all-connections --dry-run -vvv</code></pre>
                 </section>
 
                 <section class="card" id="fehler">
-                    <h2>9. Typische Fehlerbilder</h2>
+                    <h2>10. Typische Fehlerbilder</h2>
                     <table>
                         <thead>
                             <tr>
@@ -673,7 +749,7 @@ bin/console amagno:sync --all-connections --dry-run -vvv</code></pre>
                 </section>
 
                 <section class="card" id="routine">
-                    <h2>10. Regelmaessige Aufgaben</h2>
+                    <h2>11. Regelmaessige Aufgaben</h2>
                     <div class="grid-2">
                         <div class="mini">
                             <h3>Vor einem Release</h3>

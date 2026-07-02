@@ -265,6 +265,7 @@
             <div class="meta">
                 <a class="pill" href="#ueberblick">Projekt&uuml;berblick</a>
                 <a class="pill" href="#analyse">Prozessanalyse</a>
+                <a class="pill" href="#event-api">Event-API</a>
                 <a class="pill" href="#betrieb">Betrieb</a>
                 <a class="pill" href="#architektur">Architektur</a>
                 <a class="pill" href="#signatur">Signaturpr&uuml;fung</a>
@@ -279,14 +280,15 @@
                 <h2>Inhalt</h2>
                 <a href="#ueberblick">1. Projekt&uuml;berblick</a>
                 <a href="#analyse">2. Prozessanalyse</a>
-                <a href="#struktur">3. Verzeichnisstruktur</a>
-                <a href="#betrieb">4. Betrieb und Konfiguration</a>
-                <a href="#sync">5. Ablauf Sync / Export</a>
-                <a href="#signatur">6. Ablauf Signaturpr&uuml;fung</a>
-                <a href="#architektur">7. Wichtige Klassen</a>
-                <a href="#settings-ui">8. Legacy-Settings-UI</a>
-                <a href="#tests">9. Tests und Qualit&auml;t</a>
-                <a href="#aenderung">10. &Auml;nderungen sicher umsetzen</a>
+                <a href="#event-api">3. Event-API und Amagno-Stempel</a>
+                <a href="#struktur">4. Verzeichnisstruktur</a>
+                <a href="#betrieb">5. Betrieb und Konfiguration</a>
+                <a href="#sync">6. Ablauf Sync / Export</a>
+                <a href="#signatur">7. Ablauf Signaturpr&uuml;fung</a>
+                <a href="#architektur">8. Wichtige Klassen</a>
+                <a href="#settings-ui">9. Legacy-Settings-UI</a>
+                <a href="#tests">10. Tests und Qualit&auml;t</a>
+                <a href="#aenderung">11. &Auml;nderungen sicher umsetzen</a>
             </aside>
 
             <main class="content">
@@ -414,8 +416,47 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                     </ul>
                 </section>
 
+                <section class="card" id="event-api">
+                    <h2>3. Event-API und Amagno-Stempel</h2>
+                    <p class="lead">Prozessereignisse kommen ueber <code>POST /api/intelligence/events</code> ins System. Der Endpoint akzeptiert JSON und <code>application/x-www-form-urlencoded</code>; letzteres passt gut zu Amagno-Stempelaktionen.</p>
+
+                    <div class="grid-2">
+                        <div class="mini">
+                            <h3>Stempelaktion: empfohlene Felder</h3>
+                            <ul class="notes">
+                                <li><code>processKey</code>: fachlicher Prozess, z. B. <code>ai-rechnungen</code></li>
+                                <li><code>stepKey</code>: Template-Schritt, der durch den Stempel erreicht wurde</li>
+                                <li><code>eventKey</code>: Ereignisart, z. B. <code>stamp.applied</code></li>
+                                <li><code>eventPhase</code>: meistens <code>after</code></li>
+                                <li><code>documentUuid</code>, <code>documentId</code>, <code>documentVersion</code>: Dokumentbezug</li>
+                                <li><code>occurredAt</code>: Stempelzeitpunkt als ISO-8601</li>
+                                <li><code>externalEventKey</code>: stabiler Idempotenz-Schluessel</li>
+                            </ul>
+                        </div>
+                        <div class="mini">
+                            <h3>Kontext kommt aus dem Template</h3>
+                            <p>Betrag, Dokumentart, Kostenstelle, Projektnummer, Multimerkmale, Freigaben und Signaturen muessen in der Regel nicht als Event-Parameter gesendet werden. Das Event liefert den Dokumentbezug; <code>context_profile.required</code> und <code>field_mapping</code> bestimmen, welche Amagno-Merkmale nachgeladen und als Context Snapshot gespeichert werden.</p>
+                        </div>
+                    </div>
+
+                    <h3>Form-Beispiel</h3>
+                    <pre><code>processKey=ai-rechnungen
+stepKey=01%20Rechnungen%20pruefen
+eventKey=stamp.applied
+eventPhase=after
+sourceSystem=amagno
+documentId=&lt;Amagno-Dokument-ID&gt;
+documentUuid=&lt;Amagno-Dokument-UUID&gt;
+documentVersion=&lt;Amagno-Dokumentversion&gt;
+occurredAt=&lt;Stempelzeitpunkt-ISO-8601&gt;
+externalEventKey=amagno:&lt;documentUuid&gt;:&lt;documentVersion&gt;:&lt;stepKey&gt;:&lt;occurredAt&gt;
+xIntelligenceSecret=&lt;secret&gt;</code></pre>
+
+                    <p>Details zu Aliasnamen, Signatur, verschachtelten JSON-Payloads und Template-Konfiguration stehen in <a href="./intelligence/event-api.md">docs/intelligence/event-api.md</a>.</p>
+                </section>
+
                 <section class="card" id="struktur">
-                    <h2>3. Verzeichnisstruktur</h2>
+                    <h2>4. Verzeichnisstruktur</h2>
                     <ul class="tree">
                         <li><code>src/Command</code>: CLI-Kommandos f&uuml;r Batch-Betrieb</li>
                         <li><code>src/Controller</code>: kleine Web-Einstiegspunkte, vor allem Home und Settings-Bridge</li>
@@ -435,7 +476,7 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                 </section>
 
                 <section class="card" id="betrieb">
-                    <h2>4. Betrieb und Konfiguration</h2>
+                    <h2>5. Betrieb und Konfiguration</h2>
                     <p>Konfiguration kommt aus zwei Quellen: Symfony-Umgebungsvariablen als Default und einer JSON-Datei f&uuml;r konkrete Verbindungen.</p>
                     <table>
                         <thead>
@@ -483,7 +524,7 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                 </section>
 
                 <section class="card" id="sync">
-                    <h2>5. Ablauf Sync / Export</h2>
+                    <h2>6. Ablauf Sync / Export</h2>
                     <div class="warning">
                         <strong>Legacy:</strong> Dieser Abschnitt beschreibt den fr&uuml;heren AmagnoExporter. Neue Process-Intelligence-Funktionen sollen nicht auf Matching-Renderer, Export-Matrix oder <code>oldProject</code> aufbauen.
                     </div>
@@ -543,7 +584,7 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                 </section>
 
                 <section class="card" id="signatur">
-                    <h2>6. Ablauf Signaturpr&uuml;fung</h2>
+                    <h2>7. Ablauf Signaturpr&uuml;fung</h2>
                     <p>Die Signaturpr&uuml;fung ist als eigenes Modul aufgebaut. Die fachliche Vergleichslogik liegt bewusst isoliert unter <code>src/SignatureCheck</code>. Dadurch kann sie leicht getestet und weiterentwickelt werden.</p>
 
                     <div class="grid-2">
@@ -584,7 +625,7 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                 </section>
 
                 <section class="card" id="architektur">
-                    <h2>7. Wichtige Klassen und Verantwortlichkeiten</h2>
+                    <h2>8. Wichtige Klassen und Verantwortlichkeiten</h2>
                     <table>
                         <thead>
                             <tr>
@@ -647,7 +688,7 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                 </section>
 
                 <section class="card" id="settings-ui">
-                    <h2>8. Legacy-Settings-UI</h2>
+                    <h2>9. Legacy-Settings-UI</h2>
                     <p>Die Route <code>/settings</code> ist keine neu implementierte Symfony-Oberfl&auml;che, sondern eine Einbindung des Altbestands aus <code>oldProject/settings.php</code>. Angebunden ist nur noch die Pflege von <code>oldProject/matching.json</code>; Export und Signaturpr&uuml;fung laufen &uuml;ber Symfony-Commands.</p>
                     <ul class="notes">
                         <li>Bridge-Controller: <a href="../src/Controller/SettingsController.php">SettingsController</a></li>
@@ -662,7 +703,7 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                 </section>
 
                 <section class="card" id="tests">
-                    <h2>9. Tests und Qualit&auml;t</h2>
+                    <h2>10. Tests und Qualit&auml;t</h2>
                     <p>Das Projekt hat bereits gezielte PHPUnit-Tests, vor allem f&uuml;r Exporter, Rendering-nahe Services und das Signaturmodul.</p>
                     <ul class="notes">
                         <li><a href="../tests/SignatureCheck/SignatureCompletenessCheckerTest.php">tests/SignatureCheck/SignatureCompletenessCheckerTest.php</a></li>
@@ -676,7 +717,7 @@ bin/console intelligence:access:results &lt;documentUuid&gt; &lt;processKey&gt;<
                 </section>
 
                 <section class="card" id="aenderung">
-                    <h2>10. &Auml;nderungen sicher umsetzen</h2>
+                    <h2>11. &Auml;nderungen sicher umsetzen</h2>
                     <div class="grid-2">
                         <div class="mini">
                             <h3>Bei Konfigurations&auml;nderungen</h3>
