@@ -151,6 +151,7 @@
             <div class="bar-right">
                 <nav class="app-nav">
                     <a href="{{ path('app_templates_index') }}" class="{{ active_nav|default('') == 'templates' ? 'is-active' : '' }}">Templates</a>
+                    <a href="{{ path('app_intelligence_documents_index') }}" class="{{ active_nav|default('') == 'documents' ? 'is-active' : '' }}">Dokumente</a>
                     {% if app.user %}
                         <a href="{{ path('app_logout') }}">Logout</a>
                     {% endif %}

@@ -1,0 +1,22 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}Dokumente · Event Explorer · APRIL{% endblock %}
+
+{% block body %}
+    <div class="card">
+        <p class="crumbs"><a href="{{ path('app_templates_index') }}">Template-Liste</a></p>
+        <h1>Dokumente</h1>
+        <p class="muted">Hier koennen dokumentbezogene Events auch ohne Prozess-Template nachvollzogen werden.</p>
+
+        <form class="login-form" method="get" action="{{ path('app_intelligence_documents_index') }}">
+            <label for="documentUuid">Document UUID</label>
+            <input id="documentUuid" name="documentUuid" value="{{ view.query ?? '' }}" autocomplete="off" placeholder="z. B. 8f3c..." required>
+            {% if view.error %}
+                <div class="login-error">{{ view.error }}</div>
+            {% endif %}
+            <button type="submit">Dokument anzeigen</button>
+        </form>
+
+        <p class="muted">Der MVP sucht direkt nach einer bekannten Document UUID. Eine globale Dokumentliste folgt spaeter.</p>
+    </div>
+{% endblock %}

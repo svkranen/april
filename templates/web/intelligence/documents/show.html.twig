@@ -1,0 +1,182 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.documentUuid }} · Event Explorer · APRIL{% endblock %}
+
+{% block body %}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_intelligence_documents_index') }}">← Zurück zur Dokumentensuche</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Dokument {{ view.documentUuid }}</h1>
+        <p class="meta-line">Document UUID: <code>{{ view.documentUuid }}</code></p>
+        {% if view.documentVersion %}
+            <p class="meta-line">Dokumentversion: <strong>{{ view.documentVersion }}</strong>
+                <a class="pill-link" href="{{ path('app_intelligence_documents_show', { documentUuid: view.documentUuid }) }}">Filter entfernen</a></p>
+        {% endif %}
+        <p class="muted">Read-only Event Explorer: keine Soll-/Ist-Prüfung, keine Cross-Process-Routing-Prüfung, keine Visibility-Prüfung.</p>
+    </div>
+
+    {% if not view.hasTimeline %}
+        <div class="card">
+            <h2>Keine Timeline</h2>
+            <p class="muted">APRIL kennt für dieses Dokument{% if view.documentVersion %} in Version {{ view.documentVersion }}{% endif %} noch keine Events oder Prozessinstanzen.</p>
+        </div>
+    {% else %}
+        <div class="card">
+            <h2>Prozesse</h2>
+            {% if view.processGroups is empty %}
+                <p class="muted">Keine Prozessgruppen ermittelbar.</p>
+            {% else %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>processKey</th>
+                            <th>Template</th>
+                            <th>Versionen</th>
+                            <th>Events</th>
+                            <th>Instanzen</th>
+                            <th>Zeitraum</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for group in view.processGroups %}
+                            <tr>
+                                <td><code>{{ group.processKey }}</code></td>
+                                <td>
+                                    {% if group.knownTemplate %}
+                                        <span class="badge">Template bekannt</span>
+                                    {% else %}
+                                        <span class="badge is-muted">kein Template bekannt</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ group.documentVersions is empty ? '—' : group.documentVersions|join(', ') }}</td>
+                                <td>{{ group.eventCount }}</td>
+                                <td>{{ group.instanceCount }}</td>
+                                <td>
+                                    {% if group.firstOccurredAt %}
+                                        {{ group.firstOccurredAt|date('Y-m-d H:i') }} – {{ group.lastOccurredAt|date('Y-m-d H:i') }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>Prozessinstanzen</h2>
+            {% if view.instances is empty %}
+                <p class="muted">Keine Prozessinstanzen gespeichert.</p>
+            {% else %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>processKey</th>
+                            <th>Template</th>
+                            <th>Dokumentversion</th>
+                            <th>currentStepKey</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for instance in view.instances %}
+                            <tr>
+                                <td>{{ instance.id ?? '—' }}</td>
+                                <td><code>{{ instance.processKey }}</code></td>
+                                <td>
+                                    {% if instance.knownTemplate %}
+                                        <span class="badge">Template bekannt</span>
+                                    {% else %}
+                                        <span class="badge is-muted">kein Template bekannt</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ instance.documentVersion }}</td>
+                                <td><code>{{ instance.currentStepKey }}</code></td>
+                                <td>{{ instance.status }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2>Event-Timeline</h2>
+            {% if view.events is empty %}
+                <p class="muted">Keine Events für den aktuellen Filter.</p>
+            {% else %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>occurredAt</th>
+                            <th>processKey</th>
+                            <th>Template</th>
+                            <th>stepKey</th>
+                            <th>eventPhase</th>
+                            <th>Version</th>
+                            <th>Context</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in view.events %}
+                            <tr>
+                                <td>
+                                    {{ event.occurredAt|date('Y-m-d H:i:s') }}
+                                    {% if is_expert_view() %}
+                                        <div class="muted">received {{ event.receivedAt|date('Y-m-d H:i:s') }}</div>
+                                    {% endif %}
+                                </td>
+                                <td><code>{{ event.processKey }}</code></td>
+                                <td>
+                                    {% if view.knownTemplatesByProcessKey[event.processKey] ?? false %}
+                                        <span class="badge">Template bekannt</span>
+                                    {% else %}
+                                        <span class="badge is-muted">kein Template bekannt</span>
+                                    {% endif %}
+                                </td>
+                                <td><code>{{ event.stepKey }}</code>
+                                    {% if is_expert_view() %}<div class="muted">eventKey=<code>{{ event.eventKey }}</code></div>{% endif %}
+                                </td>
+                                <td><span class="badge">{{ event.eventPhase }}</span></td>
+                                <td>
+                                    <a href="{{ path('app_intelligence_documents_show', { documentUuid: view.documentUuid, documentVersion: event.documentVersion }) }}">v{{ event.documentVersion }}</a>
+                                </td>
+                                <td>
+                                    {% if event.hasContext %}
+                                        <details>
+                                            <summary>{{ event.contextAttributes|length }} Feld(er){% if event.contextSource %} · {{ event.contextSource }}{% endif %}</summary>
+                                            <table>
+                                                <tbody>
+                                                    {% for key, value in event.contextAttributes %}
+                                                        <tr>
+                                                            <th><code>{{ key }}</code></th>
+                                                            <td><code>{{ value is iterable ? value|json_encode : value }}</code></td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                            {% if event.contextWarnings is not empty %}
+                                                <p class="muted">Warnings: {{ event.contextWarnings|join(', ') }}</p>
+                                            {% endif %}
+                                        </details>
+                                    {% else %}
+                                        <span class="muted">—</span>
+                                    {% endif %}
+                                    {% if is_expert_view() %}
+                                        <div class="muted">externalEventKey=<code>{{ event.externalEventKey }}</code>{% if event.processInstanceId %} · instance {{ event.processInstanceId }}{% endif %}</div>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+    {% endif %}
+{% endblock %}

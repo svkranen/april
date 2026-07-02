@@ -228,6 +228,11 @@ services:
         arguments:
             $processTemplateDirectory: '%april.process_template_dir%'
 
+    App\Controller\App\DocumentJourneyController:
+        arguments:
+            $timelineProvider: '@App\Intelligence\Application\DocumentTimelineProvider'
+            $templateProvider: '@App\Intelligence\Application\ProcessTemplateProvider'
+
     App\Command\IntelligenceAccessCheckDocumentCommand:
         arguments:
             $accessProbeProviders: !tagged_iterator app.access_probe_provider
