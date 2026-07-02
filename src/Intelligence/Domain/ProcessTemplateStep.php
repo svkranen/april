@@ -13,7 +13,10 @@ final readonly class ProcessTemplateStep
         public ?string $name = null,
         public string $type = 'normal',
         public array $beforeVisibilityChecks = [],
-        public array $afterVisibilityChecks = []
+        public array $afterVisibilityChecks = [],
+        public ?string $processKey = null,
+        public bool $required = true,
+        public array $when = []
     ) {
     }
 }

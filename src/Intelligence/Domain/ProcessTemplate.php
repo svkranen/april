@@ -41,6 +41,7 @@ final readonly class ProcessTemplate
         public array $visibilityRetryPolicies = [],
         public array $manualAccessTests = [],
         public array $crossProcessRoutingRules = [],
+        public string $scope = 'process',
         public string $sourceSystem = 'amagno'
     ) {
     }

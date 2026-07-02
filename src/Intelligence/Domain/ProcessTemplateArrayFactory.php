@@ -47,6 +47,7 @@ final class ProcessTemplateArrayFactory
             visibilityRetryPolicies: self::visibilityRetryPolicies($data['visibility_retry_policies'] ?? []),
             manualAccessTests: self::manualAccessTests($data['manual_access_tests'] ?? []),
             crossProcessRoutingRules: self::crossProcessRoutingRules($data['cross_process_routing'] ?? []),
+            scope: self::stringValue($data['scope'] ?? 'process', 'process'),
             sourceSystem: $sourceSystem
         );
     }
@@ -169,8 +170,35 @@ final class ProcessTemplateArrayFactory
                 self::nullableString($step['name'] ?? null),
                 self::stringValue($step['type'] ?? 'normal', 'normal'),
                 self::visibilityChecksForPhase($step['before'] ?? null, 'before'),
-                self::visibilityChecksForPhase($step['after'] ?? null, 'after')
+                self::visibilityChecksForPhase($step['after'] ?? null, 'after'),
+                self::nullableString($step['process_key'] ?? $step['processKey'] ?? null),
+                self::boolValue($step['required'] ?? true, true),
+                self::when($step['when'] ?? [])
             );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function when(mixed $when): array
+    {
+        if (!is_array($when)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($when as $field => $value) {
+            if (!is_scalar($field)) {
+                continue;
+            }
+
+            $field = trim((string) $field);
+            if ($field !== '') {
+                $result[$field] = $value;
+            }
         }
 
         return $result;
@@ -819,6 +847,27 @@ final class ProcessTemplateArrayFactory
         $value = trim((string) $value);
 
         return $value === '' ? $default : $value;
+    }
+
+    private static function boolValue(mixed $value, bool $default): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value) && in_array($value, [0, 1], true)) {
+            return $value === 1;
+        }
+
+        if (!is_string($value)) {
+            return $default;
+        }
+
+        return match (strtolower(trim($value))) {
+            'true', '1', 'yes', 'y' => true,
+            'false', '0', 'no', 'n' => false,
+            default => $default,
+        };
     }
 
     /**

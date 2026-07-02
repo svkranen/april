@@ -52,6 +52,63 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame('aufmass_workflow', $template->crossProcessRoutingRules[0]->expectedProcess);
     }
 
+    public function testParsesJourneyScopeAndProcessSteps(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'aufmass_verarbeitung',
+            'version' => '1.0',
+            'scope' => 'journey',
+            'steps' => [
+                [
+                    'key' => 'import',
+                    'type' => 'process',
+                    'process_key' => 'generic_document_import',
+                    'required' => true,
+                    'when' => [
+                        'amagno_known' => false,
+                    ],
+                ],
+                [
+                    'key' => 'export',
+                    'type' => 'process',
+                    'processKey' => 'nevaris_export',
+                    'required' => 'false',
+                    'when' => [
+                        'document_type' => 'aufmass',
+                    ],
+                ],
+            ],
+        ]);
+
+        self::assertSame('journey', $template->scope);
+        self::assertCount(2, $template->steps);
+        self::assertSame('process', $template->steps[0]->type);
+        self::assertSame('generic_document_import', $template->steps[0]->processKey);
+        self::assertTrue($template->steps[0]->required);
+        self::assertSame(['amagno_known' => false], $template->steps[0]->when);
+        self::assertSame('nevaris_export', $template->steps[1]->processKey);
+        self::assertFalse($template->steps[1]->required);
+        self::assertSame(['document_type' => 'aufmass'], $template->steps[1]->when);
+    }
+
+    public function testTemplateWithoutScopeStaysProcessTemplateCompatible(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'steps' => [
+                ['key' => 'received'],
+                ['key' => 'started', 'type' => 'start'],
+            ],
+        ]);
+
+        self::assertSame('process', $template->scope);
+        self::assertSame('normal', $template->steps[0]->type);
+        self::assertSame('start', $template->steps[1]->type);
+        self::assertNull($template->steps[0]->processKey);
+        self::assertTrue($template->steps[0]->required);
+        self::assertSame([], $template->steps[0]->when);
+    }
+
     public function testParsesTypedChecksSignCheck(): void
     {
         $template = ProcessTemplateArrayFactory::fromArray([
