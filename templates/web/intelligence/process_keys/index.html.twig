@@ -1,0 +1,52 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}Process Keys · Event Explorer · APRIL{% endblock %}
+
+{% block body %}
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_intelligence_documents_index') }}">← Zurück zur Dokumentensuche</a>
+        </p>
+        <h1>Verwendete Process Keys</h1>
+        <p class="muted">Read-only Übersicht aller <code>processKey</code>s, die APRIL bereits in Events gesehen hat. Templates sind nur ein Hinweis und keine Voraussetzung.</p>
+    </div>
+
+    <div class="card">
+        <h2>Process Keys</h2>
+
+        {% if not view.hasRows %}
+            <p class="muted">APRIL kennt aktuell noch keine Events mit Process Key.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>processKey</th>
+                        <th>Template</th>
+                        <th>Dokumente</th>
+                        <th>Events</th>
+                        <th>Dokumente anzeigen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in view.rows %}
+                        <tr>
+                            <td><code>{{ row.processKey }}</code></td>
+                            <td>
+                                {% if row.knownTemplate %}
+                                    <span class="badge">Template bekannt</span>
+                                {% else %}
+                                    <span class="badge is-muted">kein Template bekannt</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ row.documentCount }}</td>
+                            <td>{{ row.eventCount }}</td>
+                            <td>
+                                <a class="pill-link" href="{{ path('app_intelligence_process_keys_documents', { processKey: row.processKey }) }}">Dokumente</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+{% endblock %}

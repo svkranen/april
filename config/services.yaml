@@ -171,6 +171,9 @@ services:
     App\Intelligence\Application\DocumentListProvider:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineDocumentListProvider
 
+    App\Intelligence\Application\ProcessKeyOverviewProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessKeyOverviewProvider
+
     App\Intelligence\Application\DocumentCheckResultProvider:
         alias: App\Intelligence\Application\ProcessTemplateCheckResultProvider
 
