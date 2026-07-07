@@ -96,6 +96,35 @@ Viele Tests nutzen neutrale Fixtures wie `doc-1`, `uuid-1`, `user-1`. Einzelne T
 - `config/amagno_connections.json`
   - Teilweise Platzhalter, aber weiterhin Amagno-/UNC-/GUID-nahe Struktur.
 
+### Private Composer-/CI-Abhaengigkeiten
+
+- `composer.json`
+  - Harte Dependency auf `iileven/amagno-connector-bundle`.
+  - Private VCS-Repository-URL zu `http://10.0.3.198:3000/.../AmagnoApiConnector.git`.
+  - `secure-http: false` ist fuer ein Public-Repository nicht akzeptabel.
+- `composer.lock`
+  - Enthaelt denselben privaten Source-Eintrag fuer `iileven/amagno-connector-bundle`.
+  - Enthaelt Stability-Flags fuer diese private `dev-main`-Dependency.
+- `.gitea/workflows/ci.yml`
+  - Konfiguriert Composer-Auth fuer den privaten Gitea-Host `10.0.3.198:3000`.
+  - Nutzt Secrets `GITEAPACKAGEUSER` und `GITEAPACKAGETOKEN`.
+  - Setzt ebenfalls `secure-http false`.
+
+Zielentscheidung:
+
+- Der Community-Kern darf nicht hart vom privaten Amagno-Connector abhaengen.
+- Die Amagno-Integration wird als optionaler Enterprise-/Private-Adapter behandelt.
+- Eine public-faehige `composer.json` darf keine privaten URLs, kein `secure-http false` und keine private Composer-Auth benoetigen.
+- Der Community-Build muss ohne Zugriff auf Gitea, interne IPs oder private Composer-Credentials installierbar und testbar sein.
+
+Fuer die aktuelle Codebasis ist der private Connector noch technisch relevant, weil Symfony ihn direkt registriert:
+
+- `config/bundles.php` registriert `Iileven\AmagnoConnector\AmagnoConnectorBundle`.
+- `config/services.yaml` injiziert `Iileven\AmagnoConnector\Interface\TokenProviderInterface` und importiert Klassen direkt aus `vendor/iileven/amagno-connector-bundle/*`.
+- `src/EventSubscriber/AmagnoCredentialsSubscriber.php`, `src/Service/Amagno/DocumentFetcher.php`, `src/Service/FibuExportService.php` und `src/Service/SignatureCheck/AmagnoSignatureCheckService.php` importieren Connector-Klassen direkt.
+
+Die Dependency ist daher fuer den aktuellen Gesamt-Container noetig, aber nicht fuer den DMS-neutralen Community-Kern. Vor einer Public-Veroeffentlichung muss diese Kopplung ueber Ports, optionale Adapter oder eine Enterprise-Auslagerung geloest werden.
+
 ### Kundenspezifische Templates
 
 - `oldProject/onprem.txt`
@@ -413,23 +442,35 @@ Fehlt. Sinnvoll wegen Event-API und Connectoren.
    - Amagno-spezifische Services, Commands, Tests und EventSubscriber verschieben.
    - Community behält nur Ports und Fakes.
 
-5. `chore(fixtures): replace productive matching and templates`
+5. `refactor(connector): isolate private composer adapter`
+   - Direkte Imports aus `Iileven\AmagnoConnector\*` aus Community-Services entfernen.
+   - Oeffentliche Ports fuer Token-, Dokument- und Credential-Zugriff definieren.
+   - Amagno-Implementierungen in Enterprise/private Adapter verschieben.
+   - Community-Container mit Fake-/Null-Implementierungen absichern.
+
+6. `chore(composer): remove private connector from public build`
+   - `iileven/amagno-connector-bundle` aus dem Community-`require` entfernen.
+   - Private `repositories`-Sektion und `secure-http false` entfernen.
+   - `composer.lock` ohne private Source neu erzeugen.
+   - Frischen Installationspfad ohne private Composer-Auth testen.
+
+7. `chore(fixtures): replace productive matching and templates`
    - `oldProject/*` entfernen.
    - `config/april/process-templates/ai-rechnungen.yaml` durch synthetisches Demo-Template ersetzen.
    - Tests auf synthetische Templates anpassen.
 
-6. `docs: rewrite public readme and architecture docs`
+8. `docs: rewrite public readme and architecture docs`
    - README neu strukturieren.
    - Produkt-/Kundennamen entfernen.
    - Admin-/Legacy-Dokumente in Enterprise verschieben.
 
-7. `chore(license): add public license and contribution docs`
+9. `chore(license): add public license and contribution docs`
    - `LICENSE`
    - `CONTRIBUTING.md`
    - `SECURITY.md`
    - optional `CODE_OF_CONDUCT.md`
 
-8. `test: verify public baseline without private services`
+10. `test: verify public baseline without private services`
    - frischer Clone-Test.
    - `composer install`
    - `php bin/console lint:container --env=test`
