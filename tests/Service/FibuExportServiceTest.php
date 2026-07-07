@@ -30,6 +30,9 @@ class FibuExportServiceTest extends TestCase
         $stampService = $this->createMock(StampService::class);
         $checkpointStore = $this->createMock(CheckpointStore::class);
         $tokenProvider = $this->createMock(ApiTokenProviderInterface::class);
+        $tokenProvider
+            ->expects($this->never())
+            ->method('tokenForCredential');
         $credentialStore = $this->createMock(CredentialStoreInterface::class);
         $tagWriter = $this->createMock(DocumentTagWriter::class);
 

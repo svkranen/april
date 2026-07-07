@@ -70,7 +70,7 @@ services:
             $connectorTokenProvider: '@Iileven\AmagnoConnector\Interface\TokenProviderInterface'
 
     App\Service\Amagno\ApiTokenProviderInterface:
-        alias: App\Service\Amagno\AmagnoConnectorTokenProvider
+        alias: App\Service\Amagno\CommunityApiTokenProvider
 
     App\Service\Amagno\CredentialStoreInterface:
         alias: App\Service\Amagno\CredentialStore

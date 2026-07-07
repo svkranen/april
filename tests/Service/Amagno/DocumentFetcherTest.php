@@ -3,6 +3,7 @@
 namespace App\Tests\Service\Amagno;
 
 use App\Service\Amagno\ApiTokenProviderInterface;
+use App\Service\Amagno\CommunityApiTokenProvider;
 use App\Service\Amagno\DocumentFetcher;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
@@ -97,15 +98,38 @@ class DocumentFetcherTest extends TestCase
     public function testUsesStaticApiToken(): void
     {
         $headers = null;
+        $tokenProvider = $this->createMock(ApiTokenProviderInterface::class);
+        $tokenProvider
+            ->expects(self::never())
+            ->method('tokenForCredential');
+
         $fetcher = new DocumentFetcher(
             $this->httpClientRecordingHeaders($headers),
             'https://amagno.example',
-            'static-token'
+            'static-token',
+            $tokenProvider,
+            42
         );
 
         $fetcher->fetchDocumentTags('doc-1');
 
         self::assertSame('Authorization: Bearer static-token', $headers['authorization'][0] ?? null);
+    }
+
+    public function testCommunityTokenProviderRejectsCredentialBasedTokenFetch(): void
+    {
+        $fetcher = new DocumentFetcher(
+            new MockHttpClient(new MockResponse('{}')),
+            'https://amagno.example',
+            null,
+            new CommunityApiTokenProvider(),
+            42
+        );
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Credential-basierter Amagno Tokenabruf ist im Community-Default nicht verfuegbar. Setze AMAGNO_API_TOKEN oder aktiviere den Enterprise Amagno-Connector fuer Credential-ID 42.');
+
+        $fetcher->fetchDocumentTags('doc-1');
     }
 
     public function testUsesTokenProviderAndCredentialId(): void
