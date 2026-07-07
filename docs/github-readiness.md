@@ -55,6 +55,7 @@ Viele Tests nutzen neutrale Fixtures wie `doc-1`, `uuid-1`, `user-1`. Einzelne T
 - `docs/architecture/core.md`
 - `docs/architecture/connectors.md`
 - `docs/architecture/enterprise.md`
+- `docs/architecture/docker-quickstart.md`
 - `docs/intelligence/event-api.md`
 - `docs/intelligence/context-history.md`
 - `docs/intelligence/process-versioning.md`
@@ -385,6 +386,10 @@ APRIL_PROCESS_TEMPLATE_DIR=config/april/process-templates
 ```
 
 Amagno-Variablen gehoeren in ein Enterprise-Beispiel, nicht in Community.
+
+### Docker Quickstart
+
+Die Quickstart-Entscheidung ist in `docs/architecture/docker-quickstart.md` dokumentiert. Fuer GitHub ist FrankenPHP mit PHP 8.4 und PostgreSQL als minimale `app`/`db`-Compose-Umgebung vorgesehen. Demo-Daten sollen connectorfrei mit inline Context funktionieren; Amagno-/Enterprise-ENV-Werte sollen aus dem Community-Default herausgeloest werden.
 
 ### README
 
