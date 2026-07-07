@@ -52,6 +52,9 @@ Viele Tests nutzen neutrale Fixtures wie `doc-1`, `uuid-1`, `user-1`. Einzelne T
 ### Technische Dokumentation
 
 - `ARCHITECTURE.md`
+- `docs/architecture/core.md`
+- `docs/architecture/connectors.md`
+- `docs/architecture/enterprise.md`
 - `docs/intelligence/event-api.md`
 - `docs/intelligence/context-history.md`
 - `docs/intelligence/process-versioning.md`
