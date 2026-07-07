@@ -2,14 +2,14 @@
 
 namespace App\EventSubscriber;
 
-use App\Service\Amagno\CredentialStore;
+use App\Service\Amagno\CredentialStoreInterface;
 use Iileven\AmagnoConnector\Event\CredentialsFetchEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 class AmagnoCredentialsSubscriber implements EventSubscriberInterface
 {
     public function __construct(
-        private readonly CredentialStore $credentialStore
+        private readonly CredentialStoreInterface $credentialStore
     ) {
     }
 

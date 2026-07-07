@@ -2,16 +2,15 @@
 
 namespace App\Service\Amagno;
 
-use Iileven\AmagnoConnector\Interface\TokenProviderInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-class DocumentFetcher
+class DocumentFetcher implements DocumentGatewayInterface
 {
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly string $baseUri,
         private readonly ?string $apiToken = null,
-        private readonly ?TokenProviderInterface $tokenProvider = null,
+        private readonly ?ApiTokenProviderInterface $tokenProvider = null,
         private readonly ?int $credentialId = null
     ) {
     }
@@ -132,7 +131,7 @@ class DocumentFetcher
 
         $credentialId = $credentialIdOverride ?? $this->credentialId;
         if ($this->tokenProvider !== null && $credentialId !== null) {
-            return $this->tokenProvider->getToken($credentialId)->getTokenString();
+            return $this->tokenProvider->tokenForCredential($credentialId);
         }
 
         if ($token === null || $token === '') {

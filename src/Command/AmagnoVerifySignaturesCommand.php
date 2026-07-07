@@ -5,7 +5,7 @@ namespace App\Command;
 use App\Dto\SignatureCheckOptions;
 use App\Service\Amagno\ConnectionDefinition;
 use App\Service\Amagno\ConnectionRegistry;
-use App\Service\SignatureCheck\AmagnoSignatureCheckService;
+use App\Service\SignatureCheck\SignatureCheckServiceInterface;
 use DateTimeImmutable;
 use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -24,7 +24,7 @@ class AmagnoVerifySignaturesCommand extends Command
     private $lockHandle = null;
 
     public function __construct(
-        private readonly AmagnoSignatureCheckService $signatureCheckService,
+        private readonly SignatureCheckServiceInterface $signatureCheckService,
         private readonly ConnectionRegistry $connectionRegistry
     ) {
         parent::__construct();

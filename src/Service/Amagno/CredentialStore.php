@@ -4,7 +4,7 @@ namespace App\Service\Amagno;
 
 use RuntimeException;
 
-class CredentialStore
+class CredentialStore implements CredentialStoreInterface
 {
     /**
      * @var array<int, array{host: string, user: string, password: string}>

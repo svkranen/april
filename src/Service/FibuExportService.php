@@ -3,8 +3,9 @@
 namespace App\Service;
 
 use App\Dto\SyncOptions;
-use App\Service\Amagno\CredentialStore;
-use App\Service\Amagno\DocumentFetcher;
+use App\Service\Amagno\ApiTokenProviderInterface;
+use App\Service\Amagno\CredentialStoreInterface;
+use App\Service\Amagno\DocumentGatewayInterface;
 use App\Service\Amagno\DocumentTagWriter;
 use App\Service\Checkpoint\CheckpointStore;
 use App\Service\Export\ExporterRegistry;
@@ -13,7 +14,6 @@ use App\Service\Processing\MatchingProvider;
 use App\Service\Processing\StampService;
 use App\Service\Processing\TemplateRenderer;
 use DateTimeImmutable;
-use Iileven\AmagnoConnector\Interface\TokenProviderInterface;
 use RuntimeException;
 
 class FibuExportService
@@ -25,15 +25,15 @@ class FibuExportService
         private readonly ?string $defaultApiUsername,
         private readonly ?string $defaultApiPassword,
         private readonly ?string $defaultApiAuthType,
-        private readonly DocumentFetcher $documentFetcher,
+        private readonly DocumentGatewayInterface $documentFetcher,
         private readonly MatchingProvider $matchingProvider,
         private readonly DocumentMatrixBuilder $matrixBuilder,
         private readonly TemplateRenderer $templateRenderer,
         private readonly ExporterRegistry $exporterRegistry,
         private readonly StampService $stampService,
         private readonly CheckpointStore $checkpointStore,
-        private readonly TokenProviderInterface $tokenProvider,
-        private readonly CredentialStore $credentialStore,
+        private readonly ApiTokenProviderInterface $tokenProvider,
+        private readonly CredentialStoreInterface $credentialStore,
         private readonly DocumentTagWriter $tagWriter
     ) {
     }
@@ -288,9 +288,7 @@ class FibuExportService
 
         $this->credentialStore->setCredentials($baseUri, $username, $password, $credentialId);
 
-        $token = $this->tokenProvider
-            ->getToken($credentialId)
-            ->getTokenString();
+        $token = $this->tokenProvider->tokenForCredential($credentialId);
 
         $options->token = $token;
 

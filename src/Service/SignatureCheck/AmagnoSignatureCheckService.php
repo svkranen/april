@@ -3,18 +3,18 @@
 namespace App\Service\SignatureCheck;
 
 use App\Dto\SignatureCheckOptions;
-use App\Service\Amagno\CredentialStore;
-use App\Service\Amagno\DocumentFetcher;
+use App\Service\Amagno\ApiTokenProviderInterface;
+use App\Service\Amagno\CredentialStoreInterface;
+use App\Service\Amagno\DocumentGatewayInterface;
 use App\Service\Amagno\DocumentTagWriter;
 use App\Service\Checkpoint\CheckpointStore;
 use App\Service\Processing\StampService;
 use App\SignatureCheck\AmagnoTagValueExtractor;
 use App\SignatureCheck\SignatureCompletenessChecker;
 use DateTimeImmutable;
-use Iileven\AmagnoConnector\Interface\TokenProviderInterface;
 use RuntimeException;
 
-class AmagnoSignatureCheckService
+class AmagnoSignatureCheckService implements SignatureCheckServiceInterface
 {
     public function __construct(
         private readonly ?string $defaultBaseUri,
@@ -22,12 +22,12 @@ class AmagnoSignatureCheckService
         private readonly ?string $defaultApiToken,
         private readonly ?string $defaultApiUsername,
         private readonly ?string $defaultApiPassword,
-        private readonly DocumentFetcher $documentFetcher,
+        private readonly DocumentGatewayInterface $documentFetcher,
         private readonly DocumentTagWriter $tagWriter,
         private readonly StampService $stampService,
         private readonly CheckpointStore $checkpointStore,
-        private readonly TokenProviderInterface $tokenProvider,
-        private readonly CredentialStore $credentialStore,
+        private readonly ApiTokenProviderInterface $tokenProvider,
+        private readonly CredentialStoreInterface $credentialStore,
         private readonly AmagnoTagValueExtractor $tagValueExtractor,
         private readonly SignatureCompletenessChecker $checker
     ) {
@@ -187,9 +187,7 @@ class AmagnoSignatureCheckService
 
         $this->credentialStore->setCredentials($baseUri, $username, $password, $credentialId);
 
-        $token = $this->tokenProvider
-            ->getToken($credentialId)
-            ->getTokenString();
+        $token = $this->tokenProvider->tokenForCredential($credentialId);
 
         $options->token = $token;
 

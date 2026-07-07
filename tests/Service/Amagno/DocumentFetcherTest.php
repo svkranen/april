@@ -2,9 +2,8 @@
 
 namespace App\Tests\Service\Amagno;
 
+use App\Service\Amagno\ApiTokenProviderInterface;
 use App\Service\Amagno\DocumentFetcher;
-use Iileven\AmagnoConnector\Interface\TokenProviderInterface;
-use Iileven\AmagnoConnector\ValueObject\AccessToken;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
@@ -112,12 +111,12 @@ class DocumentFetcherTest extends TestCase
     public function testUsesTokenProviderAndCredentialId(): void
     {
         $headers = null;
-        $tokenProvider = $this->createMock(TokenProviderInterface::class);
+        $tokenProvider = $this->createMock(ApiTokenProviderInterface::class);
         $tokenProvider
             ->expects(self::once())
-            ->method('getToken')
+            ->method('tokenForCredential')
             ->with(42)
-            ->willReturn(new AccessToken('provider-token', new \DateTimeImmutable('+1 hour')));
+            ->willReturn('provider-token');
 
         $fetcher = new DocumentFetcher(
             $this->httpClientRecordingHeaders($headers),
@@ -135,12 +134,12 @@ class DocumentFetcherTest extends TestCase
     public function testUsesCredentialIdOverrideForTokenProvider(): void
     {
         $headers = null;
-        $tokenProvider = $this->createMock(TokenProviderInterface::class);
+        $tokenProvider = $this->createMock(ApiTokenProviderInterface::class);
         $tokenProvider
             ->expects(self::once())
-            ->method('getToken')
+            ->method('tokenForCredential')
             ->with(7)
-            ->willReturn(new AccessToken('connection-token', new \DateTimeImmutable('+1 hour')));
+            ->willReturn('connection-token');
 
         $fetcher = new DocumentFetcher(
             $this->httpClientRecordingHeaders($headers),

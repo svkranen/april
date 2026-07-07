@@ -2,12 +2,12 @@
 
 namespace App\Intelligence\Connector\Amagno;
 
-use App\Service\Amagno\DocumentFetcher;
+use App\Service\Amagno\DocumentGatewayInterface;
 
 final class DocumentFetcherGateway implements AmagnoDocumentGateway
 {
     public function __construct(
-        private readonly DocumentFetcher $documentFetcher
+        private readonly DocumentGatewayInterface $documentFetcher
     ) {
     }
 

@@ -62,8 +62,21 @@ services:
         arguments:
             $baseUri: '%amagno.base_uri%'
             $apiToken: '%amagno.api_token%'
-            $tokenProvider: '@Iileven\AmagnoConnector\Interface\TokenProviderInterface'
+            $tokenProvider: '@App\Service\Amagno\ApiTokenProviderInterface'
             $credentialId: '%amagno.credential_id%'
+
+    App\Service\Amagno\AmagnoConnectorTokenProvider:
+        arguments:
+            $connectorTokenProvider: '@Iileven\AmagnoConnector\Interface\TokenProviderInterface'
+
+    App\Service\Amagno\ApiTokenProviderInterface:
+        alias: App\Service\Amagno\AmagnoConnectorTokenProvider
+
+    App\Service\Amagno\CredentialStoreInterface:
+        alias: App\Service\Amagno\CredentialStore
+
+    App\Service\Amagno\DocumentGatewayInterface:
+        alias: App\Service\Amagno\DocumentFetcher
 
     App\Service\Amagno\CredentialStore:
         arguments:
@@ -127,6 +140,9 @@ services:
             $defaultApiToken: '%amagno.api_token%'
             $defaultApiUsername: '%amagno.api_username%'
             $defaultApiPassword: '%amagno.api_password%'
+
+    App\Service\SignatureCheck\SignatureCheckServiceInterface:
+        alias: App\Service\SignatureCheck\AmagnoSignatureCheckService
 
     App\Intelligence\Port\EventNormalizer:
         alias: App\Intelligence\Infrastructure\Normalizer\GenericPayloadEventNormalizer

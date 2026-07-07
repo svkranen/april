@@ -5,8 +5,9 @@ namespace App\Tests\Service;
 use App\Dto\MatchingContext;
 use App\Dto\RenderedBlock;
 use App\Dto\SyncOptions;
-use App\Service\Amagno\CredentialStore;
-use App\Service\Amagno\DocumentFetcher;
+use App\Service\Amagno\ApiTokenProviderInterface;
+use App\Service\Amagno\CredentialStoreInterface;
+use App\Service\Amagno\DocumentGatewayInterface;
 use App\Service\Amagno\DocumentTagWriter;
 use App\Service\Checkpoint\CheckpointStore;
 use App\Service\Export\ExporterRegistry;
@@ -15,22 +16,21 @@ use App\Service\Processing\DocumentMatrixBuilder;
 use App\Service\Processing\MatchingProvider;
 use App\Service\Processing\StampService;
 use App\Service\Processing\TemplateRenderer;
-use Iileven\AmagnoConnector\Interface\TokenProviderInterface;
 use PHPUnit\Framework\TestCase;
 
 class FibuExportServiceTest extends TestCase
 {
     public function testSyncDeduplicatesFetchedDocumentsById(): void
     {
-        $documentFetcher = $this->createMock(DocumentFetcher::class);
+        $documentFetcher = $this->createMock(DocumentGatewayInterface::class);
         $matchingProvider = $this->createMock(MatchingProvider::class);
         $matrixBuilder = $this->createMock(DocumentMatrixBuilder::class);
         $templateRenderer = $this->createMock(TemplateRenderer::class);
         $exporterRegistry = $this->createMock(ExporterRegistry::class);
         $stampService = $this->createMock(StampService::class);
         $checkpointStore = $this->createMock(CheckpointStore::class);
-        $tokenProvider = $this->createMock(TokenProviderInterface::class);
-        $credentialStore = $this->createMock(CredentialStore::class);
+        $tokenProvider = $this->createMock(ApiTokenProviderInterface::class);
+        $credentialStore = $this->createMock(CredentialStoreInterface::class);
         $tagWriter = $this->createMock(DocumentTagWriter::class);
 
         $documents = [
