@@ -81,6 +81,14 @@ services:
         arguments:
             $matchingFile: '%amagno.matching_file%'
 
+    App\Service\Settings\LegacyMatchingSaveService:
+        arguments:
+            $matchingFile: '%amagno.matching_file%'
+
+    App\Service\Settings\SettingsProfileProvider:
+        arguments:
+            $matchingFile: '%amagno.matching_file%'
+
     App\Service\Checkpoint\CheckpointStore:
         arguments:
             $directory: '%amagno.checkpoint_dir%'
@@ -230,6 +238,10 @@ services:
     App\Controller\App\TemplateDocumentController:
         arguments:
             $processTemplateDirectory: '%april.process_template_dir%'
+
+    App\Controller\SettingsActionController:
+        arguments:
+            $matchingSaveService: '@App\Service\Settings\LegacyMatchingSaveService'
 
     App\Controller\App\DocumentJourneyController:
         arguments:

@@ -2,35 +2,22 @@
 
 namespace App\Controller;
 
+use App\Service\Settings\LegacyMatchingSaveService;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
 class SettingsActionController
 {
+    public function __construct(
+        private readonly LegacyMatchingSaveService $matchingSaveService
+    ) {
+    }
+
     #[Route('/save.php', name: 'settings_save', methods: ['POST'])]
     #[Route('/settings/save.php', name: 'settings_save_relative', methods: ['POST'])]
-    public function save(): Response
+    public function save(Request $request): Response
     {
-        $oldProjectDir = \dirname(__DIR__, 2).'/oldProject';
-        $previousCwd = getcwd();
-        chdir($oldProjectDir);
-
-        ob_start();
-        try {
-            include $oldProjectDir.'/save.php';
-        } catch (\Throwable $e) {
-            ob_end_clean();
-            if ($previousCwd !== false) {
-                chdir($previousCwd);
-            }
-            throw $e;
-        }
-        if ($previousCwd !== false) {
-            chdir($previousCwd);
-        }
-
-        $content = ob_get_clean();
-
-        return new Response($content);
+        return new Response($this->matchingSaveService->save($request->request->all()));
     }
 }

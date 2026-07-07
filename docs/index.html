@@ -693,9 +693,8 @@ xIntelligenceSecret=&lt;secret&gt;</code></pre>
                     <p>Die Route <code>/settings</code> ist keine neu implementierte Symfony-Oberfl&auml;che, sondern eine Einbindung des Altbestands aus <code>oldProject/settings.php</code>. Angebunden ist nur noch die Pflege von <code>oldProject/matching.json</code>; Export und Signaturpr&uuml;fung laufen &uuml;ber Symfony-Commands.</p>
                     <ul class="notes">
                         <li>Bridge-Controller: <a href="../src/Controller/SettingsController.php">SettingsController</a></li>
-                        <li>POST-Bridge f&uuml;r Speichern: <a href="../src/Controller/SettingsActionController.php">SettingsActionController</a></li>
+                        <li>POST-Speicherung: <a href="../src/Controller/SettingsActionController.php">SettingsActionController</a> delegiert an <a href="../src/Service/Settings/LegacyMatchingSaveService.php">LegacyMatchingSaveService</a></li>
                         <li>Alte Ansicht: <a href="../oldProject/settings.php">oldProject/settings.php</a></li>
-                        <li>Altes Speicherskript: <a href="../oldProject/save.php">oldProject/save.php</a></li>
                         <li>Aktive Webrouten: <code>/</code>, <code>/settings</code>, <code>/save.php</code>, <code>/settings/save.php</code></li>
                     </ul>
                     <div class="warning">
