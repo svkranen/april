@@ -44,6 +44,9 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+        exclude:
+            - '../src/EventSubscriber/AmagnoCredentialsSubscriber.php'
+            - '../src/Service/Amagno/AmagnoConnectorTokenProvider.php'
 
     App\Security\EnvUserProvider:
         arguments:
@@ -64,10 +67,6 @@ services:
             $apiToken: '%amagno.api_token%'
             $tokenProvider: '@App\Service\Amagno\ApiTokenProviderInterface'
             $credentialId: '%amagno.credential_id%'
-
-    App\Service\Amagno\AmagnoConnectorTokenProvider:
-        arguments:
-            $connectorTokenProvider: '@Iileven\AmagnoConnector\Interface\TokenProviderInterface'
 
     App\Service\Amagno\ApiTokenProviderInterface:
         alias: App\Service\Amagno\CommunityApiTokenProvider
@@ -280,24 +279,3 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
-    
-    # Security-Klassen
-    Iileven\AmagnoConnector\Security\:
-        resource: '../vendor/iileven/amagno-connector-bundle/Security/*'
-        public: false
-        autowire: true
-        autoconfigure: true
-
-    # Factory-Klassen
-    Iileven\AmagnoConnector\Factory\:
-        resource: '../vendor/iileven/amagno-connector-bundle/Factory/*'
-        public: false
-        autowire: true
-        autoconfigure: true
-
-    # Interface-Definitionen (PSR-Interfaces)
-    Iileven\AmagnoConnector\Interface\:
-        resource: '../vendor/iileven/amagno-connector-bundle/Interface/*'
-        public: false
-        autowire: true
-        autoconfigure: true
