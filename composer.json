@@ -1,4 +1,6 @@
 {
+    "name": "april/community-core",
+    "description": "APRIL Community Core process intelligence application.",
     "type": "project",
     "license": "proprietary",
     "minimum-stability": "stable",
@@ -21,6 +23,7 @@
         "symfony/monolog-bundle": "^4.0",
         "symfony/runtime": "7.4.*",
         "symfony/security-bundle": "7.4.*",
+        "symfony/translation": "7.4.*",
         "symfony/twig-bundle": "7.4.*",
         "symfony/yaml": "7.4.*"
     },

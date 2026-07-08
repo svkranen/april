@@ -1,0 +1,17 @@
+glossary:
+  item: Item
+  items: Items
+  event: Event
+  events: Events
+  journey: Journey
+  journeys: Journeys
+  finding: Finding
+  findings: Findings
+  context_snapshot: Context Snapshot
+  context_snapshots: Context Snapshots
+  process_instance: Prozessinstanz
+  process_instances: Prozessinstanzen
+  process_template: Prozess-Template
+  process_templates: Prozess-Templates
+  connector: Connector
+  connectors: Connectoren
