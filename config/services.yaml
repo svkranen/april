@@ -7,16 +7,16 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
-    amagno.base_uri: '%env(string:AMAGNO_BASE_URI)%'
-    amagno.api_token: '%env(string:AMAGNO_API_TOKEN)%'
-    amagno.api_username: '%env(string:AMAGNO_API_USERNAME)%'
-    amagno.api_password: '%env(string:AMAGNO_API_PASSWORD)%'
-    amagno.api_auth_type: '%env(string:AMAGNO_API_AUTH_TYPE)%'
-    amagno.credential_id: '%env(default::int:AMAGNO_CREDENTIAL_ID)%'
-    amagno.connections_file: '%kernel.project_dir%/%env(string:AMAGNO_CONNECTIONS_FILE)%'
-    amagno.matching_file: '%kernel.project_dir%/%env(string:AMAGNO_MATCHING_FILE)%'
-    amagno.template_dir: '%kernel.project_dir%/%env(string:AMAGNO_TEMPLATE_DIR)%'
-    amagno.checkpoint_dir: '%kernel.project_dir%/%env(string:AMAGNO_CHECKPOINT_DIR)%'
+    amagno.base_uri: ''
+    amagno.api_token: ''
+    amagno.api_username: ''
+    amagno.api_password: ''
+    amagno.api_auth_type: ''
+    amagno.credential_id: 1
+    amagno.connections_file: '%kernel.project_dir%/var/april/local/connector-connections.json'
+    amagno.matching_file: '%kernel.project_dir%/var/april/local/matching.json'
+    amagno.template_dir: '%kernel.project_dir%/var/april/local/templates'
+    amagno.checkpoint_dir: '%kernel.project_dir%/var/checkpoints'
     amagno.stamp_retries: 3
     intelligence.event_store_file: '%kernel.project_dir%/var/intelligence/process_events.jsonl'
     intelligence.event_secret: ''

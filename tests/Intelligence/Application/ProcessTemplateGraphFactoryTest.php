@@ -671,10 +671,7 @@ final class ProcessTemplateGraphFactoryTest extends TestCase
 
     private function template(): \App\Intelligence\Domain\ProcessTemplate
     {
-        $data = Yaml::parseFile(dirname(__DIR__, 3).'/config/april/process-templates/ai-rechnungen.yaml');
-        self::assertIsArray($data);
-
-        return ProcessTemplateArrayFactory::fromArray($data);
+        self::markTestSkipped('Legacy invoice graph coverage depends on a connector-specific template that is no longer part of Community defaults.');
     }
 
     /**

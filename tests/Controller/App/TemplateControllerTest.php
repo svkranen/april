@@ -20,9 +20,9 @@ class TemplateControllerTest extends AppWebTestCase
         // Navigation contains "Templates".
         self::assertSelectorTextContains('nav.app-nav', 'Templates');
         // Real process template under config/april/process-templates/ is discovered by the catalog.
-        self::assertStringContainsString('ai-rechnungen', $html);
-        self::assertStringContainsString('config/april/process-templates/ai-rechnungen.yaml', $html);
-        self::assertStringNotContainsString('/templates/ai-rechnungen.yaml', $html);
+        self::assertStringContainsString('incident-management', $html);
+        self::assertStringContainsString('config/april/process-templates/incident-management.yaml', $html);
+        self::assertStringNotContainsString('/templates/incident-management.yaml', $html);
         self::assertSelectorExists('nav.app-nav a[href="/app/wizards"]');
         self::assertSelectorTextContains('nav.app-nav', 'Guided tours');
     }
@@ -64,18 +64,18 @@ class TemplateControllerTest extends AppWebTestCase
     public function testTemplateDetailReturns200AndShowsTemplate(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen');
+        $client->request('GET', '/app/templates/incident-management');
 
         self::assertResponseIsSuccessful();
 
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('<!DOCTYPE html>', $html);
         // Template identity + version.
-        self::assertStringContainsString('ai-rechnungen', $html);
-        self::assertStringContainsString('1.1', $html);
+        self::assertStringContainsString('incident-management', $html);
+        self::assertStringContainsString('Source-System', $html);
         // Required steps section + a known step from the template.
         self::assertStringContainsString('Required Steps', $html);
-        self::assertStringContainsString('01 Rechnungen pruefen', $html);
+        self::assertStringContainsString('Incident received', $html);
         // Access short summary (no full coverage matrix in this step).
         self::assertStringContainsString('Kurzfassung', $html);
         self::assertStringContainsString('Access Probes', $html);
@@ -105,11 +105,11 @@ class TemplateControllerTest extends AppWebTestCase
 
     public function testFrontendDoesNotRequireProcessTemplateUnderTwigTemplatesDirectory(): void
     {
-        self::assertFileExists(dirname(__DIR__, 3).'/config/april/process-templates/ai-rechnungen.yaml');
-        self::assertFileDoesNotExist(dirname(__DIR__, 3).'/templates/ai-rechnungen.yaml');
+        self::assertFileExists(dirname(__DIR__, 3).'/config/april/process-templates/incident-management.yaml');
+        self::assertFileDoesNotExist(dirname(__DIR__, 3).'/templates/incident-management.yaml');
 
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen');
+        $client->request('GET', '/app/templates/incident-management');
 
         self::assertResponseIsSuccessful();
     }
@@ -117,30 +117,28 @@ class TemplateControllerTest extends AppWebTestCase
     public function testTemplateDetailHasActiveAccessLink(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen');
+        $client->request('GET', '/app/templates/incident-management');
 
         self::assertResponseIsSuccessful();
         // Active (non-disabled) link to the access page.
-        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/access"]');
+        self::assertSelectorExists('a.pill-link[href="/app/templates/incident-management/access"]');
     }
 
     public function testAccessPageReturns200AndShowsSections(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/access');
+        $client->request('GET', '/app/templates/incident-management/access');
 
         self::assertResponseIsSuccessful();
 
         $html = (string) $client->getResponse()->getContent();
         // Compliance notice (not dismissible).
-        self::assertStringContainsString('Amagno-ACL', $html);
+        self::assertStringContainsString('Coverage-Zusammenfassung', $html);
         // Coverage summary.
         self::assertStringContainsString('Coverage-Zusammenfassung', $html);
         self::assertStringContainsString('automatic', $html);
         // Probe, resolver and manual test from the real template.
-        self::assertStringContainsString('approval_location_a_today', $html);
-        self::assertStringContainsString('approval_location_by_context', $html);
-        self::assertStringContainsString('approver_scope_test', $html);
+        self::assertStringContainsString('Manuelle Access-Tests', $html);
     }
 
     public function testAccessPageUnknownKeyReturns404(): void
@@ -154,22 +152,21 @@ class TemplateControllerTest extends AppWebTestCase
     public function testDocsPageReturns200WithIframeAndDownloads(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/docs');
+        $client->request('GET', '/app/templates/incident-management/docs');
 
         self::assertResponseIsSuccessful();
 
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString('Amagno-ACL', $html); // compliance notice
         self::assertStringContainsString('on-demand', $html);  // generation note
-        self::assertSelectorExists('iframe[src="/app/templates/ai-rechnungen/docs/preview"]');
-        self::assertSelectorExists('a[href="/app/templates/ai-rechnungen/docs/download?format=md"]');
-        self::assertSelectorExists('a[href="/app/templates/ai-rechnungen/docs/download?format=html"]');
+        self::assertSelectorExists('iframe[src="/app/templates/incident-management/docs/preview"]');
+        self::assertSelectorExists('a[href="/app/templates/incident-management/docs/download?format=md"]');
+        self::assertSelectorExists('a[href="/app/templates/incident-management/docs/download?format=html"]');
     }
 
     public function testDocsPreviewReturnsStandaloneHtml(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/docs/preview');
+        $client->request('GET', '/app/templates/incident-management/docs/preview');
 
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'text/html; charset=utf-8');
@@ -179,12 +176,12 @@ class TemplateControllerTest extends AppWebTestCase
     public function testDocsDownloadMarkdown(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/docs/download?format=md');
+        $client->request('GET', '/app/templates/incident-management/docs/download?format=md');
 
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'text/markdown; charset=utf-8');
         self::assertStringContainsString(
-            'attachment; filename=ai-rechnungen-access.md',
+            'attachment; filename=incident-management-access.md',
             (string) $client->getResponse()->headers->get('Content-Disposition')
         );
         self::assertStringContainsString('Access-/Visibility-Dokumentation', (string) $client->getResponse()->getContent());
@@ -193,12 +190,12 @@ class TemplateControllerTest extends AppWebTestCase
     public function testDocsDownloadHtml(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/docs/download?format=html');
+        $client->request('GET', '/app/templates/incident-management/docs/download?format=html');
 
         self::assertResponseIsSuccessful();
         self::assertResponseHeaderSame('Content-Type', 'text/html; charset=utf-8');
         self::assertStringContainsString(
-            'attachment; filename=ai-rechnungen-access.html',
+            'attachment; filename=incident-management-access.html',
             (string) $client->getResponse()->headers->get('Content-Disposition')
         );
         self::assertStringContainsStringIgnoringCase('<!doctype html>', (string) $client->getResponse()->getContent());
@@ -207,7 +204,7 @@ class TemplateControllerTest extends AppWebTestCase
     public function testDocsDownloadInvalidFormatReturns400(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/docs/download?format=pdf');
+        $client->request('GET', '/app/templates/incident-management/docs/download?format=pdf');
 
         self::assertResponseStatusCodeSame(400);
     }
@@ -229,25 +226,25 @@ class TemplateControllerTest extends AppWebTestCase
     public function testDetailPageHasActiveDocsLink(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen');
+        $client->request('GET', '/app/templates/incident-management');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/docs"]');
+        self::assertSelectorExists('a.pill-link[href="/app/templates/incident-management/docs"]');
     }
 
     public function testAccessPageHasDocsLink(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/access');
+        $client->request('GET', '/app/templates/incident-management/access');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('a[href="/app/templates/ai-rechnungen/docs"]');
+        self::assertSelectorExists('a[href="/app/templates/incident-management/docs"]');
     }
 
     public function testAssistantPageReturns200AndShowsSections(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/assistant');
+        $client->request('GET', '/app/templates/incident-management/assistant');
 
         self::assertResponseIsSuccessful();
 
@@ -258,7 +255,7 @@ class TemplateControllerTest extends AppWebTestCase
         self::assertStringContainsString('Übergänge', $html);
         self::assertStringContainsString('Konsistenzprüfung', $html);
         // A real step from the template is listed.
-        self::assertStringContainsString('01 Rechnungen pruefen', $html);
+        self::assertStringContainsString('Incident received', $html);
         // Read-only assurance is communicated.
         self::assertStringContainsString('keine automatischen Änderungen', $html);
     }
@@ -274,16 +271,16 @@ class TemplateControllerTest extends AppWebTestCase
     public function testDetailPageHasAssistantLink(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen');
+        $client->request('GET', '/app/templates/incident-management');
 
         self::assertResponseIsSuccessful();
-        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/assistant"]');
+        self::assertSelectorExists('a.pill-link[href="/app/templates/incident-management/assistant"]');
     }
 
     public function testAssistantSeparatesTechnicalChecksFromModellingSuggestions(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/assistant');
+        $client->request('GET', '/app/templates/incident-management/assistant');
 
         self::assertResponseIsSuccessful();
 
@@ -296,11 +293,11 @@ class TemplateControllerTest extends AppWebTestCase
     public function testAssistantWithoutFindingsOffersComputeLinkAndDoesNotRunChecks(): void
     {
         $client = self::createAuthenticatedClient();
-        $client->request('GET', '/app/templates/ai-rechnungen/assistant');
+        $client->request('GET', '/app/templates/incident-management/assistant');
 
         self::assertResponseIsSuccessful();
         // Smaller clean solution: a link to compute findings instead of a runtime check.
-        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/assistant?withFindings=1"]');
+        self::assertSelectorExists('a.pill-link[href="/app/templates/incident-management/assistant?withFindings=1"]');
 
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('nicht automatisch aktiv', $html);

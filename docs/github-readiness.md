@@ -93,6 +93,23 @@ The license is reflected in:
 - Optional connector code is separated from the Community Core runtime path.
 - Apache-2.0 license is complete and documented.
 
+## Remaining Documentation Cleanup
+
+Some historical documentation pages still describe the former connector-specific
+setup and invoice template examples. They are not part of the current Community
+quickstart, but should be rewritten or archived before the public repository is
+announced broadly:
+
+- `docs/admin-guide.html`
+- `docs/index.html`
+- `docs/process-analysis-guide.md`
+- `docs/intelligence/chart-recipes.md`
+- `docs/intelligence/process-versioning.md`
+- `docs/intelligence/process-documentation-concept.md`
+
+These pages should be aligned with the neutral Incident Management demo and the
+connector-independent Community Core terminology.
+
 ## Out Of Scope For Community Release
 
 - Enterprise/private adapters

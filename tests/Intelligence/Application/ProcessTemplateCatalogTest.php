@@ -60,14 +60,14 @@ class ProcessTemplateCatalogTest extends TestCase
         $this->removeDirectory($directory);
     }
 
-    public function testFindsRealAiRechnungenTemplate(): void
+    public function testFindsRealIncidentManagementTemplate(): void
     {
         $directory = dirname(__DIR__, 3).'/config/april/process-templates';
 
         $result = (new ProcessTemplateCatalog($directory))->list();
 
         $keys = array_map(static fn ($entry): string => $entry->key, $result->entries);
-        self::assertContains('ai-rechnungen', $keys);
+        self::assertContains('incident-management', $keys);
     }
 
     /**

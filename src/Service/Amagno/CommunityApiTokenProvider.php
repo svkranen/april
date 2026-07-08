@@ -9,7 +9,7 @@ final class CommunityApiTokenProvider implements ApiTokenProviderInterface
     public function tokenForCredential(int $credentialId): string
     {
         throw new RuntimeException(sprintf(
-            'Credential-basierter Amagno Tokenabruf ist im Community-Default nicht verfuegbar. Setze AMAGNO_API_TOKEN oder aktiviere den Enterprise Amagno-Connector fuer Credential-ID %d.',
+            'Credential-basierter Connector-Tokenabruf ist im Community-Default nicht verfuegbar. Konfiguriere einen statischen Token oder aktiviere einen optionalen Connector fuer Credential-ID %d.',
             $credentialId
         ));
     }

@@ -127,7 +127,7 @@ class DocumentFetcherTest extends TestCase
         );
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Credential-basierter Amagno Tokenabruf ist im Community-Default nicht verfuegbar. Setze AMAGNO_API_TOKEN oder aktiviere den Enterprise Amagno-Connector fuer Credential-ID 42.');
+        $this->expectExceptionMessage('Credential-basierter Connector-Tokenabruf ist im Community-Default nicht verfuegbar. Konfiguriere einen statischen Token oder aktiviere einen optionalen Connector fuer Credential-ID 42.');
 
         $fetcher->fetchDocumentTags('doc-1');
     }
@@ -186,7 +186,7 @@ class DocumentFetcherTest extends TestCase
         );
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Kein Amagno API Token verfügbar. Setze AMAGNO_API_TOKEN oder AMAGNO_CREDENTIAL_ID.');
+        $this->expectExceptionMessage('Kein Connector API Token verfügbar. Konfiguriere einen statischen Token oder eine optionale Connector-Credential.');
 
         $fetcher->fetchDocumentTags('doc-1');
     }

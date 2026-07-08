@@ -135,7 +135,7 @@ class DocumentFetcher implements DocumentGatewayInterface
         }
 
         if ($token === null || $token === '') {
-            throw new \RuntimeException('Kein Amagno API Token verfügbar. Setze AMAGNO_API_TOKEN oder AMAGNO_CREDENTIAL_ID.');
+            throw new \RuntimeException('Kein Connector API Token verfügbar. Konfiguriere einen statischen Token oder eine optionale Connector-Credential.');
         }
 
         return $token;

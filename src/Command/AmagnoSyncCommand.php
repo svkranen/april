@@ -43,12 +43,12 @@ class AmagnoSyncCommand extends Command
             ->addOption('api-user', null, InputOption::VALUE_OPTIONAL, 'Benutzername des technischen Amagno-Kontos')
             ->addOption('api-password', null, InputOption::VALUE_OPTIONAL, 'Passwort des technischen Amagno-Kontos')
             ->addOption('api-auth-type', null, InputOption::VALUE_OPTIONAL, 'AuthenticationType für den Login (optional)')
-            ->addOption('base-uri', null, InputOption::VALUE_OPTIONAL, 'Amagno Base URI (überschreibt AMAGNO_BASE_URI)')
+            ->addOption('base-uri', null, InputOption::VALUE_OPTIONAL, 'Connector base URI')
             ->addOption('credential-id', null, InputOption::VALUE_OPTIONAL, 'Credential-ID für den Tokenabruf')
             ->addOption('success-stamp', null, InputOption::VALUE_OPTIONAL, 'Stempel-ID für erfolgreiche Verarbeitung')
             ->addOption('error-stamp', null, InputOption::VALUE_OPTIONAL, 'Stempel-ID bei Fehlern')
             ->addOption('error-attribute', null, InputOption::VALUE_OPTIONAL, 'Merkmals-ID für Fehlermeldungen')
-            ->addOption('connection', null, InputOption::VALUE_OPTIONAL, 'ID einer vordefinierten Amagno-Verbindung aus config/amagno_connections.json')
+            ->addOption('connection', null, InputOption::VALUE_OPTIONAL, 'ID einer optionalen Connector-Verbindung')
             ->addOption('all-connections', null, InputOption::VALUE_NONE, 'Alle vordefinierten Amagno-Verbindungen verarbeiten')
             ->addOption('vault', null, InputOption::VALUE_OPTIONAL, 'Vault ID for Amagno export')
             ->addOption('folder', null, InputOption::VALUE_OPTIONAL, 'Local export folder')
@@ -129,7 +129,7 @@ class AmagnoSyncCommand extends Command
     private function runAllConnections(InputInterface $input, OutputInterface $output): int
     {
         if (!$this->connectionRegistry->hasConnections()) {
-            throw new RuntimeException('Es sind keine Verbindungen in config/amagno_connections.json konfiguriert.');
+            throw new RuntimeException('Es sind keine optionalen Connector-Verbindungen konfiguriert.');
         }
 
         foreach ($this->connectionRegistry->all() as $connection) {

@@ -33,16 +33,16 @@ class ProcessTemplateLocationTest extends TestCase
 
     public function testProcessTemplateLivesUnderConfigAprilNotUnderTemplates(): void
     {
-        self::assertFileExists($this->processTemplateDir().'/ai-rechnungen.yaml');
-        self::assertFileDoesNotExist($this->projectDir().'/templates/ai-rechnungen.yaml');
+        self::assertFileExists($this->processTemplateDir().'/incident-management.yaml');
+        self::assertFileDoesNotExist($this->projectDir().'/templates/incident-management.yaml');
     }
 
-    public function testCatalogFindsAiRechnungenUnderConfigAprilOnly(): void
+    public function testCatalogFindsIncidentManagementUnderConfigAprilOnly(): void
     {
         $result = (new ProcessTemplateCatalog($this->processTemplateDir()))->list();
 
         $keys = array_map(static fn ($entry): string => $entry->key, $result->entries);
-        self::assertContains('ai-rechnungen', $keys);
+        self::assertContains('incident-management', $keys);
 
         foreach ($result->entries as $entry) {
             self::assertStringContainsString('/config/april/process-templates/', $entry->path);
@@ -60,23 +60,23 @@ class ProcessTemplateLocationTest extends TestCase
         self::assertSame([], $result->warnings);
     }
 
-    public function testProviderFindsAiRechnungenUnderConfigApril(): void
+    public function testProviderFindsIncidentManagementUnderConfigApril(): void
     {
         $provider = new YamlProcessTemplateProvider($this->processTemplateDir());
 
-        $template = $provider->findByProcessKey('ai-rechnungen');
+        $template = $provider->findByProcessKey('incident-management');
         self::assertNotNull($template);
-        self::assertSame('ai-rechnungen', $template->key);
+        self::assertSame('incident-management', $template->key);
     }
 
     public function testProviderDoesNotResolveTemplatesFromTwigDirectory(): void
     {
         $provider = new YamlProcessTemplateProvider($this->twigWebDir());
 
-        self::assertNull($provider->findByProcessKey('ai-rechnungen'));
+        self::assertNull($provider->findByProcessKey('incident-management'));
     }
 
-    public function testListCommandReportsAiRechnungenFromConfigApril(): void
+    public function testListCommandReportsIncidentManagementFromConfigApril(): void
     {
         $tester = new CommandTester(new IntelligenceTemplateListCommand($this->processTemplateDir()));
         $tester->execute(['--format' => 'json']);
@@ -85,7 +85,7 @@ class ProcessTemplateLocationTest extends TestCase
         $keys = array_column($data['templates'], 'key');
         $paths = array_column($data['templates'], 'path');
 
-        self::assertContains('ai-rechnungen', $keys);
+        self::assertContains('incident-management', $keys);
         foreach ($paths as $path) {
             self::assertStringContainsString('/config/april/process-templates/', $path);
         }
