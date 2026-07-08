@@ -1,0 +1,78 @@
+[
+  {
+    "externalEventKey": "demo:incident-management:business-001:incident_received",
+    "processKey": "incident-management",
+    "eventKey": "incident.step_completed",
+    "stepKey": "incident_received",
+    "eventPhase": "after",
+    "sourceSystem": "community-demo",
+    "documentId": "incident-business-001",
+    "documentUuid": "10000000-0000-4000-8000-000000000002",
+    "documentVersion": 1,
+    "actorRef": "demo-user-support",
+    "occurredAt": "2026-07-08T10:00:00+00:00",
+    "attributes": {
+      "data_exposure": false,
+      "category": "business_process",
+      "system_type": "internal",
+      "severity": "medium"
+    }
+  },
+  {
+    "externalEventKey": "demo:incident-management:business-001:classify_incident",
+    "processKey": "incident-management",
+    "eventKey": "incident.step_completed",
+    "stepKey": "classify_incident",
+    "eventPhase": "after",
+    "sourceSystem": "community-demo",
+    "documentId": "incident-business-001",
+    "documentUuid": "10000000-0000-4000-8000-000000000002",
+    "documentVersion": 1,
+    "actorRef": "demo-user-support",
+    "occurredAt": "2026-07-08T10:06:00+00:00",
+    "attributes": {
+      "data_exposure": false,
+      "category": "business_process",
+      "system_type": "internal",
+      "severity": "medium"
+    }
+  },
+  {
+    "externalEventKey": "demo:incident-management:business-001:route_to_specialist_group",
+    "processKey": "incident-management",
+    "eventKey": "incident.step_completed",
+    "stepKey": "route_to_specialist_group",
+    "eventPhase": "after",
+    "sourceSystem": "community-demo",
+    "documentId": "incident-business-001",
+    "documentUuid": "10000000-0000-4000-8000-000000000002",
+    "documentVersion": 1,
+    "actorRef": "demo-user-specialist",
+    "occurredAt": "2026-07-08T10:18:00+00:00",
+    "attributes": {
+      "data_exposure": false,
+      "category": "business_process",
+      "system_type": "internal",
+      "severity": "medium"
+    }
+  },
+  {
+    "externalEventKey": "demo:incident-management:business-001:close_incident",
+    "processKey": "incident-management",
+    "eventKey": "incident.step_completed",
+    "stepKey": "close_incident",
+    "eventPhase": "after",
+    "sourceSystem": "community-demo",
+    "documentId": "incident-business-001",
+    "documentUuid": "10000000-0000-4000-8000-000000000002",
+    "documentVersion": 1,
+    "actorRef": "demo-user-specialist",
+    "occurredAt": "2026-07-08T10:44:00+00:00",
+    "attributes": {
+      "data_exposure": false,
+      "category": "business_process",
+      "system_type": "internal",
+      "severity": "medium"
+    }
+  }
+]

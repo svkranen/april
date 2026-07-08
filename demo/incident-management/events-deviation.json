@@ -1,0 +1,78 @@
+[
+  {
+    "externalEventKey": "demo:incident-management:deviation-001:incident_received",
+    "processKey": "incident-management",
+    "eventKey": "incident.step_completed",
+    "stepKey": "incident_received",
+    "eventPhase": "after",
+    "sourceSystem": "community-demo",
+    "documentId": "incident-deviation-001",
+    "documentUuid": "10000000-0000-4000-8000-000000000004",
+    "documentVersion": 1,
+    "actorRef": "demo-user-first-level",
+    "occurredAt": "2026-07-08T12:00:00+00:00",
+    "attributes": {
+      "data_exposure": true,
+      "category": "security",
+      "system_type": "internal",
+      "severity": "high"
+    }
+  },
+  {
+    "externalEventKey": "demo:incident-management:deviation-001:classify_incident",
+    "processKey": "incident-management",
+    "eventKey": "incident.step_completed",
+    "stepKey": "classify_incident",
+    "eventPhase": "after",
+    "sourceSystem": "community-demo",
+    "documentId": "incident-deviation-001",
+    "documentUuid": "10000000-0000-4000-8000-000000000004",
+    "documentVersion": 1,
+    "actorRef": "demo-user-first-level",
+    "occurredAt": "2026-07-08T12:03:00+00:00",
+    "attributes": {
+      "data_exposure": true,
+      "category": "security",
+      "system_type": "internal",
+      "severity": "high"
+    }
+  },
+  {
+    "externalEventKey": "demo:incident-management:deviation-001:resolve_first_level",
+    "processKey": "incident-management",
+    "eventKey": "incident.step_completed",
+    "stepKey": "resolve_first_level",
+    "eventPhase": "after",
+    "sourceSystem": "community-demo",
+    "documentId": "incident-deviation-001",
+    "documentUuid": "10000000-0000-4000-8000-000000000004",
+    "documentVersion": 1,
+    "actorRef": "demo-user-first-level",
+    "occurredAt": "2026-07-08T12:11:00+00:00",
+    "attributes": {
+      "data_exposure": true,
+      "category": "security",
+      "system_type": "internal",
+      "severity": "high"
+    }
+  },
+  {
+    "externalEventKey": "demo:incident-management:deviation-001:close_incident",
+    "processKey": "incident-management",
+    "eventKey": "incident.step_completed",
+    "stepKey": "close_incident",
+    "eventPhase": "after",
+    "sourceSystem": "community-demo",
+    "documentId": "incident-deviation-001",
+    "documentUuid": "10000000-0000-4000-8000-000000000004",
+    "documentVersion": 1,
+    "actorRef": "demo-user-first-level",
+    "occurredAt": "2026-07-08T12:19:00+00:00",
+    "attributes": {
+      "data_exposure": true,
+      "category": "security",
+      "system_type": "internal",
+      "severity": "high"
+    }
+  }
+]
