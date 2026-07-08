@@ -41,6 +41,12 @@ Das Phase-1.1-Skeleton stellt `compose.yaml`, `Dockerfile` und `.dockerignore` b
 
 Die Umgebung ist bewusst noch kein vollstaendiger 15-Minuten-Quickstart. Build, Start, Migrationen und Composer-Installationsschritte bleiben dem spaeteren Quickstart vorbehalten.
 
+## Troubleshooting
+
+Wenn PostgreSQL in Docker-in-Incus mit `could not create Unix-domain sockets` scheitert, liegt das typischerweise an der verschachtelten Containerumgebung. Als lokaler Workaround fuer diesen Incus-Test kann beim `db`-Service temporaer `user: root` und `security_opt: apparmor=unconfined` gesetzt werden.
+
+Dieser Workaround ist keine produktive Empfehlung und soll nicht als Standard in `compose.yaml` uebernommen werden.
+
 ## Demo-Daten
 
 Demo-Daten fuer den Community-Quickstart sollen connectorfrei funktionieren. Events sollten den benoetigten Context inline mitliefern, damit kein DMS-, ERP- oder Amagno-Connector notwendig ist.
