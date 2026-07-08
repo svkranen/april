@@ -44,6 +44,8 @@ class TemplateControllerTest extends AppWebTestCase
         self::assertStringContainsString('Welcome to APRIL', $html);
         self::assertStringContainsString('Your Incident Management demo is ready', $html);
         self::assertStringContainsString('Decision Rule Violation', $html);
+        self::assertStringContainsString('Start guided First Insight', $html);
+        self::assertSelectorExists('a[href="/app/wizards/first-insight"]');
         self::assertSelectorExists('a[href="/app/templates/incident-management/documents?withFindings=1"]');
         self::assertSelectorExists('a[href="/app/intelligence/documents/10000000-0000-4000-8000-000000000004"]');
         self::assertSelectorExists('a[href="/app/templates/incident-management/graph?withFindings=1"]');

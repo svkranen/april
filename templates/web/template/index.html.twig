@@ -10,6 +10,7 @@
 
             <h2>Start here</h2>
             <div class="header-actions">
+                <a class="pill-link" href="{{ path('app_wizards_show', { key: 'first-insight' }) }}">Start guided First Insight</a>
                 <a class="pill-link" href="{{ path('app_templates_documents', { key: 'incident-management', withFindings: 1 }) }}">Items &amp; Findings</a>
                 <a class="pill-link" href="{{ path('app_intelligence_documents_show', { documentUuid: '10000000-0000-4000-8000-000000000004' }) }}">Deviation Journey</a>
                 <a class="pill-link" href="{{ path('app_templates_graph', { key: 'incident-management', withFindings: 1 }) }}">Process Graph</a>
