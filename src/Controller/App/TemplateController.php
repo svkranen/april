@@ -60,6 +60,7 @@ final class TemplateController
         return new Response($this->twig->render('template/index.html.twig', [
             'active_nav' => 'templates',
             'entries' => $catalog->entries,
+            'has_incident_demo' => $this->hasProcessTemplate($catalog->entries, 'incident-management'),
             'warnings' => $catalog->warnings,
         ]));
     }
@@ -295,5 +296,19 @@ final class TemplateController
             $key,
             $this->processTemplateDirectory
         );
+    }
+
+    /**
+     * @param array<int, object> $entries
+     */
+    private function hasProcessTemplate(array $entries, string $key): bool
+    {
+        foreach ($entries as $entry) {
+            if (($entry->key ?? null) === $key) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

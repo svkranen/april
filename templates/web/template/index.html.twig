@@ -3,6 +3,23 @@
 {% block title %}Templates · APRIL{% endblock %}
 
 {% block body %}
+    {% if has_incident_demo %}
+        <div class="card">
+            <h1>Welcome to APRIL</h1>
+            <p class="muted">Your Incident Management demo is ready. APRIL reconstructed process instances from imported events and checks whether the observed journey follows the expected process.</p>
+
+            <h2>Start here</h2>
+            <div class="header-actions">
+                <a class="pill-link" href="{{ path('app_templates_documents', { key: 'incident-management', withFindings: 1 }) }}">Items &amp; Findings</a>
+                <a class="pill-link" href="{{ path('app_intelligence_documents_show', { documentUuid: '10000000-0000-4000-8000-000000000004' }) }}">Deviation Journey</a>
+                <a class="pill-link" href="{{ path('app_templates_graph', { key: 'incident-management', withFindings: 1 }) }}">Process Graph</a>
+                <a class="pill-link" href="{{ path('app_templates_show', { key: 'incident-management' }) }}">Template Details</a>
+            </div>
+
+            <p class="muted">First insight: one demo incident looks complete, but it was routed to first level although the context requires a security review. That is the Decision Rule Violation to inspect first.</p>
+        </div>
+    {% endif %}
+
     <div class="card">
         <h1>Prozess-Templates</h1>
         <p class="muted">Verfügbare YAML-Prozess-Templates aus dem Template-Verzeichnis.</p>
