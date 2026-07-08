@@ -4,6 +4,11 @@ namespace App\Wizard;
 
 final readonly class WizardDefinitionRenderer
 {
+    public function __construct(
+        private ?WizardLinkResolver $linkResolver = null
+    ) {
+    }
+
     /**
      * @return array<int, string>
      */
@@ -30,7 +35,7 @@ final readonly class WizardDefinitionRenderer
             $this->appendOptionalValue($lines, '     Goal', $step->data['goal'] ?? null);
             $this->appendOptionalValue($lines, '     Body', $step->data['body'] ?? null);
             $this->appendList($lines, '     Concepts', $this->strings($step->data['concepts'] ?? []));
-            $this->appendRecords($lines, '     Links', $this->records($step->data['links'] ?? []));
+            $this->appendRecords($lines, '     Links', $this->linkRecords($step->data['links'] ?? []));
             $this->appendMap($lines, '     Completion', $this->mapping($step->data['completion'] ?? []));
         }
 
@@ -173,6 +178,33 @@ final readonly class WizardDefinitionRenderer
 
             if ($record !== []) {
                 $records[] = $record;
+            }
+        }
+
+        return $records;
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function linkRecords(mixed $value): array
+    {
+        $records = $this->records($value);
+        if ($this->linkResolver === null || !is_array($value)) {
+            return $records;
+        }
+
+        foreach (array_values($value) as $index => $link) {
+            if (!is_array($link) || !isset($records[$index])) {
+                continue;
+            }
+
+            $resolved = $this->linkResolver->resolve($link);
+            if ($resolved['path'] !== null) {
+                $records[$index]['path'] = $resolved['path'];
+            }
+            if ($resolved['warning'] !== null) {
+                $records[$index]['warning'] = $resolved['warning'];
             }
         }
 
