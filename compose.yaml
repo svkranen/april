@@ -19,13 +19,11 @@ services:
         condition: service_healthy
 
   db:
-    image: postgres:16-alpine
+    image: postgres:16
     environment:
       POSTGRES_DB: april
       POSTGRES_USER: april
       POSTGRES_PASSWORD: april
-    tmpfs:
-      - /var/run/postgresql:rw,noexec,nosuid,size=64m,mode=1777
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
