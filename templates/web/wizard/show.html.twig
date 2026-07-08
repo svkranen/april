@@ -1,0 +1,132 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.title }} · Wizard · APRIL{% endblock %}
+
+{% block body %}
+    <div class="card">
+        <p class="crumbs"><a href="{{ path('app_templates_index') }}">← Back to APRIL</a></p>
+
+        <h1>{{ view.title }}</h1>
+        <p class="meta-line">Key: <code>{{ view.key }}</code></p>
+        <p class="meta-line">Version: <strong>{{ view.version }}</strong></p>
+        {% if view.description %}
+            <p class="muted">{{ view.description }}</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Overview</h2>
+
+        {% if view.audience is not empty %}
+            <h3>Audience</h3>
+            <p class="tags">
+                {% for audience in view.audience %}
+                    <span class="badge">{{ audience }}</span>
+                {% endfor %}
+            </p>
+        {% endif %}
+
+        {% if view.scenario is not empty %}
+            <h3>Scenario</h3>
+            <table>
+                <tbody>
+                    {% for key, value in view.scenario %}
+                        <tr>
+                            <th>{{ key }}</th>
+                            <td><code>{{ value }}</code></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+
+        {% if view.concepts is not empty %}
+            <h3>Concepts</h3>
+            <p class="tags">
+                {% for concept in view.concepts %}
+                    <span class="badge">{{ concept }}</span>
+                {% endfor %}
+            </p>
+        {% endif %}
+
+        {% if view.prerequisites is not empty %}
+            <h3>Prerequisites</h3>
+            {{ _self.record_table(view.prerequisites, true) }}
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Steps</h2>
+
+        {% if view.steps is empty %}
+            <p class="muted">No steps are defined.</p>
+        {% else %}
+            {% for step in view.steps %}
+                <section class="phase-block">
+                    <h3 class="step-head">{{ loop.index }}. {{ step.title }}</h3>
+                    <p class="meta-line">Key: <code>{{ step.key }}</code></p>
+                    {% if step.goal %}
+                        <p class="meta-line">Goal: {{ step.goal }}</p>
+                    {% endif %}
+                    {% if step.description %}
+                        <p>{{ step.description }}</p>
+                    {% endif %}
+
+                    {% if step.concepts is not empty %}
+                        <p class="tags">
+                            {% for concept in step.concepts %}
+                                <span class="badge">{{ concept }}</span>
+                            {% endfor %}
+                        </p>
+                    {% endif %}
+
+                    {% if step.links is not empty %}
+                        <h4>Links</h4>
+                        <div class="header-actions">
+                            {% for link in step.links %}
+                                {% if link.path is defined %}
+                                    <a class="pill-link" href="{{ link.path }}">{{ link.label|default(link.key|default(link.path)) }}</a>
+                                {% else %}
+                                    <span class="pill-link is-disabled">{{ link.label|default(link.key|default('Link')) }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {{ _self.record_table(step.links, false) }}
+                    {% endif %}
+
+                    {% if step.prerequisites is not empty %}
+                        <h4>Prerequisites</h4>
+                        {{ _self.record_table(step.prerequisites, true) }}
+                    {% endif %}
+
+                    {% if step.completion is not empty %}
+                        <h4>Completion</h4>
+                        {{ _self.record_table(step.completion, true) }}
+                    {% endif %}
+                </section>
+            {% endfor %}
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% macro record_table(records, highlight_status) %}
+    <table>
+        <tbody>
+            {% for record in records %}
+                <tr>
+                    <td>
+                        {% for key, value in record %}
+                            {% if key == 'path' %}
+                                <span class="badge is-muted">path</span> <a href="{{ value }}">{{ value }}</a><br>
+                            {% elseif highlight_status and key == 'status' %}
+                                <span class="badge vs-{{ value }}">{{ value }}</span><br>
+                            {% else %}
+                                <span class="badge is-muted">{{ key }}</span> {{ value }}<br>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endmacro %}
