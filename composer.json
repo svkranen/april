@@ -12,7 +12,6 @@
         "doctrine/doctrine-bundle": "^2.18",
         "doctrine/doctrine-migrations-bundle": "^3.4",
         "doctrine/orm": "^3.6",
-        "iileven/amagno-connector-bundle": "dev-main",
         "phpoffice/phpspreadsheet": "^5.3",
         "symfony/asset-mapper": "7.4.*",
         "symfony/console": "7.4.*",
@@ -34,8 +33,7 @@
             "symfony/runtime": true
         },
         "bump-after-update": true,
-        "sort-packages": true,
-        "secure-http": false
+        "sort-packages": true
     },
     "autoload": {
         "psr-4": {
@@ -84,11 +82,5 @@
         "symfony/browser-kit": "7.4.*",
         "symfony/css-selector": "7.4.*",
         "symfony/phpunit-bridge": "^8.0"
-    },
-    "repositories": {
-        "amagno-connector-bundle": {
-            "type": "vcs",
-            "url": "http://10.0.3.198:3000/svankranen/AmagnoApiConnector.git"
-        }
     }
 }

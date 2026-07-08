@@ -22,11 +22,6 @@ jobs:
           extensions: ctype, iconv, dom, xml, mbstring, intl, curl, zip, pdo_pgsql
           coverage: none
 
-      - name: Configure Composer auth for private Gitea packages
-        run: |
-          composer config --global --auth http-basic.10.0.3.198:3000 "${{ secrets.GITEAPACKAGEUSER }}" "${{ secrets.GITEAPACKAGETOKEN }}"
-          composer config --global secure-http false
-
       - name: Install dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
 

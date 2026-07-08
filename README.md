@@ -78,9 +78,7 @@ It is a process intelligence layer for systems you already have.
 
 ## Quickstart
 
-Run APRIL locally with Docker, load the Incident Management demo, and open it in the browser.
-
-> Current status: the repository still contains a private Composer dependency. Until that cleanup is complete, `composer install` may require credentials for the existing lock file. This must be removed before the first public release.
+Run APRIL locally with Docker, install the public Composer dependencies, load the Incident Management demo, and open it in the browser.
 
 ```bash
 git clone <repository-url>

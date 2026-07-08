@@ -35,12 +35,6 @@
             "migrations/.gitignore"
         ]
     },
-    "iileven/amagno-connector-bundle": {
-        "version": "dev-main"
-    },
-    "php-amqplib/rabbitmq-bundle": {
-        "version": "2.19.0"
-    },
     "symfony/asset-mapper": {
         "version": "7.4",
         "recipe": {
