@@ -80,7 +80,7 @@ It is a process intelligence layer for systems you already have.
 
 Run APRIL locally with Docker, load the Incident Management demo, and open it in the browser.
 
-> Current status: the repository still contains a private Composer dependency. Until that cleanup is complete, `composer install` may require credentials for the existing lock file.
+> Current status: the repository still contains a private Composer dependency. Until that cleanup is complete, `composer install` may require credentials for the existing lock file. This must be removed before the first public release.
 
 ```bash
 git clone <repository-url>
@@ -98,7 +98,7 @@ docker compose exec app php bin/console april:fixtures:load --reset
 Open:
 
 ```text
-http://localhost:8080
+http://localhost:8080/app
 ```
 
 Login:
