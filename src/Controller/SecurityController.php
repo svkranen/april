@@ -12,14 +12,15 @@ use Twig\Environment;
 final class SecurityController
 {
     public function __construct(
-        private readonly Environment $twig
+        private readonly Environment $twig,
+        private readonly Security $security
     ) {
     }
 
     #[Route('/login', name: 'app_login', methods: ['GET', 'POST'])]
     public function login(AuthenticationUtils $authenticationUtils): Response
     {
-        if ($authenticationUtils->getLastUsername() !== '' && $authenticationUtils->getLastAuthenticationError() === null) {
+        if ($this->security->getUser() !== null) {
             return new Response('', Response::HTTP_FOUND, ['Location' => '/app']);
         }
 
