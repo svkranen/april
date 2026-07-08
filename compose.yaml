@@ -20,6 +20,7 @@ services:
 
   db:
     image: postgres:16-alpine
+    command: ["postgres", "-c", "unix_socket_directories="]
     environment:
       POSTGRES_DB: april
       POSTGRES_USER: april
