@@ -156,7 +156,7 @@
                 <nav class="app-nav">
                     <a href="{{ path('app_templates_index') }}" class="{{ active_nav|default('') == 'templates' ? 'is-active' : '' }}">Templates</a>
                     <a href="{{ path('app_intelligence_documents_index') }}" class="{{ active_nav|default('') == 'documents' ? 'is-active' : '' }}">{{ 'glossary.items'|trans({}, 'glossary') }}</a>
-                    <a href="{{ path('app_wizards_show', { key: 'first-insight' }) }}" class="{{ active_nav|default('') == 'wizards' ? 'is-active' : '' }}">Guided tours</a>
+                    <a href="{{ path('app_wizards_index') }}" class="{{ active_nav|default('') == 'wizards' ? 'is-active' : '' }}">Guided tours</a>
                     {% if app.user %}
                         <a href="{{ path('app_logout') }}">Logout</a>
                     {% endif %}

@@ -23,7 +23,7 @@ class TemplateControllerTest extends AppWebTestCase
         self::assertStringContainsString('ai-rechnungen', $html);
         self::assertStringContainsString('config/april/process-templates/ai-rechnungen.yaml', $html);
         self::assertStringNotContainsString('/templates/ai-rechnungen.yaml', $html);
-        self::assertSelectorExists('nav.app-nav a[href="/app/wizards/first-insight"]');
+        self::assertSelectorExists('nav.app-nav a[href="/app/wizards"]');
         self::assertSelectorTextContains('nav.app-nav', 'Guided tours');
     }
 

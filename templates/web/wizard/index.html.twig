@@ -1,0 +1,55 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}Guided tours · APRIL{% endblock %}
+
+{% block body %}
+    <div class="card">
+        <h1>Guided tours</h1>
+        <p class="muted">Read-only walkthroughs for understanding APRIL concepts and demo scenarios.</p>
+    </div>
+
+    <div class="card">
+        {% if summaries is empty %}
+            <p class="muted">No wizard definitions found.</p>
+        {% else %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Wizard</th>
+                        <th>Audience</th>
+                        <th>Scenario</th>
+                        <th>Open</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for summary in summaries %}
+                        <tr>
+                            <td>
+                                <strong>{{ summary.title }}</strong>
+                                <p class="meta-line">Key: <code>{{ summary.key }}</code></p>
+                                {% if summary.description %}
+                                    <p class="muted">{{ summary.description }}</p>
+                                {% endif %}
+                            </td>
+                            <td class="tags">
+                                {% for audience in summary.audience %}
+                                    <span class="badge">{{ audience }}</span>
+                                {% else %}
+                                    <span class="badge is-muted">not specified</span>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for key, value in summary.scenario %}
+                                    <span class="badge is-muted">{{ key }}</span> <code>{{ value }}</code><br>
+                                {% else %}
+                                    <span class="muted">not specified</span>
+                                {% endfor %}
+                            </td>
+                            <td><a class="pill-link" href="{{ path('app_wizards_show', { key: summary.key }) }}">Open</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+{% endblock %}

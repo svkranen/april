@@ -6,6 +6,23 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final class WizardControllerTest extends AppWebTestCase
 {
+    public function testWizardIndexListsAvailableGuidedTours(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/wizards');
+
+        self::assertResponseIsSuccessful();
+
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Guided tours', $html);
+        self::assertStringContainsString('First Insight', $html);
+        self::assertStringContainsString('Guide new users through the Incident Management demo.', $html);
+        self::assertStringContainsString('developer', $html);
+        self::assertStringContainsString('incident-management', $html);
+        self::assertSelectorExists('nav.app-nav a[href="/app/wizards"]');
+        self::assertSelectorExists('a[href="/app/wizards/first-insight"]');
+    }
+
     public function testFirstInsightWizardPageRendersReadOnlyView(): void
     {
         $client = self::createAuthenticatedClient();
@@ -24,7 +41,7 @@ final class WizardControllerTest extends AppWebTestCase
         self::assertStringContainsString('Completion', $html);
         self::assertStringContainsString('unknown', $html);
         self::assertStringContainsString('Route visits are not tracked yet.', $html);
-        self::assertSelectorExists('nav.app-nav a[href="/app/wizards/first-insight"]');
+        self::assertSelectorExists('nav.app-nav a[href="/app/wizards"]');
         self::assertSelectorExists('a[href="/app/templates/incident-management/documents?withFindings=1"]');
         self::assertSelectorExists('a[href="/app/intelligence/documents/10000000-0000-4000-8000-000000000004"]');
     }
