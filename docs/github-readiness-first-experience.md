@@ -32,14 +32,14 @@ Login: admin@example.local / april
 - Fehlende PHP-Extensions im Dockerfile: `gd` und `sockets` werden fuer den bestehenden Composer-Lock benoetigt.
 - Fehlendes `git` im Dockerfile: Composer braucht `git`, wenn Pakete aus Source installiert werden muessen.
 - `.env` muss aus `.env.example` erzeugt werden, bevor Symfony lokal sinnvoll startet.
-- Private Composer-Dependency: Der aktuelle Lockfile-Stand benoetigt noch Credentials fuer private Paketquellen.
+- Composer-Installation: Der Community-Core muss ohne private Composer-Repositories installierbar bleiben.
 - Lokale HTTP-Erreichbarkeit: Der Quickstart soll unter `http://localhost:8080/app` ohne HTTPS-Zwang funktionieren.
 
 ## Erwartetes Zielbild
 
 - Lokaler HTTP-Quickstart ohne Zertifikatswarnung.
 - Kein HTTPS-Zwang im Docker-Dev-Setup.
-- Keine privaten Composer-Credentials mehr nach spaeterer Composer-Bereinigung.
+- Keine privaten Composer-Credentials im Community-Installationspfad.
 - Demo-Daten koennen geladen und im Browser sichtbar gemacht werden.
 - Demo-User kann lokal reproduzierbar erzeugt werden.
 - Guided Tours verlinken auf den First-Insight-Wizard.
@@ -47,5 +47,4 @@ Login: admin@example.local / april
 
 ## Offene Follow-ups
 
-- Composer-Abhaengigkeiten fuer den Community-Core bereinigen.
 - Fresh-Clone-Dockerpfad in einer Umgebung mit Docker erneut verifizieren.

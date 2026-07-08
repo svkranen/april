@@ -11,7 +11,7 @@ Die Ebenen sind:
 - Journey: fachliche Klammer über mehrere Prozesse.
 - Process: ein beobachteter Prozess mit `processKey`.
 - Step: fachlicher Schritt innerhalb eines Prozess-Templates, geprüft über `stepKey`.
-- Event: gespeichertes Prozessereignis mit `processKey`, `stepKey`, `eventPhase`, Dokumentbezug und optionalem Context.
+- Event: gespeichertes Prozessereignis mit `processKey`, `stepKey`, `eventPhase`, Item-Bezug und optionalem Context.
 
 ## 2. Root-Felder
 
@@ -24,7 +24,7 @@ Unterstützte Root-Felder im Template-Modell:
 | `name` | Anzeigename. | `null` |
 | `scope` | Template-Ebene: aktuell `process` oder `journey` als Konvention. | `process` |
 | `initial_step` / `initialStepKey` | Initialer Step-Key. | `null` |
-| `source_system` / `sourceSystem` | Quellsystem. | `amagno` |
+| `source_system` / `sourceSystem` | Quellsystem. Der aktuelle Parser hat aus Legacy-Gruenden noch einen Default, neue Community-Templates sollten das Feld explizit und neutral setzen. | `amagno` |
 
 `scope` wird aktuell geparst und vom Journey-Checker als fachliche Kennzeichnung genutzt. Bestehende Templates ohne `scope` bleiben Process-Templates.
 
@@ -35,15 +35,15 @@ Process-Templates beschreiben erwartete `stepKey`-Abläufe innerhalb eines `proc
 ### Steps
 
 ```yaml
-key: ai-rechnungen
+key: incident-management
 version: 1.0
 scope: process
 
 steps:
-  - key: "01 Eingang"
-    name: Eingang
+  - key: incident_received
+    name: Incident received
 
-  - key: "03 Freigabe"
+  - key: classify_incident
     type: start
 ```
 
@@ -53,8 +53,8 @@ Für klassische Steps sind `key`, optional `name` und optional `type` relevant. 
 
 ```yaml
 required_steps:
-  - "01 Eingang"
-  - "03 Freigabe"
+  - incident_received
+  - classify_incident
 ```
 
 Wenn `required_steps` gesetzt ist, verwendet der Process-Check diese Liste als globale Pflichtschritte. Ohne `required_steps` werden die Keys aus `steps` als erwartete Steps verwendet.
@@ -63,16 +63,16 @@ Wenn `required_steps` gesetzt ist, verwendet der Process-Check diese Liste als g
 
 ```yaml
 transitions:
-  - from: "01 Eingang"
-    to: "03 Freigabe"
+  - from: incident_received
+    to: classify_incident
 ```
 
 Transitions referenzieren Template-Step-Keys. Der Parser validiert, dass `from` und `to` bekannte Steps sind. Alternativ kann eine Transition auf eine Parallelgruppe zeigen:
 
 ```yaml
 transitions:
-  - from: "03 Freigabe"
-    to_parallel_group: buchen_und_zahlung
+  - from: classify_incident
+    to_parallel_group: security_and_business_review
 ```
 
 Genau eines von `to` oder `to_parallel_group` muss gesetzt sein.
@@ -83,10 +83,10 @@ Genau eines von `to` oder `to_parallel_group` muss gesetzt sein.
 parallel_groups:
   - key: buchen_und_zahlung
     required_steps:
-      - "05 Buchen"
-      - "07 Zahlung erwartet"
+      - trigger_security_review
+      - route_to_specialist_group
     order: any
-    next: "09 Abschluss"
+    next: close_incident
 ```
 
 Der aktuelle Process-Check unterstützt `order: any` für reihenfolgeunabhängige Pflichtschritte. `next` beschreibt den erwarteten Step nach vollständiger Gruppe.
@@ -95,18 +95,18 @@ Der aktuelle Process-Check unterstützt `order: any` für reihenfolgeunabhängig
 
 ```yaml
 decision_points:
-  - key: freigabe_ab_1000
-    after: "03 Freigabe"
+  - key: route_after_classification
+    after: classify_incident
     required_fields:
-      - amount_net
+      - severity
     rules:
       - when:
-          amount_net:
-            gt: 1000
-        expect_next: "04 Freigabe gross"
+          severity:
+            in: [high, critical]
+        expect_next: escalate_to_saas_provider
 
       - else:
-          expect_next_parallel_group: buchen_und_zahlung
+          expect_next_parallel_group: security_and_business_review
 ```
 
 Decision Points werden nach dem Step in `after` bewertet. `rules[].expect_next` erwartet einen Step. `rules[].expect_next_parallel_group` aktiviert eine Parallelgruppe. Ein `else`-Block ist möglich.
@@ -117,14 +117,14 @@ Die Operatornotation in `when` ist nur für Process-Decision-Rules implementiert
 
 ```yaml
 cross_process_routing:
-  - key: route_to_aufmass
-    after_step: "10 Intake abgeschlossen"
+  - key: route_to_security_review
+    after_step: intake_completed
     when:
-      document_type: aufmass
-    expected_process: aufmass_workflow
+      category: security
+    expected_process: security_review
 ```
 
-Cross-Process-Routing ist eine read-only Prüfung: Nach einem Source-Step wird geprüft, ob für dasselbe Dokument der erwartete Zielprozess existiert. Es startet keinen Zielprozess.
+Cross-Process-Routing ist eine read-only Pruefung: Nach einem Source-Step wird geprueft, ob fuer dasselbe Item der erwartete Zielprozess existiert. Es startet keinen Zielprozess.
 
 `when` ist hier ein Equality-Shorthand. Alle angegebenen Felder müssen im Context passen.
 
@@ -132,40 +132,39 @@ Cross-Process-Routing ist eine read-only Prüfung: Nach einem Source-Step wird g
 
 Journey-Templates beschreiben eine fachliche Klammer über vorhandene Prozesse. Der aktuelle MVP wird über `JourneyTemplateCheckService` geprüft. Es gibt dafür aktuell noch keinen eigenen CLI-Command.
 
-Ein Journey-Step vom Typ `process` ist ohne eigenes Detailtemplate prüfbar. APRIL prüft dann nur, ob Events oder eine ProcessInstance mit dem angegebenen `process_key` für das Dokument existieren. Ein Detailtemplate ist optionaler Drilldown und blockiert den Journey-Check nicht.
+Ein Journey-Step vom Typ `process` ist ohne eigenes Detailtemplate pruefbar. APRIL prueft dann nur, ob Events oder eine ProcessInstance mit dem angegebenen `process_key` fuer das Item existieren. Ein Detailtemplate ist optionaler Drilldown und blockiert den Journey-Check nicht.
 
 ```yaml
-key: aufmass_verarbeitung
+key: incident_journey
 version: 1.0
 scope: journey
 
 steps:
-  - key: import
+  - key: intake
     type: process
-    process_key: generic_document_import
+    process_key: incident_intake
     required: true
     when:
-      amagno_known: false
+      imported: true
 
-  - key: pruefung
+  - key: triage
     type: process
-    process_key: aufmass_pruefung
+    process_key: incident-management
     required: true
 
-  - key: export
+  - key: follow_up
     type: process
-    process_key: nevaris_export
+    process_key: specialist_follow_up
     required: true
     when:
-      document_type: aufmass
-      accounting_required: true
+      category: business_process
 
 transitions:
-  - from: import
-    to: pruefung
+  - from: intake
+    to: triage
 
-  - from: pruefung
-    to: export
+  - from: triage
+    to: follow_up
 ```
 
 ### Journey Step-Felder
@@ -208,17 +207,16 @@ Aktuelle Context-Quellen:
 ```yaml
 context_profile:
   required:
-    - document_type
-    - amount_net
+    - category
+    - severity
 ```
 
 `field_mapping` beschreibt, woher Felder technisch kommen:
 
 ```yaml
 field_mapping:
-  document_type:
-    source: amagno_tag
-    tag_name: Dokumentart
+  category:
+    source: event_context
     value_type: string
     stability: snapshot_required
 ```
@@ -237,8 +235,8 @@ Decision-Felder müssen im aktuellen Process-Check eine Stability im `field_mapp
 
 ```yaml
 when:
-  document_type: aufmass
-  accounting_required: true
+  category: business_process
+  requires_specialist: true
 ```
 
 Alle Felder müssen passen. Cross-Process-Routing und Journey-Check vergleichen Scalars robust: Bool-Werte, numerische Werte und Strings werden stabil verglichen. Arrays und Objekte werden nicht implizit gleichgesetzt.
@@ -249,8 +247,8 @@ Operatornotation ist aktuell bei Process-Decision-Rules implementiert:
 
 ```yaml
 when:
-  amount_net:
-    gte: 1000
+  severity:
+    in: [high, critical]
 ```
 
 Unterstützte Operatoren:
@@ -271,19 +269,19 @@ Beispiele:
 ```yaml
 rules:
   - when:
-      amount_net:
-        gt: 1000
-    expect_next: "04 Freigabe gross"
+      severity:
+        in: [high, critical]
+    expect_next: escalate_to_saas_provider
 
   - when:
-      document_type:
-        in: [aufmass, ausgangsrechnung]
-    expect_next: "03 Fachpruefung"
+      category:
+        in: [security, business_process]
+    expect_next: route_to_specialist_group
 
   - when:
-      cost_center:
+      owner_group:
         exists: true
-    expect_next: "05 Buchen"
+    expect_next: close_incident
 ```
 
 Für SignChecks ist aktuell nur `required_subset_of_actual` unterstützt.
@@ -314,7 +312,7 @@ Typische Gründe:
 
 - `SATISFIED`: erwarteter Zielprozess existiert plausibel.
 - `DEVIATION`: Zielprozess fehlt oder startet vor dem Routing-Event.
-- `WARNING`: Version ist mehrdeutig oder Zielprozess existiert nur in anderer Dokumentversion.
+- `WARNING`: Version ist mehrdeutig oder Zielprozess existiert nur in anderer Item-Version.
 - `NOT_APPLICABLE`: Routing-Event fehlt oder `when` matcht nicht.
 
 ### Journey-Check
@@ -344,7 +342,7 @@ Transitionstatus:
 
 - Verwende stabile, sprechende `key`s. Ändere Keys nicht leichtfertig, weil sie in Transitions und Rules referenziert werden.
 - Wähle `process_key`s fachlich eindeutig und unabhängig von UI-Texten.
-- Nutze generische Prozesse wieder, z. B. Import oder Export, und beschreibe fachliche Klammern als Journey.
+- Nutze generische Prozesse wieder, z. B. Intake, Triage oder Follow-up, und beschreibe fachliche Klammern als Journey.
 - Überlade Journey-Templates nicht mit Detailprozesslogik. Detailtemplates bleiben optionaler Drilldown.
 - Sammle zuerst Events und ContextSnapshots, dann schärfe Templates anhand echter Timelines.
 - Dokumentiere Context-Felder mit `context_profile.required` und `field_mapping`, besonders wenn sie Decisions beeinflussen.

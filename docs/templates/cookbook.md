@@ -5,19 +5,19 @@ Dieses Cookbook zeigt kleine, aktuell unterstützte Muster. Es ergänzt die [Tem
 ## Linearer Prozess
 
 ```yaml
-key: eingangsrechnung
+key: incident_triage
 version: 1.0
 
 steps:
-  - key: "01 Eingang"
-  - key: "02 Pruefung"
-  - key: "03 Freigabe"
+  - key: incident_received
+  - key: classify_incident
+  - key: close_incident
 
 transitions:
-  - from: "01 Eingang"
-    to: "02 Pruefung"
-  - from: "02 Pruefung"
-    to: "03 Freigabe"
+  - from: incident_received
+    to: classify_incident
+  - from: classify_incident
+    to: close_incident
 ```
 
 Ohne `scope` gilt `scope: process`.
@@ -25,149 +25,147 @@ Ohne `scope` gilt `scope: process`.
 ## Bedingter Prozesspfad
 
 ```yaml
-key: ausgangsrechnung
+key: incident_routing
 version: 1.0
 
 steps:
-  - key: "01 Pruefung"
-  - key: "02 Freigabe klein"
-  - key: "03 Freigabe gross"
-  - key: "04 Abschluss"
+  - key: classify_incident
+  - key: resolve_first_level
+  - key: escalate_to_saas_provider
+  - key: close_incident
 
 field_mapping:
-  amount_net:
-    source: amagno_tag
-    tag_name: Nettobetrag
-    value_type: number
+  severity:
+    source: event_context
+    value_type: string
     stability: snapshot_required
 
 decision_points:
-  - key: freigabe_ab_1000
-    after: "02 Freigabe klein"
+  - key: route_by_severity
+    after: classify_incident
     required_fields:
-      - amount_net
+      - severity
     rules:
       - when:
-          amount_net:
-            gt: 1000
-        expect_next: "03 Freigabe gross"
+          severity:
+            in: [high, critical]
+        expect_next: escalate_to_saas_provider
       - else:
-          expect_next: "04 Abschluss"
+          expect_next: resolve_first_level
 ```
 
 ## Optionaler Journey-Step mit `when`
 
 ```yaml
-key: aufmass_verarbeitung
+key: incident_journey
 version: 1.0
 scope: journey
 
 steps:
   - key: import
     type: process
-    process_key: generic_document_import
+    process_key: incident_intake
     required: true
     when:
-      amagno_known: false
+      imported: true
 
-  - key: pruefung
+  - key: triage
     type: process
-    process_key: aufmass_pruefung
+    process_key: incident-management
     required: true
 
 transitions:
   - from: import
-    to: pruefung
+    to: triage
 ```
 
-Wenn `amagno_known` nicht zu `false` passt, wird `import` als `CONDITION_NOT_APPLICABLE` bewertet.
+Wenn `imported` nicht zu `true` passt, wird `import` als `CONDITION_NOT_APPLICABLE` bewertet.
 
-## Generischer Import, fachlicher Prozess, generischer Export
+## Generischer Intake, fachlicher Prozess, optionales Follow-up
 
 ```yaml
-key: aufmass_verarbeitung
+key: incident_journey
 version: 1.0
 scope: journey
 
 steps:
-  - key: import
+  - key: intake
     type: process
-    process_key: generic_document_import
+    process_key: incident_intake
     required: true
 
-  - key: pruefung
+  - key: triage
     type: process
-    process_key: aufmass_pruefung
+    process_key: incident-management
     required: true
 
-  - key: export
+  - key: follow_up
     type: process
-    process_key: nevaris_export
+    process_key: specialist_follow_up
     required: true
     when:
-      document_type: aufmass
-      accounting_required: true
+      category: business_process
 
 transitions:
-  - from: import
-    to: pruefung
-  - from: pruefung
-    to: export
+  - from: intake
+    to: triage
+  - from: triage
+    to: follow_up
 ```
 
-Ein Detailtemplate für `generic_document_import`, `aufmass_pruefung` oder `nevaris_export` ist optional. Die Journey-Prüfung blockiert nicht, wenn es fehlt.
+Ein Detailtemplate fuer `incident_intake`, `incident-management` oder `specialist_follow_up` ist optional. Die Journey-Pruefung blockiert nicht, wenn es fehlt.
 
 ## Cross-Process-Routing
 
 ```yaml
-key: debitoren_intake
+key: incident_intake
 version: 1.0
 
 steps:
-  - key: "10 Intake abgeschlossen"
+  - key: intake_completed
 
 cross_process_routing:
-  - key: route_to_aufmass
-    after_step: "10 Intake abgeschlossen"
+  - key: route_to_security_review
+    after_step: intake_completed
     when:
-      document_type: aufmass
-    expected_process: aufmass_workflow
+      category: security
+    expected_process: security_review
 ```
 
-Das prüft read-only, ob nach dem Source-Step ein Zielprozess mit `processKey = aufmass_workflow` für dasselbe Dokument existiert.
+Das prueft read-only, ob nach dem Source-Step ein Zielprozess mit `processKey = security_review` fuer dasselbe Item existiert.
 
 ## Detailtemplate als optionaler Drilldown
 
 Journey:
 
 ```yaml
-key: aufmass_verarbeitung
+key: incident_journey
 version: 1.0
 scope: journey
 
 steps:
-  - key: pruefung
+  - key: triage
     type: process
-    process_key: aufmass_pruefung
+    process_key: incident-management
     required: true
 ```
 
 Optionales Detailtemplate:
 
 ```yaml
-key: aufmass_pruefung
+key: incident-management
 version: 1.0
 
 steps:
-  - key: "01 Eingang"
-  - key: "02 Sachpruefung"
-  - key: "03 Abschluss"
+  - key: incident_received
+  - key: classify_incident
+  - key: close_incident
 
 transitions:
-  - from: "01 Eingang"
-    to: "02 Sachpruefung"
-  - from: "02 Sachpruefung"
-    to: "03 Abschluss"
+  - from: incident_received
+    to: classify_incident
+  - from: classify_incident
+    to: close_incident
 ```
 
-Die Journey prüft nur, ob `aufmass_pruefung` existiert. Die interne Prüfung des Detailtemplates ist ein separater Check.
+Die Journey prueft nur, ob `incident-management` existiert. Die interne Pruefung des Detailtemplates ist ein separater Check.
