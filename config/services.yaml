@@ -246,6 +246,8 @@ services:
         arguments:
             $wizardDirectory: '%april.wizard_dir%'
 
+    App\Wizard\WizardProgressStoreInterface: '@App\Wizard\NullWizardProgressStore'
+
     App\Command\IntelligenceTemplateHeatmapCommand:
         arguments:
             $processTemplateDirectory: '%april.process_template_dir%'
