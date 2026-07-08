@@ -121,11 +121,12 @@ Zielentscheidung:
 - Eine public-faehige `composer.json` darf keine privaten URLs, kein `secure-http false` und keine private Composer-Auth benoetigen.
 - Der Community-Build muss ohne Zugriff auf Gitea, interne IPs oder private Composer-Credentials installierbar und testbar sein.
 
-Fuer die aktuelle Codebasis ist der private Connector noch technisch relevant, weil Symfony ihn direkt registriert:
+Fuer die aktuelle Codebasis ist der private Connector noch technisch relevant, weil Composer ihn noch hart installiert und einzelne Kompatibilitaetsklassen den privaten Namespace referenzieren:
 
-- `config/bundles.php` registriert `Iileven\AmagnoConnector\AmagnoConnectorBundle`.
-- `config/services.yaml` injiziert `Iileven\AmagnoConnector\Interface\TokenProviderInterface` und importiert Klassen direkt aus `vendor/iileven/amagno-connector-bundle/*`.
-- `src/EventSubscriber/AmagnoCredentialsSubscriber.php`, `src/Service/Amagno/DocumentFetcher.php`, `src/Service/FibuExportService.php` und `src/Service/SignatureCheck/AmagnoSignatureCheckService.php` importieren Connector-Klassen direkt.
+- `composer.json` verlangt weiterhin `iileven/amagno-connector-bundle`.
+- `composer.lock` enthaelt weiterhin den privaten Source-Eintrag und das Stability-Flag.
+- `symfony.lock` enthaelt weiterhin den Recipe-Eintrag fuer `iileven/amagno-connector-bundle`.
+- `src/EventSubscriber/AmagnoCredentialsSubscriber.php` und `src/Service/Amagno/AmagnoConnectorTokenProvider.php` importieren Connector-Klassen direkt, sind im Community-Service-Container aber aktuell vom Autowiring ausgeschlossen.
 
 Die Dependency ist daher fuer den aktuellen Gesamt-Container noetig, aber nicht fuer den DMS-neutralen Community-Kern. Vor einer Public-Veroeffentlichung muss diese Kopplung ueber Ports, optionale Adapter oder eine Enterprise-Auslagerung geloest werden.
 
