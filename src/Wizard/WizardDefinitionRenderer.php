@@ -5,7 +5,9 @@ namespace App\Wizard;
 final readonly class WizardDefinitionRenderer
 {
     public function __construct(
-        private ?WizardLinkResolver $linkResolver = null
+        private ?WizardLinkResolver $linkResolver = null,
+        private ?WizardPrerequisiteChecker $prerequisiteChecker = null,
+        private ?WizardCompletionChecker $completionChecker = null
     ) {
     }
 
@@ -27,7 +29,7 @@ final readonly class WizardDefinitionRenderer
         $lines[] = '';
         $this->appendList($lines, 'Audience', $this->strings($wizard->metadata['audience'] ?? []));
         $this->appendMap($lines, 'Scenario', $this->mapping($wizard->metadata['scenario'] ?? []));
-        $this->appendRecords($lines, 'Prerequisites', $this->records($wizard->metadata['prerequisites'] ?? []));
+        $this->appendRecords($lines, 'Prerequisites', $this->prerequisiteRecords($wizard->metadata['prerequisites'] ?? []));
 
         $lines[] = 'Steps:';
         foreach ($wizard->steps as $index => $step) {
@@ -36,7 +38,7 @@ final readonly class WizardDefinitionRenderer
             $this->appendOptionalValue($lines, '     Body', $step->data['body'] ?? null);
             $this->appendList($lines, '     Concepts', $this->strings($step->data['concepts'] ?? []));
             $this->appendRecords($lines, '     Links', $this->linkRecords($step->data['links'] ?? []));
-            $this->appendMap($lines, '     Completion', $this->mapping($step->data['completion'] ?? []));
+            $this->appendRecords($lines, '     Completion', $this->completionRecords($step));
         }
 
         $this->appendMap($lines, 'Completion', $this->mapping($wizard->metadata['completion'] ?? []));
@@ -206,6 +208,60 @@ final readonly class WizardDefinitionRenderer
             if ($resolved['warning'] !== null) {
                 $records[$index]['warning'] = $resolved['warning'];
             }
+        }
+
+        return $records;
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function prerequisiteRecords(mixed $value): array
+    {
+        $records = $this->records($value);
+        if ($this->prerequisiteChecker === null || !is_array($value)) {
+            return $records;
+        }
+
+        foreach (array_values($value) as $index => $prerequisite) {
+            if (!is_array($prerequisite) || !isset($records[$index])) {
+                continue;
+            }
+
+            $result = $this->prerequisiteChecker->check($prerequisite);
+            $records[$index]['status'] = $result->status;
+            $records[$index]['message'] = $result->message;
+        }
+
+        return $records;
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function completionRecords(WizardStepDefinition $step): array
+    {
+        $records = $this->records($step->data['completion'] ?? []);
+        if ($records === []) {
+            $mapping = $this->mapping($step->data['completion'] ?? []);
+            if ($mapping !== []) {
+                $records[] = $mapping;
+            }
+        }
+
+        if ($this->completionChecker === null) {
+            return $records;
+        }
+
+        $results = $this->completionChecker->checkStep($step);
+        foreach ($results as $index => $result) {
+            if (!isset($records[$index])) {
+                $records[$index] = [];
+            }
+
+            $records[$index]['type'] = $result->type;
+            $records[$index]['status'] = $result->status;
+            $records[$index]['message'] = $result->message;
         }
 
         return $records;

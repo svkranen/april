@@ -39,6 +39,8 @@ steps:
       - key: continue
         type: continue
         label: "Start"
+    completion:
+      type: step_acknowledged
 
   - key: open_items
     title: "Open Items"
@@ -51,7 +53,7 @@ steps:
           key: incident-management
           withFindings: 1
     completion:
-      type: visit_route
+      type: route_visited
       route: app_templates_documents
 
   - key: open_journey
@@ -67,7 +69,7 @@ steps:
       type: text
       value: "A closed item can still be routed incorrectly."
     completion:
-      type: visit_route
+      type: route_visited
       route: app_intelligence_documents_show
 
   - key: open_findings
@@ -85,9 +87,8 @@ steps:
         severity: deviation
         finding_type: decision_rule_violation
     completion:
-      type: finding_present
-      process_key: incident-management
-      finding_type: decision_rule_violation
+      type: manual
+      note: "Confirm that the Decision Rule Violation is visible."
 
   - key: open_process_graph
     title: "Open Process Graph"
@@ -100,7 +101,7 @@ steps:
           key: incident-management
           withFindings: 1
     completion:
-      type: visit_route
+      type: route_visited
       route: app_templates_graph
 
 completion:

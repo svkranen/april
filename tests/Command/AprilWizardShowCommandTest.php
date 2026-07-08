@@ -3,9 +3,13 @@
 namespace App\Tests\Command;
 
 use App\Command\AprilWizardShowCommand;
+use App\Intelligence\Application\ProcessTemplateProvider;
+use App\Intelligence\Domain\ProcessTemplate;
 use App\Wizard\WizardDefinitionLoader;
 use App\Wizard\WizardDefinitionRenderer;
 use App\Wizard\WizardLinkResolver;
+use App\Wizard\WizardCompletionChecker;
+use App\Wizard\WizardPrerequisiteChecker;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -20,7 +24,11 @@ final class AprilWizardShowCommandTest extends TestCase
     {
         $tester = new CommandTester(new AprilWizardShowCommand(
             new WizardDefinitionLoader(dirname(__DIR__, 2).'/config/april/wizards'),
-            new WizardDefinitionRenderer(new WizardLinkResolver($this->urlGenerator()))
+            new WizardDefinitionRenderer(
+                new WizardLinkResolver($this->urlGenerator()),
+                new WizardPrerequisiteChecker($this->provider(), $this->urlGenerator()),
+                new WizardCompletionChecker()
+            )
         ));
 
         $exitCode = $tester->execute(['key' => 'first-insight']);
@@ -29,6 +37,11 @@ final class AprilWizardShowCommandTest extends TestCase
         self::assertStringContainsString('Name: First Insight', $tester->getDisplay());
         self::assertStringContainsString('Scenario:', $tester->getDisplay());
         self::assertStringContainsString('Prerequisites:', $tester->getDisplay());
+        self::assertStringContainsString('status=ok', $tester->getDisplay());
+        self::assertStringContainsString('status=warning', $tester->getDisplay());
+        self::assertStringContainsString('type=route_visited', $tester->getDisplay());
+        self::assertStringContainsString('status=unknown', $tester->getDisplay());
+        self::assertStringContainsString('Route visits are not tracked yet.', $tester->getDisplay());
         self::assertStringContainsString('Open Journey', $tester->getDisplay());
         self::assertStringContainsString('app_intelligence_documents_show', $tester->getDisplay());
         self::assertStringContainsString('/app/intelligence/documents/10000000-0000-4000-8000-000000000004', $tester->getDisplay());
@@ -38,10 +51,21 @@ final class AprilWizardShowCommandTest extends TestCase
     private function urlGenerator(): UrlGenerator
     {
         $routes = new RouteCollection();
+        $routes->add('app_templates_index', new Route('/app/templates'));
         $routes->add('app_templates_documents', new Route('/app/templates/{key}/documents'));
         $routes->add('app_intelligence_documents_show', new Route('/app/intelligence/documents/{documentUuid}'));
         $routes->add('app_templates_graph', new Route('/app/templates/{key}/graph'));
 
         return new UrlGenerator($routes, new RequestContext());
+    }
+
+    private function provider(): ProcessTemplateProvider
+    {
+        return new class implements ProcessTemplateProvider {
+            public function findByProcessKey(string $processKey): ?ProcessTemplate
+            {
+                return $processKey === 'incident-management' ? new ProcessTemplate($processKey) : null;
+            }
+        };
     }
 }
