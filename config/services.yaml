@@ -22,6 +22,7 @@ parameters:
     intelligence.event_secret: ''
     intelligence.context_profiles: []
     april.process_template_dir: '%kernel.project_dir%/config/april/process-templates'
+    april.wizard_dir: '%kernel.project_dir%/config/april/wizards'
     april.generated_dir: '%kernel.project_dir%/var/april/generated'
     april.heatmap_output_dir: '%kernel.project_dir%/var/april/generated/heatmaps'
     april.diagram_output_dir: '%kernel.project_dir%/var/april/generated/diagrams'
@@ -240,6 +241,10 @@ services:
     App\Command\IntelligenceTemplateListCommand:
         arguments:
             $templateDirectory: '%april.process_template_dir%'
+
+    App\Wizard\WizardDefinitionLoader:
+        arguments:
+            $wizardDirectory: '%april.wizard_dir%'
 
     App\Command\IntelligenceTemplateHeatmapCommand:
         arguments:

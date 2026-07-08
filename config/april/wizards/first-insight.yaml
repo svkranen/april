@@ -1,0 +1,116 @@
+key: first-insight
+version: "1.0"
+name: "First Insight"
+description: "Guide new users through the Incident Management demo."
+
+audience:
+  - developer
+  - architect
+  - process_owner
+
+scenario:
+  key: incident-management
+  template: incident-management
+
+prerequisites:
+  - key: app_available
+    type: route
+    route: app_templates_index
+    required: true
+  - key: demo_template_available
+    type: process_template
+    process_key: incident-management
+    required: true
+  - key: demo_fixtures_loaded
+    type: fixture_scenario
+    scenario: incident-management
+    required: true
+
+steps:
+  - key: welcome
+    title: "Welcome to APRIL"
+    body: "APRIL turns imported events into items, journeys and findings."
+    concepts:
+      - item
+      - journey
+      - finding
+      - process_template
+    actions:
+      - key: continue
+        type: continue
+        label: "Start"
+
+  - key: open_items
+    title: "Open Items"
+    body: "See the process objects APRIL reconstructed from events."
+    links:
+      - key: items_with_findings
+        label: "Items & Findings"
+        route: app_templates_documents
+        params:
+          key: incident-management
+          withFindings: 1
+    completion:
+      type: visit_route
+      route: app_templates_documents
+
+  - key: open_journey
+    title: "Open Journey"
+    body: "Inspect the timeline of the intentionally misrouted incident."
+    links:
+      - key: deviation_journey
+        label: "Deviation Journey"
+        route: app_intelligence_documents_show
+        params:
+          documentUuid: "10000000-0000-4000-8000-000000000004"
+    expected_insight:
+      type: text
+      value: "A closed item can still be routed incorrectly."
+    completion:
+      type: visit_route
+      route: app_intelligence_documents_show
+
+  - key: open_findings
+    title: "Open Findings"
+    body: "Find the Decision Rule Violation caused by security context routed to first-level resolution."
+    links:
+      - key: filtered_findings
+        label: "Items with Findings"
+        route: app_templates_documents
+        params:
+          key: incident-management
+          withFindings: 1
+    expects:
+      - type: finding
+        severity: deviation
+        finding_type: decision_rule_violation
+    completion:
+      type: finding_present
+      process_key: incident-management
+      finding_type: decision_rule_violation
+
+  - key: open_process_graph
+    title: "Open Process Graph"
+    body: "Compare the expected process with observed findings."
+    links:
+      - key: graph_with_findings
+        label: "Process Graph"
+        route: app_templates_graph
+        params:
+          key: incident-management
+          withFindings: 1
+    completion:
+      type: visit_route
+      route: app_templates_graph
+
+completion:
+  type: all_steps_completed
+  message: "You have seen how APRIL reconstructs a journey and detects a decision rule violation."
+
+references:
+  - label: "Template reference"
+    path: docs/templates/reference.md
+  - label: "Context history"
+    path: docs/intelligence/context-history.md
+  - label: "Event API"
+    path: docs/intelligence/event-api.md
