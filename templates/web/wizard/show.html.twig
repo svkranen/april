@@ -81,13 +81,17 @@
                     {% endif %}
 
                     {% if step.links is not empty %}
-                        <h4>Links</h4>
+                        <h4>Actions</h4>
                         <div class="header-actions">
                             {% for link in step.links %}
+                                {% set action_label = link.label|default(link.route|default(link.path|default(link.key|default('Open')))) %}
                                 {% if link.path is defined %}
-                                    <a class="pill-link" href="{{ link.path }}">{{ link.label|default(link.key|default(link.path)) }}</a>
+                                    <a class="pill-link" href="{{ link.path }}">{{ action_label }}</a>
                                 {% else %}
-                                    <span class="pill-link is-disabled">{{ link.label|default(link.key|default('Link')) }}</span>
+                                    <span class="pill-link is-disabled">{{ action_label }}</span>
+                                {% endif %}
+                                {% if link.warning is defined %}
+                                    <span class="badge vs-warning">{{ link.warning }}</span>
                                 {% endif %}
                             {% endfor %}
                         </div>

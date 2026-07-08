@@ -19,6 +19,8 @@ final class WizardControllerTest extends AppWebTestCase
         self::assertStringContainsString('Prerequisites', $html);
         self::assertStringContainsString('status', $html);
         self::assertStringContainsString('ok', $html);
+        self::assertStringContainsString('Actions', $html);
+        self::assertStringContainsString('Items &amp; Findings', $html);
         self::assertStringContainsString('Completion', $html);
         self::assertStringContainsString('unknown', $html);
         self::assertStringContainsString('Route visits are not tracked yet.', $html);
