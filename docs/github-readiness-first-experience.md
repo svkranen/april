@@ -1,0 +1,49 @@
+# GitHub-Readiness First-Time Experience Smoke Test
+
+## Ziel
+
+Dieser Smoke Test beschreibt die Erstinstallation aus Sicht eines neuen Community-Nutzers. Er prueft den Weg von einem frischen Clone bis zu einer lokal im Browser erreichbaren APRIL-Instanz mit geladenen Demo-Daten.
+
+Der Test ist kein produktives Deployment-Szenario. Er dient dazu, Stolpersteine fuer den spaeteren Open-Source-Quickstart sichtbar zu machen, bevor daraus README-Anweisungen abgeleitet werden.
+
+## Getesteter Pfad
+
+```bash
+git clone <repository-url>
+cd <repository>
+cp .env.example .env
+docker compose up -d --build
+docker compose exec app composer install
+docker compose exec app php bin/console doctrine:migrations:migrate
+docker compose exec app php bin/console april:fixtures:load
+```
+
+Danach:
+
+```text
+Browser oeffnen: http://localhost:8080
+```
+
+## Bekannte Stolpersteine
+
+- Docker-in-Incus/PostgreSQL: In verschachtelten Containerumgebungen kann PostgreSQL beim Erzeugen von Unix-Domain-Sockets an AppArmor-/Runtime-Beschraenkungen scheitern.
+- Fehlende PHP-Extensions im Dockerfile: `gd` und `sockets` werden fuer den bestehenden Composer-Lock benoetigt.
+- Fehlendes `git` im Dockerfile: Composer braucht `git`, wenn Pakete aus Source installiert werden muessen.
+- `.env` muss aus `.env.example` erzeugt werden, bevor Symfony lokal sinnvoll startet.
+- Private Composer-Dependency: Der aktuelle Lockfile-Stand benoetigt noch Credentials fuer private Paketquellen.
+- Lokales HTTPS-/Redirect-/Zertifikat-Problem: Im Browser kann der lokale Quickstart aktuell in `ERR_TOO_MANY_REDIRECTS` oder Zertifikatsprobleme laufen.
+
+## Erwartetes Zielbild
+
+- Lokaler HTTP-Quickstart ohne Zertifikatswarnung.
+- Kein HTTPS-Zwang im Docker-Dev-Setup.
+- Keine privaten Composer-Credentials mehr nach spaeterer Composer-Bereinigung.
+- Demo-Daten koennen geladen und im Browser sichtbar gemacht werden.
+- Der dokumentierte Pfad funktioniert fuer neue Community-Nutzer reproduzierbar.
+
+## Offene Follow-ups
+
+- Dockerfile finalisieren.
+- Lokale Redirect-/Trusted-Proxy-/HTTPS-Konfiguration pruefen.
+- Composer-Abhaengigkeiten fuer den Community-Core bereinigen.
+- README Quickstart erst schreiben, wenn dieser Smoke Test gruen ist.
