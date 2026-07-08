@@ -1,0 +1,112 @@
+key: incident-management
+version: 1.0
+name: "Incident Management Demo"
+source_system: community-demo
+initial_step: incident_received
+
+required_steps:
+  - incident_received
+  - classify_incident
+  - close_incident
+
+steps:
+  - key: incident_received
+    name: "Incident received"
+  - key: classify_incident
+    name: "Classify incident"
+  - key: route_to_specialist_group
+    name: "Route to specialist group"
+  - key: escalate_to_saas_provider
+    name: "Escalate to SaaS provider"
+  - key: trigger_security_review
+    name: "Trigger security review"
+  - key: resolve_first_level
+    name: "Resolve in first level"
+  - key: close_incident
+    name: "Close incident"
+
+context_profile:
+  required:
+    - data_exposure
+    - category
+    - system_type
+    - severity
+
+context_policy:
+  snapshot:
+    max_delay_seconds: 300
+    stale_behavior: uncertain
+
+field_mapping:
+  data_exposure:
+    source: event_context
+    value_type: boolean
+    stability: snapshot_required
+  category:
+    source: event_context
+    value_type: string
+    stability: snapshot_required
+  system_type:
+    source: event_context
+    value_type: string
+    stability: snapshot_required
+  severity:
+    source: event_context
+    value_type: string
+    stability: snapshot_required
+
+transitions:
+  - from: incident_received
+    to: classify_incident
+  - from: route_to_specialist_group
+    to: close_incident
+  - from: escalate_to_saas_provider
+    to: close_incident
+  - from: trigger_security_review
+    to: close_incident
+  - from: resolve_first_level
+    to: close_incident
+
+decision_points:
+  - key: route_after_classification
+    after: classify_incident
+    required_fields:
+      - data_exposure
+      - category
+      - system_type
+      - severity
+    rules:
+      - when:
+          data_exposure:
+            eq: true
+        expect_next: trigger_security_review
+
+      - when:
+          category:
+            eq: security
+        expect_next: trigger_security_review
+
+      - when:
+          system_type:
+            eq: saas
+        expect_next: escalate_to_saas_provider
+
+      - when:
+          severity:
+            in:
+              - high
+              - critical
+        expect_next: escalate_to_saas_provider
+
+      - when:
+          category:
+            eq: business_process
+        expect_next: route_to_specialist_group
+
+      - when:
+          severity:
+            eq: low
+        expect_next: resolve_first_level
+
+      - else:
+          expect_next: route_to_specialist_group
