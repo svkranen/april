@@ -35,6 +35,12 @@ Ein erstes `docker-compose` sollte nur diese Services enthalten:
 
 Weitere Services wie Adminer, Mailpit, Worker oder Queue-Infrastruktur sollten erst ergaenzt werden, wenn ein Demo- oder Produktworkflow sie wirklich benoetigt.
 
+## Skeleton
+
+Das Phase-1.1-Skeleton stellt `compose.yaml`, `Dockerfile` und `.dockerignore` bereit. Es mountet den Sourcecode nach `/app`, haelt PostgreSQL-Daten in einem benannten Volume und setzt lokale Development-Defaults direkt im Compose-Service.
+
+Die Umgebung ist bewusst noch kein vollstaendiger 15-Minuten-Quickstart. Build, Start, Migrationen und Composer-Installationsschritte bleiben dem spaeteren Quickstart vorbehalten.
+
 ## Demo-Daten
 
 Demo-Daten fuer den Community-Quickstart sollen connectorfrei funktionieren. Events sollten den benoetigten Context inline mitliefern, damit kein DMS-, ERP- oder Amagno-Connector notwendig ist.
