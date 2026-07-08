@@ -1,22 +1,22 @@
 {% extends 'layout/base.html.twig' %}
 
-{% block title %}{{ view.documentUuid }} · Dokument · APRIL{% endblock %}
+{% block title %}{{ view.documentUuid }} · {{ 'glossary.item'|trans({}, 'glossary') }} · APRIL{% endblock %}
 
 {% block body %}
     {% import _self as h %}
     {# 1. Kopfbereich #}
     <div class="card">
         <p class="crumbs">
-            <a href="{{ path('app_templates_documents', { key: view.processKey }) }}">← Zurück zur Dokumentliste</a>
+            <a href="{{ path('app_templates_documents', { key: view.processKey }) }}">← Zurück zur Item-Liste</a>
             &nbsp;·&nbsp;
             <a href="{{ path('app_templates_show', { key: view.processKey }) }}">Template-Detailseite</a>
             &nbsp;·&nbsp;
             <a href="{{ path('app_templates_index') }}">Template-Liste</a>
         </p>
-        <h1>Dokument {{ view.documentUuid }}</h1>
+        <h1>{{ 'glossary.item'|trans({}, 'glossary') }} {{ view.documentUuid }}</h1>
         <p class="meta-line">Template: <code>{{ view.processKey }}</code></p>
         <p class="meta-line">Version: <strong>{{ view.version }}</strong></p>
-        <p class="meta-line">Document UUID: <code>{{ view.documentUuid }}</code></p>
+        <p class="meta-line">Item UUID: <code>{{ view.documentUuid }}</code></p>
 
         {% if view.instances is not empty and is_expert_view() %}
             {% for instance in view.instances %}
@@ -26,7 +26,7 @@
         {% endif %}
 
         {# 2. Hinweis #}
-        <p class="muted">Diese Ansicht zeigt die in APRIL gespeicherten Events und Prüfergebnisse für dieses Dokument.</p>
+        <p class="muted">Diese Ansicht zeigt die in APRIL gespeicherten Events und Prüfergebnisse für dieses Item.</p>
     </div>
 
     {# Zusammenfassung (rein aus bereits geladenen Daten, keine Persistenz) #}
@@ -38,7 +38,7 @@
             <span class="status-badge {{ findings.overallCssClass }}">{{ findings.overallLabel }}</span></p>
 
         {% if not findings.hasFindings %}
-            <p class="muted">Keine Findings – dieses Dokument ist unauffällig.</p>
+            <p class="muted">Keine Findings – dieses Item ist unauffällig.</p>
         {% else %}
             <p class="meta-line">Findings:
                 Prozess {{ findings.countsByCategory.process }} ·
@@ -79,7 +79,7 @@
         Context-Snapshots berechnet und in diesem MVP nicht als Finding persistiert.</p>
 
         {% if not check.available %}
-            <p class="muted">Die Soll-/Ist-Prüfung ist für dieses Dokument derzeit nicht berechenbar.
+            <p class="muted">Die Soll-/Ist-Prüfung ist für dieses Item derzeit nicht berechenbar.
             {% if is_expert_view() and check.error %}<br><span class="muted">Grund: {{ check.error }}</span>{% endif %}</p>
         {% else %}
             <p class="meta-line">Status:
@@ -148,7 +148,7 @@
     <div class="card" id="timeline">
         <h2>Timeline</h2>
         {% if not view.hasTimeline %}
-            <p class="muted">APRIL kennt für dieses Dokument noch keine Events.</p>
+            <p class="muted">APRIL kennt für dieses Item noch keine Events.</p>
         {% else %}
             <p class="muted"><code>before</code>/<code>after</code> sind Prüfphasen innerhalb eines Schritts –
             keine eigenen Prozessschritte. ({{ view.eventCount }} Event(s) gesamt)</p>
@@ -180,7 +180,7 @@
     <div class="card" id="access">
         <h2>Access-/Visibility-CheckResults</h2>
         {% if not view.hasVisibilityResults %}
-            <p class="muted">Für dieses Dokument sind noch keine gespeicherten Access-/Visibility-CheckResults vorhanden.</p>
+            <p class="muted">Für dieses Item sind noch keine gespeicherten Access-/Visibility-CheckResults vorhanden.</p>
         {% else %}
             {% for group in view.visibilityGroups %}
                 <h3 class="step-head">{{ group.stepKey }} · <span class="badge">{{ group.eventPhase }}</span> · <code>{{ group.checkKey }}</code></h3>

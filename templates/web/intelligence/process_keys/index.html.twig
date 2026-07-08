@@ -5,7 +5,7 @@
 {% block body %}
     <div class="card">
         <p class="crumbs">
-            <a href="{{ path('app_intelligence_documents_index') }}">← Zurück zur Dokumentensuche</a>
+            <a href="{{ path('app_intelligence_documents_index') }}">← Zurück zur Item-Suche</a>
         </p>
         <h1>Verwendete Process Keys</h1>
         <p class="muted">Read-only Übersicht aller <code>processKey</code>s, die APRIL bereits in Events gesehen hat. Templates sind nur ein Hinweis und keine Voraussetzung.</p>
@@ -22,9 +22,9 @@
                     <tr>
                         <th>processKey</th>
                         <th>Template</th>
-                        <th>Dokumente</th>
+                        <th>{{ 'glossary.items'|trans({}, 'glossary') }}</th>
                         <th>Events</th>
-                        <th>Dokumente anzeigen</th>
+                        <th>{{ 'glossary.items'|trans({}, 'glossary') }} anzeigen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -41,7 +41,7 @@
                             <td>{{ row.documentCount }}</td>
                             <td>{{ row.eventCount }}</td>
                             <td>
-                                <a class="pill-link" href="{{ path('app_intelligence_process_keys_documents', { processKey: row.processKey }) }}">Dokumente</a>
+                                <a class="pill-link" href="{{ path('app_intelligence_process_keys_documents', { processKey: row.processKey }) }}">{{ 'glossary.items'|trans({}, 'glossary') }}</a>
                             </td>
                         </tr>
                     {% endfor %}

@@ -1,6 +1,6 @@
 {% extends 'layout/base.html.twig' %}
 
-{% block title %}{{ key }} · Dokumente · APRIL{% endblock %}
+{% block title %}{{ key }} · {{ 'glossary.items'|trans({}, 'glossary') }} · APRIL{% endblock %}
 
 {% block body %}
     {# 1. Kopfbereich #}
@@ -10,16 +10,16 @@
             &nbsp;·&nbsp;
             <a href="{{ path('app_templates_index') }}">Template-Liste</a>
         </p>
-        <h1>Dokumente – {{ key }}</h1>
+        <h1>{{ 'glossary.items'|trans({}, 'glossary') }} – {{ key }}</h1>
         <p class="meta-line">Key: <code>{{ key }}</code></p>
         <p class="meta-line">Version: <strong>{{ version }}</strong></p>
 
-        <p class="muted">Diese Liste zeigt Dokumente, zu denen APRIL bereits Events/Prozessdaten kennt.</p>
+        <p class="muted">Diese Liste zeigt Items, zu denen APRIL bereits Events/Prozessdaten kennt.</p>
 
         {% if index.withFindings %}
             <p class="muted">Findings wurden on-demand für diese Liste berechnet und nicht persistiert.</p>
             {% if index.limitReached %}
-                <p class="muted">Hinweis: Aus Performance-Gründen werden Findings nur für die ersten {{ index.findingsLimit }} Dokumente berechnet.</p>
+                <p class="muted">Hinweis: Aus Performance-Gründen werden Findings nur für die ersten {{ index.findingsLimit }} Items berechnet.</p>
             {% endif %}
         {% else %}
             <p class="muted">Findings werden nicht automatisch berechnet, um Listen performant zu halten.</p>
@@ -30,7 +30,7 @@
     </div>
 
     <div class="card">
-        <h2>Bekannte Dokumente</h2>
+        <h2>Bekannte {{ 'glossary.items'|trans({}, 'glossary') }}</h2>
 
         {# Filterleiste / Filterhinweis #}
         {% if index.withFindings %}
@@ -49,21 +49,21 @@
                        href="{{ path('app_templates_documents', base|merge(index.filterParams)|merge({ severity: value })) }}">{{ label }}</a>
                 {% endfor %}
             </div>
-            <p class="muted">Zeige {{ index.shownCount }} von {{ index.totalCount }} Dokumenten{% if index.severity != 'all' %} · Filter: {{ index.activeLabel }}{% endif %}{% if index.hasGraphFilter %} · {{ kindLabels[index.graphFilterKind] }}: {{ index.graphFilterLabel }}{% endif %}{% if is_expert_view() %} <span class="muted">[{{ index.severity }}]</span>{% endif %}</p>
+            <p class="muted">Zeige {{ index.shownCount }} von {{ index.totalCount }} Items{% if index.severity != 'all' %} · Filter: {{ index.activeLabel }}{% endif %}{% if index.hasGraphFilter %} · {{ kindLabels[index.graphFilterKind] }}: {{ index.graphFilterLabel }}{% endif %}{% if is_expert_view() %} <span class="muted">[{{ index.severity }}]</span>{% endif %}</p>
         {% else %}
             <p class="muted">Severity-Filter erst verfügbar, wenn Findings berechnet werden.</p>
         {% endif %}
 
         {% if index.totalCount == 0 %}
-            <p class="muted">Für dieses Template sind APRIL aktuell keine Dokumente bekannt
+            <p class="muted">Für dieses Template sind APRIL aktuell keine Items bekannt
             (noch keine Events erfasst).</p>
         {% elseif index.entries is empty %}
-            <p class="muted">Keine Dokumente für diesen Filter gefunden.</p>
+            <p class="muted">Keine Items für diesen Filter gefunden.</p>
         {% else %}
             <table>
                 <thead>
                     <tr>
-                        <th>Document UUID</th>
+                        <th>Item UUID</th>
                         {% if is_expert_view() %}<th>Externe ID</th><th>Version</th>{% endif %}
                         <th>Status</th>
                         <th>Findings</th>
@@ -114,7 +114,7 @@
             </table>
 
             {% if is_expert_view() %}
-                <p class="muted">Technische Sicht: <code>documentUuid</code> ist die rohe Dokument-UUID;
+                <p class="muted">Technische Sicht: <code>documentUuid</code> ist die rohe technische UUID;
                 externe ID und Version stammen aus den jüngsten Events.</p>
             {% endif %}
         {% endif %}

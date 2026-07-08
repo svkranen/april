@@ -27,7 +27,7 @@ final class DocumentJourneyControllerTest extends AppWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('form[action="/app/intelligence/documents"]');
-        self::assertStringContainsString('dokumentbezogene Events auch ohne Prozess-Template', (string) $client->getResponse()->getContent());
+        self::assertStringContainsString('itembezogene Events auch ohne Prozess-Template', (string) $client->getResponse()->getContent());
     }
 
     public function testSearchRedirectsToDetailPage(): void
@@ -80,7 +80,7 @@ final class DocumentJourneyControllerTest extends AppWebTestCase
         $html = (string) $response->getContent();
         self::assertStringContainsString('v2_step', $html);
         self::assertStringNotContainsString('v1_step', $html);
-        self::assertStringContainsString('Dokumentversion', $html);
+        self::assertStringContainsString('Item-Version', $html);
     }
 
     public function testDetailEmptyTimelineShowsFriendlyState(): void

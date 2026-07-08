@@ -41,7 +41,7 @@
         <div class="header-actions">
             <a class="pill-link" href="{{ path('app_templates_show', { key: view.key }) }}">Detailseite</a>
             <a class="pill-link" href="{{ path('app_templates_graph', { key: view.key }) }}">Prozessgrafik</a>
-            <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key }) }}">Dokumente</a>
+            <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key }) }}">{{ 'glossary.items'|trans({}, 'glossary') }}</a>
         </div>
     </div>
 
@@ -149,11 +149,11 @@
             <p><a class="pill-link" href="{{ path('app_templates_assistant', { key: view.key, withFindings: 1 }) }}">Findings berechnen &amp; Vorschläge anzeigen</a></p>
         {% elseif not suggestions.hasSuggestions %}
             <p class="muted">Keine offenen Modellierungsentscheidungen aus den aktuell berechneten Informationen abgeleitet.</p>
-            <p class="muted">Findings über {{ suggestions.processedDocuments }} Dokument(e) berechnet (nicht persistiert).</p>
+            <p class="muted">Findings über {{ suggestions.processedDocuments }} Item(s) berechnet (nicht persistiert).</p>
         {% else %}
             <table>
                 <thead>
-                    <tr><th>Typ</th><th>Status</th><th>Beschreibung</th><th>Begründung</th><th>Dokumente</th></tr>
+                    <tr><th>Typ</th><th>Status</th><th>Beschreibung</th><th>Begründung</th><th>{{ 'glossary.items'|trans({}, 'glossary') }}</th></tr>
                 </thead>
                 <tbody>
                     {% for suggestion in suggestions.suggestions %}
@@ -178,7 +178,7 @@
                     {% endfor %}
                 </tbody>
             </table>
-            <p class="muted">Findings über {{ suggestions.processedDocuments }} Dokument(e) berechnet (nicht persistiert).{% if suggestions.limitReached %} Hinweis: nur die ersten {{ suggestions.processedDocuments }} von {{ suggestions.totalDocuments }} Dokumenten.{% endif %}</p>
+            <p class="muted">Findings über {{ suggestions.processedDocuments }} Item(s) berechnet (nicht persistiert).{% if suggestions.limitReached %} Hinweis: nur die ersten {{ suggestions.processedDocuments }} von {{ suggestions.totalDocuments }} Items.{% endif %}</p>
         {% endif %}
     </div>
 

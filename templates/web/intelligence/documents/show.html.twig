@@ -5,14 +5,14 @@
 {% block body %}
     <div class="card">
         <p class="crumbs">
-            <a href="{{ path('app_intelligence_documents_index') }}">← Zurück zur Dokumentensuche</a>
+            <a href="{{ path('app_intelligence_documents_index') }}">← Zurück zur Item-Suche</a>
             &nbsp;·&nbsp;
             <a href="{{ path('app_templates_index') }}">Template-Liste</a>
         </p>
-        <h1>Dokument {{ view.documentUuid }}</h1>
-        <p class="meta-line">Document UUID: <code>{{ view.documentUuid }}</code></p>
+        <h1>{{ 'glossary.item'|trans({}, 'glossary') }} {{ view.documentUuid }}</h1>
+        <p class="meta-line">Item UUID: <code>{{ view.documentUuid }}</code></p>
         {% if view.documentVersion %}
-            <p class="meta-line">Dokumentversion: <strong>{{ view.documentVersion }}</strong>
+            <p class="meta-line">Item-Version: <strong>{{ view.documentVersion }}</strong>
                 <a class="pill-link" href="{{ path('app_intelligence_documents_show', { documentUuid: view.documentUuid }) }}">Filter entfernen</a></p>
         {% endif %}
         <p class="muted">Read-only Event Explorer: keine Soll-/Ist-Prüfung, keine Cross-Process-Routing-Prüfung, keine Visibility-Prüfung.</p>
@@ -21,7 +21,7 @@
     {% if not view.hasTimeline %}
         <div class="card">
             <h2>Keine Timeline</h2>
-            <p class="muted">APRIL kennt für dieses Dokument{% if view.documentVersion %} in Version {{ view.documentVersion }}{% endif %} noch keine Events oder Prozessinstanzen.</p>
+            <p class="muted">APRIL kennt für dieses Item{% if view.documentVersion %} in Version {{ view.documentVersion }}{% endif %} noch keine Events oder Prozessinstanzen.</p>
         </div>
     {% else %}
         <div class="card">
@@ -79,7 +79,7 @@
                             <th>ID</th>
                             <th>processKey</th>
                             <th>Template</th>
-                            <th>Dokumentversion</th>
+                            <th>Item-Version</th>
                             <th>currentStepKey</th>
                             <th>Status</th>
                         </tr>

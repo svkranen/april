@@ -1,15 +1,15 @@
 {% extends 'layout/base.html.twig' %}
 
-{% block title %}{{ view.processKey }} · Dokumente · Event Explorer · APRIL{% endblock %}
+{% block title %}{{ view.processKey }} · {{ 'glossary.items'|trans({}, 'glossary') }} · Event Explorer · APRIL{% endblock %}
 
 {% block body %}
     <div class="card">
         <p class="crumbs">
             <a href="{{ path('app_intelligence_process_keys_index') }}">← Zurück zu verwendeten Process Keys</a>
             &nbsp;·&nbsp;
-            <a href="{{ path('app_intelligence_documents_index') }}">Dokumentensuche</a>
+            <a href="{{ path('app_intelligence_documents_index') }}">Item-Suche</a>
         </p>
-        <h1>Dokumente für <code>{{ view.processKey }}</code></h1>
+        <h1>{{ 'glossary.items'|trans({}, 'glossary') }} für <code>{{ view.processKey }}</code></h1>
         <p class="meta-line">processKey: <code>{{ view.processKey }}</code></p>
         <p class="meta-line">
             {% if view.knownTemplate %}
@@ -22,15 +22,15 @@
     </div>
 
     <div class="card">
-        <h2>Betroffene Dokumente</h2>
+        <h2>Betroffene {{ 'glossary.items'|trans({}, 'glossary') }}</h2>
 
         {% if not view.hasRows %}
-            <p class="muted">Für diesen Process Key sind APRIL aktuell keine Dokumente bekannt.</p>
+            <p class="muted">Für diesen Process Key sind APRIL aktuell keine Items bekannt.</p>
         {% else %}
             <table>
                 <thead>
                     <tr>
-                        <th>Document UUID</th>
+                        <th>Item UUID</th>
                         <th>Externe ID</th>
                         <th>Version</th>
                         <th>Events</th>

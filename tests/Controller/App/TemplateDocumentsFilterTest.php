@@ -41,7 +41,7 @@ class TemplateDocumentsFilterTest extends AppWebTestCase
         self::assertStringContainsString('doc-crit', $html);
         self::assertStringNotContainsString('doc-ok', $html);
         self::assertStringContainsString('Filter: Kritisch', $html);
-        self::assertStringContainsString('Zeige 1 von 2 Dokumenten', $html);
+        self::assertStringContainsString('Zeige 1 von 2 Items', $html);
     }
 
     public function testFilterDeviationShowsOnlyDeviationDocuments(): void
@@ -92,7 +92,7 @@ class TemplateDocumentsFilterTest extends AppWebTestCase
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('doc-1', $html);
         self::assertStringContainsString('doc-2', $html);
-        self::assertStringContainsString('Zeige 2 von 2 Dokumenten', $html);
+        self::assertStringContainsString('Zeige 2 von 2 Items', $html);
     }
 
     public function testActiveFilterIsMarkedAndLinksCarryWithFindings(): void
@@ -113,7 +113,7 @@ class TemplateDocumentsFilterTest extends AppWebTestCase
 
         $client->request('GET', self::BASE.'?withFindings=1&severity=critical');
 
-        self::assertStringContainsString('Keine Dokumente für diesen Filter gefunden', (string) $client->getResponse()->getContent());
+        self::assertStringContainsString('Keine Items für diesen Filter gefunden', (string) $client->getResponse()->getContent());
     }
 
     public function testNotCalculatedFilterShowsOnlyLimitRows(): void
@@ -131,7 +131,7 @@ class TemplateDocumentsFilterTest extends AppWebTestCase
         // Only the 51st row (index 50) is beyond the limit and uncomputed.
         self::assertStringContainsString('uuid-50', $html);
         self::assertStringNotContainsString('>uuid-0<', $html);
-        self::assertStringContainsString('Zeige 1 von 51 Dokumenten', $html);
+        self::assertStringContainsString('Zeige 1 von 51 Items', $html);
     }
 
     /**

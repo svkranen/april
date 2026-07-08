@@ -19,7 +19,7 @@ class TemplateDocumentsTest extends AppWebTestCase
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('APRIL bereits Events', $html);
-        self::assertStringContainsString('keine Dokumente bekannt', $html);
+        self::assertStringContainsString('keine Items bekannt', $html);
     }
 
     public function testDocumentsPageListsKnownDocument(): void

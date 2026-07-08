@@ -87,7 +87,7 @@ class TemplateDocumentsFindingsColumnTest extends AppWebTestCase
         $client->request('GET', self::BASE.'?withFindings=1');
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('nur für die ersten 50 Dokumente', (string) $client->getResponse()->getContent());
+        self::assertStringContainsString('nur für die ersten 50 Items', (string) $client->getResponse()->getContent());
     }
 
     public function testBusinessViewHidesBreakdown(): void

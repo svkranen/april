@@ -53,7 +53,7 @@
 
         {# Geschwister-Navigation, konsistent zur Template-Detailseite #}
         <div class="header-actions">
-            <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key }) }}">Dokumente</a>
+            <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key }) }}">{{ 'glossary.items'|trans({}, 'glossary') }}</a>
             <a class="pill-link" href="{{ path('app_templates_access', { key: view.key }) }}">Access &amp; Visibility</a>
             <a class="pill-link" href="{{ path('app_templates_docs', { key: view.key }) }}">Dokumentation</a>
         </div>
@@ -72,9 +72,9 @@
         {% if view.withFindings %}
             {% if view.limitReached %}
                 <p class="muted">Findings on-demand berechnet (nicht persistiert) – aus Performance-Gründen
-                nur für die ersten {{ view.findingsLimit }} von {{ view.totalDocuments }} Dokumenten.</p>
+                nur für die ersten {{ view.findingsLimit }} von {{ view.totalDocuments }} Items.</p>
             {% else %}
-                <p class="muted">Findings on-demand über {{ view.processedDocuments }} Dokument(e) berechnet (nicht persistiert).</p>
+                <p class="muted">Findings on-demand über {{ view.processedDocuments }} Item(s) berechnet (nicht persistiert).</p>
             {% endif %}
         {% else %}
             <p class="muted">Findings werden nicht automatisch berechnet, um die Ansicht performant zu halten.
@@ -126,7 +126,7 @@
                         <th>Zuordnung</th>
                         <th>Status</th>
                         <th>Kurztext</th>
-                        <th>Dokumente</th>
+                        <th>{{ 'glossary.items'|trans({}, 'glossary') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -138,9 +138,9 @@
                             <td>
                                 {% if finding.hasDocuments %}
                                     {% if finding.isGateway %}
-                                        <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, decision: finding.decisionKey }) }}">{{ finding.documentCount }} – Dokumente anzeigen</a>
+                                        <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, decision: finding.decisionKey }) }}">{{ finding.documentCount }} – Items anzeigen</a>
                                     {% else %}
-                                        <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, transitionFrom: finding.transitionFrom, transitionTo: finding.transitionTo }) }}">{{ finding.documentCount }} – Dokumente anzeigen</a>
+                                        <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, transitionFrom: finding.transitionFrom, transitionTo: finding.transitionTo }) }}">{{ finding.documentCount }} – Items anzeigen</a>
                                     {% endif %}
                                 {% else %}
                                     <span class="muted">{{ finding.documentCount }}</span>
@@ -184,7 +184,7 @@
                     <th>Schritt</th>
                     <th>Status</th>
                     <th>Findings (Zusammenfassung)</th>
-                    <th>Dokumente</th>
+                    <th>{{ 'glossary.items'|trans({}, 'glossary') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -195,7 +195,7 @@
                         <td>{{ step.findingsLabel }}</td>
                         <td>
                             {% if step.hasFindings %}
-                                <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, step: step.key }) }}">Dokumente anzeigen</a>
+                                <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key, withFindings: 1, step: step.key }) }}">Items anzeigen</a>
                             {% else %}
                                 <span class="muted">—</span>
                             {% endif %}
