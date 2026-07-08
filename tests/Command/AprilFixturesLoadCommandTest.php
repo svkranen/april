@@ -6,12 +6,22 @@ use App\Command\AprilFixturesLoadCommand;
 use App\Intelligence\Application\ContextSnapshotService;
 use App\Intelligence\Application\EventReceiver;
 use App\Intelligence\Application\ProcessInstanceManager;
+use App\Intelligence\Application\ProcessTemplateCheckService;
+use App\Intelligence\Application\TemplateContextProviderResolver;
+use App\Intelligence\Connector\Amagno\AmagnoContextProviderFactory;
+use App\Intelligence\Connector\Amagno\AmagnoDocumentGateway;
+use App\Intelligence\Connector\Amagno\AmagnoFieldMapFactory;
+use App\Intelligence\Connector\Amagno\AmagnoTagDefinitionResolver;
+use App\Intelligence\Connector\Amagno\AmagnoTagValueResolver;
 use App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider;
 use App\Intelligence\Infrastructure\Context\InMemoryContextSnapshotStore;
 use App\Intelligence\Infrastructure\Context\NullContextProvider;
+use App\Intelligence\Infrastructure\Context\TemplateMappedContextProviderResolver;
 use App\Intelligence\Infrastructure\EventStore\InMemoryEventStore;
 use App\Intelligence\Infrastructure\Normalizer\GenericPayloadEventNormalizer;
+use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessInstanceRepository;
+use App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -34,6 +44,56 @@ final class AprilFixturesLoadCommandTest extends TestCase
         self::assertStringContainsString('events_duplicate: 0', $display);
         self::assertStringContainsString('process_instances: 4', $display);
         self::assertStringContainsString('process_instances_total: 4', $display);
+    }
+
+    public function testLoadedIncidentFixturesProvideInlineContextForTemplateChecks(): void
+    {
+        $eventStore = new InMemoryEventStore();
+        $repository = new InMemoryProcessInstanceRepository();
+        $snapshotStore = new InMemoryContextSnapshotStore();
+        $templateDirectory = dirname(__DIR__, 2).'/config/april/process-templates';
+        $tester = new CommandTester($this->command(
+            $repository,
+            dirname(__DIR__, 2).'/demo',
+            $eventStore,
+            $snapshotStore,
+            $this->templateResolver($templateDirectory)
+        ));
+
+        $tester->execute([]);
+
+        $securityClassifySnapshot = $this->snapshotByExternalEventKey(
+            $snapshotStore,
+            'demo:incident-management:security-001:classify_incident'
+        );
+        self::assertSame([
+            'data_exposure' => true,
+            'category' => 'security',
+            'system_type' => 'internal',
+            'severity' => 'high',
+        ], $securityClassifySnapshot->attributes);
+        self::assertSame(0, $securityClassifySnapshot->freshnessSeconds);
+        self::assertTrue($securityClassifySnapshot->isFreshForDecisionCheck);
+
+        $template = (new YamlProcessTemplateProvider($templateDirectory))->findByProcessKey('incident-management');
+        self::assertNotNull($template);
+
+        $check = (new ProcessTemplateCheckService(new InMemoryDocumentTimelineProvider(
+            $repository->all(),
+            $eventStore->all(),
+            $snapshotStore->all()
+        )))->checkDocument(
+            '10000000-0000-4000-8000-000000000004',
+            'incident-management',
+            $template,
+            1
+        );
+
+        self::assertSame([], $check->contextIssues);
+        self::assertStringContainsString(
+            'Decision rule violation: route_after_classification after classify_incident expected trigger_security_review but got resolve_first_level.',
+            implode("\n", $check->deviations)
+        );
     }
 
     public function testLoadsSelectedScenario(): void
@@ -69,9 +129,16 @@ final class AprilFixturesLoadCommandTest extends TestCase
         self::assertStringContainsString('Demo scenario "missing" was not found', $tester->getDisplay());
     }
 
-    private function command(InMemoryProcessInstanceRepository $repository, string $demoDirectory): AprilFixturesLoadCommand
+    private function command(
+        InMemoryProcessInstanceRepository $repository,
+        string $demoDirectory,
+        ?InMemoryEventStore $eventStore = null,
+        ?InMemoryContextSnapshotStore $snapshotStore = null,
+        ?TemplateContextProviderResolver $templateContextProviderResolver = null
+    ): AprilFixturesLoadCommand
     {
-        $eventStore = new InMemoryEventStore();
+        $eventStore ??= new InMemoryEventStore();
+        $snapshotStore ??= new InMemoryContextSnapshotStore();
         $receiver = new EventReceiver(
             new GenericPayloadEventNormalizer(),
             $eventStore,
@@ -79,7 +146,8 @@ final class AprilFixturesLoadCommandTest extends TestCase
             new ContextSnapshotService(
                 new InMemoryContextProfileProvider([]),
                 new NullContextProvider(),
-                new InMemoryContextSnapshotStore()
+                $snapshotStore,
+                $templateContextProviderResolver
             )
         );
 
@@ -120,5 +188,30 @@ final class AprilFixturesLoadCommandTest extends TestCase
         mkdir($directory, 0777, true);
 
         return $directory;
+    }
+
+    private function templateResolver(string $templateDirectory): TemplateContextProviderResolver
+    {
+        $gateway = $this->createMock(AmagnoDocumentGateway::class);
+        $gateway
+            ->expects(self::never())
+            ->method('fetchDocumentTags');
+
+        return new TemplateMappedContextProviderResolver(
+            new YamlProcessTemplateProvider($templateDirectory),
+            new AmagnoFieldMapFactory(),
+            new AmagnoContextProviderFactory($gateway, new AmagnoTagValueResolver(), new AmagnoTagDefinitionResolver($gateway))
+        );
+    }
+
+    private function snapshotByExternalEventKey(InMemoryContextSnapshotStore $store, string $externalEventKey): \App\Intelligence\Domain\ContextSnapshot
+    {
+        foreach ($store->all() as $snapshot) {
+            if ($snapshot->externalEventKey === $externalEventKey) {
+                return $snapshot;
+            }
+        }
+
+        self::fail(sprintf('Snapshot "%s" was not found.', $externalEventKey));
     }
 }

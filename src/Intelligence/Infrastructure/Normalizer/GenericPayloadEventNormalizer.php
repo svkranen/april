@@ -29,8 +29,23 @@ final class GenericPayloadEventNormalizer implements EventNormalizer
             $this->nullableStringValue($payload, ['actor_ref', 'actorRef', 'actor', 'user']),
             $this->dateTimeNormalizer->parseAmagnoValue($this->stringValue($payload, ['occurred_at', 'occurredAt', 'occured_at', 'occuredAt', 'timestamp', 'changeDate'], 'now')),
             $this->eventPhase($payload),
-            is_array($payload['attributes'] ?? null) ? $payload['attributes'] : []
+            $this->attributes($payload)
         );
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function attributes(array $payload): array
+    {
+        foreach (['attributes', 'context'] as $key) {
+            if (is_array($payload[$key] ?? null)) {
+                return $payload[$key];
+            }
+        }
+
+        return [];
     }
 
     /**

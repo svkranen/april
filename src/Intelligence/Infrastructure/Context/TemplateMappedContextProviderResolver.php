@@ -7,6 +7,8 @@ use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\TemplateContextProviderResolver;
 use App\Intelligence\Connector\Amagno\AmagnoContextProviderFactory;
 use App\Intelligence\Connector\Amagno\AmagnoFieldMapFactory;
+use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Domain\ProcessTemplateFieldMapping;
 use App\Service\Amagno\ConnectionDefinition;
 use App\Service\Amagno\ConnectionRegistry;
 use Psr\Log\LoggerInterface;
@@ -32,6 +34,14 @@ final readonly class TemplateMappedContextProviderResolver implements TemplateCo
 
         $fieldMap = $this->amagnoFieldMapFactory->fromTemplate($template);
         if ($fieldMap === []) {
+            if ($this->usesInlineEventContext($template)) {
+                return new ContextProviderSelection(
+                    new NullContextProvider(),
+                    $template->contextProfileRequiredFields,
+                    $template
+                );
+            }
+
             return null;
         }
         $this->logger?->debug('Loaded field mappings', [
@@ -133,5 +143,16 @@ final readonly class TemplateMappedContextProviderResolver implements TemplateCo
         }
 
         return null;
+    }
+
+    private function usesInlineEventContext(ProcessTemplate $template): bool
+    {
+        foreach ($template->fieldMappings as $mapping) {
+            if ($mapping instanceof ProcessTemplateFieldMapping && strtolower($mapping->source) === 'event_context') {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

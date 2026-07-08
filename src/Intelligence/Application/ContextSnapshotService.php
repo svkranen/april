@@ -40,13 +40,21 @@ final class ContextSnapshotService
         }
         $template = $templateContext?->template;
 
-        $attributes = $contextProvider->loadAttributes($document, $requiredFields);
+        $inlineAttributes = $this->inlineAttributes($event);
+        $providerAttributes = $contextProvider->loadAttributes($document, $requiredFields);
+        $attributes = $this->mergeInlineAttributes(
+            $providerAttributes,
+            $inlineAttributes,
+            $requiredFields
+        );
         $warnings = array_merge(
             $contextProvider instanceof ContextProviderWarningProvider ? $contextProvider->warnings() : [],
             $this->missingFieldWarnings($requiredFields, $attributes)
         );
-        $loadedAt = $this->dateTimeNormalizer->nowUtc();
         $eventOccurredAt = $this->dateTimeNormalizer->toUtc($event->occurredAt);
+        $loadedAt = $providerAttributes === [] && $this->hasApplicableInlineAttributes($inlineAttributes, $requiredFields)
+            ? $eventOccurredAt
+            : $this->dateTimeNormalizer->nowUtc();
         $freshnessSeconds = $loadedAt->getTimestamp() - $eventOccurredAt->getTimestamp();
         $maxDelaySeconds = $template?->contextPolicy?->snapshotMaxDelaySeconds;
         if ($freshnessSeconds < 0) {
@@ -79,6 +87,63 @@ final class ContextSnapshotService
         ]);
 
         return new ContextSnapshotResult($this->snapshotStore->save($snapshot), $warnings);
+    }
+
+    /**
+     * @param array<string, mixed> $providerAttributes
+     * @param array<string, mixed> $inlineAttributes
+     * @param array<int, string> $requiredFields
+     * @return array<string, mixed>
+     */
+    private function mergeInlineAttributes(array $providerAttributes, array $inlineAttributes, array $requiredFields): array
+    {
+        if ($inlineAttributes === []) {
+            return $providerAttributes;
+        }
+
+        if ($requiredFields !== []) {
+            $inlineAttributes = array_intersect_key($inlineAttributes, array_flip($requiredFields));
+        }
+
+        return array_replace($inlineAttributes, $providerAttributes);
+    }
+
+    /**
+     * @param array<string, mixed> $inlineAttributes
+     * @param array<int, string> $requiredFields
+     */
+    private function hasApplicableInlineAttributes(array $inlineAttributes, array $requiredFields): bool
+    {
+        if ($inlineAttributes === []) {
+            return false;
+        }
+
+        if ($requiredFields === []) {
+            return true;
+        }
+
+        return array_intersect_key($inlineAttributes, array_flip($requiredFields)) !== [];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function inlineAttributes(ProcessEventRecord $event): array
+    {
+        foreach ([$event->normalizedEventJson, $event->rawPayloadJson] as $json) {
+            $decoded = json_decode($json, true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+
+            foreach (['attributes', 'context'] as $key) {
+                if (is_array($decoded[$key] ?? null)) {
+                    return $decoded[$key];
+                }
+            }
+        }
+
+        return [];
     }
 
     /**

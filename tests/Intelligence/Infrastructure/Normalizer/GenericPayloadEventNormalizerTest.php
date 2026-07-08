@@ -47,4 +47,23 @@ class GenericPayloadEventNormalizerTest extends TestCase
 
         self::assertSame('2026-05-31T05:08:00+00:00', $event->occurredAt->format(DATE_ATOM));
     }
+
+    public function testAcceptsContextAsInlineAttributeAlias(): void
+    {
+        $normalizer = new GenericPayloadEventNormalizer();
+
+        $event = $normalizer->normalize([
+            'documentId' => 'incident-1',
+            'stepKey' => 'classify_incident',
+            'context' => [
+                'category' => 'security',
+                'data_exposure' => true,
+            ],
+        ]);
+
+        self::assertSame([
+            'category' => 'security',
+            'data_exposure' => true,
+        ], $event->attributes);
+    }
 }

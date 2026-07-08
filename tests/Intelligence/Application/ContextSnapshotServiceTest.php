@@ -394,6 +394,56 @@ YAML,
         self::assertSame(['Missing required context field "amount_net".'], $result->warnings);
     }
 
+    public function testTemplateEventContextFieldMappingUsesInlineEventAttributes(): void
+    {
+        $templateDirectory = $this->templateDirectory([
+            'invoice-process.yaml' => <<<'YAML'
+key: invoice-process
+context_profile:
+  required:
+    - amount_net
+    - invoice_direction
+field_mapping:
+  amount_net:
+    source: event_context
+    value_type: number
+    stability: snapshot_required
+  invoice_direction:
+    source: event_context
+    value_type: string
+    stability: snapshot_required
+context_policy:
+  snapshot:
+    max_delay_seconds: 300
+    stale_behavior: uncertain
+YAML,
+        ]);
+
+        $fallbackProvider = new RecordingContextProvider(['fallback' => 'unused']);
+        $service = new ContextSnapshotService(
+            new InMemoryContextProfileProvider([]),
+            $fallbackProvider,
+            new InMemoryContextSnapshotStore(),
+            $this->templateResolver($templateDirectory)
+        );
+
+        $result = $service->captureForEvent($this->eventWithInlineAttributes([
+            'amount_net' => 120.5,
+            'invoice_direction' => 'outbound',
+            'ignored' => 'not in profile',
+        ]));
+
+        self::assertSame(0, $fallbackProvider->calls);
+        self::assertNull($fallbackProvider->lastFields);
+        self::assertSame([
+            'amount_net' => 120.5,
+            'invoice_direction' => 'outbound',
+        ], $result->snapshot->attributes);
+        self::assertSame([], $result->warnings);
+        self::assertSame(0, $result->snapshot->freshnessSeconds);
+        self::assertTrue($result->snapshot->isFreshForDecisionCheck);
+    }
+
     public function testUnknownProcessKeyFallsBackToNullContextProvider(): void
     {
         $service = new ContextSnapshotService(
@@ -428,6 +478,29 @@ YAML,
             new DateTimeImmutable('2026-05-29T10:00:01+00:00'),
             '{}',
             '{}'
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    private function eventWithInlineAttributes(array $attributes): ProcessEventRecord
+    {
+        return new ProcessEventRecord(
+            1,
+            'evt-1',
+            'community-demo',
+            'invoice-process',
+            'received',
+            'received',
+            'doc-123',
+            'uuid-123',
+            1,
+            'user-1',
+            new DateTimeImmutable('2026-05-29T10:00:00+00:00'),
+            new DateTimeImmutable('2026-05-29T10:00:01+00:00'),
+            json_encode(['attributes' => $attributes], JSON_THROW_ON_ERROR),
+            json_encode(['attributes' => $attributes], JSON_THROW_ON_ERROR)
         );
     }
 
