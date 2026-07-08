@@ -118,6 +118,7 @@ After login, APRIL shows a first-insight card for the Incident Management demo.
 
 Start with:
 
+- **Guided tours**: open the read-only First Insight walkthrough.
 - **Items & Findings**: see the imported items and calculated findings.
 - **Deviation Journey**: inspect the incident that was routed incorrectly.
 - **Process Graph**: compare the expected process with observed findings.

@@ -15,13 +15,15 @@ cp .env.example .env
 docker compose up -d --build
 docker compose exec app composer install
 docker compose exec app php bin/console doctrine:migrations:migrate
-docker compose exec app php bin/console april:fixtures:load
+docker compose exec app php bin/console april:demo:user:create
+docker compose exec app php bin/console april:fixtures:load --reset
 ```
 
 Danach:
 
 ```text
-Browser oeffnen: http://localhost:8080
+Browser oeffnen: http://localhost:8080/app
+Login: admin@example.local / april
 ```
 
 ## Bekannte Stolpersteine
@@ -31,7 +33,7 @@ Browser oeffnen: http://localhost:8080
 - Fehlendes `git` im Dockerfile: Composer braucht `git`, wenn Pakete aus Source installiert werden muessen.
 - `.env` muss aus `.env.example` erzeugt werden, bevor Symfony lokal sinnvoll startet.
 - Private Composer-Dependency: Der aktuelle Lockfile-Stand benoetigt noch Credentials fuer private Paketquellen.
-- Lokales HTTPS-/Redirect-/Zertifikat-Problem: Im Browser kann der lokale Quickstart aktuell in `ERR_TOO_MANY_REDIRECTS` oder Zertifikatsprobleme laufen.
+- Lokale HTTP-Erreichbarkeit: Der Quickstart soll unter `http://localhost:8080/app` ohne HTTPS-Zwang funktionieren.
 
 ## Erwartetes Zielbild
 
@@ -39,11 +41,11 @@ Browser oeffnen: http://localhost:8080
 - Kein HTTPS-Zwang im Docker-Dev-Setup.
 - Keine privaten Composer-Credentials mehr nach spaeterer Composer-Bereinigung.
 - Demo-Daten koennen geladen und im Browser sichtbar gemacht werden.
+- Demo-User kann lokal reproduzierbar erzeugt werden.
+- Guided Tours verlinken auf den First-Insight-Wizard.
 - Der dokumentierte Pfad funktioniert fuer neue Community-Nutzer reproduzierbar.
 
 ## Offene Follow-ups
 
-- Dockerfile finalisieren.
-- Lokale Redirect-/Trusted-Proxy-/HTTPS-Konfiguration pruefen.
 - Composer-Abhaengigkeiten fuer den Community-Core bereinigen.
-- README Quickstart erst schreiben, wenn dieser Smoke Test gruen ist.
+- Fresh-Clone-Dockerpfad in einer Umgebung mit Docker erneut verifizieren.
