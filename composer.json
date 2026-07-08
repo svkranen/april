@@ -2,7 +2,7 @@
     "name": "april/community-core",
     "description": "APRIL Community Core process intelligence application.",
     "type": "project",
-    "license": "proprietary",
+    "license": "Apache-2.0",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {

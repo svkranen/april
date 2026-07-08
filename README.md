@@ -240,7 +240,6 @@ Good contributions keep the core connector-independent, avoid secrets, and prefe
 
 ## License
 
-The current package metadata declares this repository as `proprietary`.
-The public open-source license is still to be finalized before the first public GitHub release.
+APRIL Community Core is licensed under Apache-2.0.
 
 Understand how your processes actually run — then improve them.

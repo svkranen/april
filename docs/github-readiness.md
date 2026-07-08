@@ -64,29 +64,22 @@ Community Core should depend on ports and neutral implementations, such as:
 System-specific connector implementations should be shipped separately, for
 example as optional packages or enterprise/private adapters.
 
-## Remaining Compatibility Cleanup
+## Compatibility Cleanup
 
-There are still two excluded compatibility adapter classes in the source tree.
-They are not part of the Community service container and do not block the
-Community Composer install path.
+The excluded compatibility adapter classes were removed from the Community
+Core. Optional connector adapters must remain outside the Community runtime
+path.
 
-Before public release, they should either be removed from the Community Core or
-moved into an optional connector package.
+## License
 
-## License Decision
+APRIL Community Core is licensed under Apache-2.0.
 
-The package metadata still declares the project license as `proprietary`.
-
-This is a public-release blocker until the project license is explicitly
-decided and reflected consistently in:
+The license is reflected in:
 
 - `composer.json`
-- repository license file
+- `LICENSE`
 - README license section
 - release documentation
-
-Do not guess the license. Choose and document the intended open-source license
-before publishing the repository.
 
 ## Public Release Checklist
 
@@ -98,7 +91,7 @@ before publishing the repository.
 - No internal hosts, credentials, customer names, or private repository URLs are
   present in public docs or configuration.
 - Optional connector code is separated from the Community Core runtime path.
-- License decision is complete and documented.
+- Apache-2.0 license is complete and documented.
 
 ## Out Of Scope For Community Release
 
