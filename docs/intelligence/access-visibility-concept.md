@@ -103,8 +103,7 @@ visibility_check_profiles:
 
 visibility_profile_resolvers:
   approval_location_by_context:
-    # Fachlich z. B. "Standort (Projekt)", technisch z. B. project_location
-    # oder im aktuellen ai-rechnungen-Beispiel vorlaeufig cost_center.
+    # Fachlich z. B. "Standort (Projekt)", technisch z. B. project_location.
     field: project_location
     map:
       A: approval_location_a
@@ -146,7 +145,7 @@ steps:
     before:
       visibility_checks:
         - key: initial_visibility
-          expected_profile: incoming_invoice_scope
+          expected_profile: specialist_group_scope
 ```
 
 `before` und `after` sind Kontrollphasen am gleichen fachlichen `stepKey`, keine

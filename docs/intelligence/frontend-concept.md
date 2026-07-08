@@ -1,4 +1,4 @@
-# Frontend-Konzept: APRIL / Amagno Intelligence Tool
+# Frontend-Konzept: APRIL
 
 Dieses Dokument beschreibt ein UI-/UX-Konzept, eine Informationsarchitektur und
 einen MVP-Vorschlag fuer ein spaeteres Frontend von APRIL. Es ist bewusst ein
@@ -42,7 +42,7 @@ eventPhase, Probe-Details) sind immer erreichbar, aber nie die Default-Ebene.
 | Persona | Wichtigste Fragen | Benoetigte Ansichten | Technische Tiefe |
 |---|---|---|---|
 | Prozessverantwortlicher (fachlich) | Laeuft mein Prozess wie gedacht? Wo hakt es? Welche Schritte/Standorte sind auffaellig? | Dashboard, Template-Detail, Abweichungs-Center (gefiltert), Heatmap | Niedrig - Statusfarben, Klartext, keine UUIDs/JSON im Vordergrund |
-| Fachadministrator / Amagno-Admin | Sind Templates/Mappings korrekt? Stimmen Magnet-IDs, Tag-Mappings, Probes? Warum "missing context"? | Template-Detail (inkl. field_mapping, Probes), Coverage-Matrix, Dokument-Detail | Mittel - Mapping- und Konfig-Sicht, Probe-Parameter, Context-Felder |
+| Fachadministrator / Connector-Admin | Sind Templates/Mappings korrekt? Stimmen Connector-Mappings, Probes? Warum "missing context"? | Template-Detail (inkl. field_mapping, Probes), Coverage-Matrix, Dokument-Detail | Mittel - Mapping- und Konfig-Sicht, Probe-Parameter, Context-Felder |
 | Auditor / Datenschutz / Revision | Wer hat wann freigegeben? Welche Sichtbarkeitskontrollen existieren, welche wurden geprueft? Wo ist die Evidenz? | Dokument-Detail (Timeline + SignCheck + VisibilityResults), Pruefprotokoll, Access-Doku, Export | Niedrig-mittel - Nachweis-orientiert, Zeitstempel, Versionen, "geprueft vs. manuell" |
 | Entwickler / APRIL-Admin | Stimmen Events/Snapshots? Warum dieses Ergebnis? Was ist Roh-Payload? | Event-Liste, Raw-JSON-Drawer, Dokument-Detail technisch, Admin/Health | Hoch - volle Rohdaten, eventPhase, Provider-Auswahl, Re-Run |
 
@@ -133,7 +133,7 @@ Abschnitte:
 2. Schritte & Ablauf - Required Steps, Transitions, Parallelgruppen
    (`order: any`) als lesbare Liste/Matrix statt YAML.
 3. Entscheidungen - Decision Points & Rules mit den verwendeten Context-Feldern.
-4. Context-Profil - required fields + `field_mapping` (fachliches Feld <-> Amagno-Tag).
+4. Context-Profil - required fields + `field_mapping` (fachliches Feld <-> Connector-Feld).
 5. SignChecks - erwartete Freigeber/Mehrpersonenregeln.
 6. Access & Visibility - Probes, Profile, Resolver, Manual Tests, Coverage.
 7. Dokumentation - Vorschau + Download der generierten MD/HTML.
@@ -223,7 +223,7 @@ perspektivisch Eintrag von Pruefer, Datum, Ergebnis, Evidenz-Verweis.
 wegklickbarer Hinweis:
 
 > APRIL prueft definierte Sichtbarkeits-Controls (Probes), keine vollstaendige
-> Amagno-ACL und keine vollstaendige Benutzerrechteanalyse. Automatische
+> Connector-ACL und keine vollstaendige Benutzerrechteanalyse. Automatische
 > Ergebnisse belegen Sichtbarkeit in den technischen Kontrollpunkten zum
 > Pruefzeitpunkt.
 
@@ -395,7 +395,7 @@ Konkrete Testfaelle je Seite (Muster):
 
 | Seite | Testfaelle |
 |---|---|
-| `/app/templates` (Liste) | HTTP 200; Base-Layout gerendert; Navigation enthaelt "Templates"; reale Templates (z. B. `ai-rechnungen`) erscheinen; unbekannte Unterroute -> 404 |
+| `/app/templates` (Liste) | HTTP 200; Base-Layout gerendert; Navigation enthaelt "Templates"; reale Templates (z. B. `incident-management`) erscheinen; unbekannte Unterroute -> 404 |
 | Template-Detail (spaeter) | 200 fuer existierenden Key; 404 fuer unbekannten Key; fachliche Sektionen vorhanden |
 | Access-Coverage (spaeter) | Coverage-Status (automatic/manual/unsupported/notCovered) sichtbar; Compliance-Banner vorhanden |
 | Access-Doku (spaeter) | Preview liefert `text/html`; Download setzt `Content-Disposition`; MD/HTML korrekt |

@@ -17,10 +17,9 @@ class DocsController
 {
     private const ALLOWED = [
         'start.html',
-        'index.html',
-        'admin-guide.html',
-        'process-analysis-guide.md',
         'doctrine-persistence.md',
+        'github-readiness-first-experience.md',
+        'github-readiness.md',
     ];
 
     public function __construct(

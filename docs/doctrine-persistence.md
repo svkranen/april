@@ -59,17 +59,18 @@ Decision checks use snapshots for mutable or `snapshot_required` fields. Stale,
 missing, or time-skewed context is reported as an uncertain/uncheckable context
 condition instead of a false process deviation.
 
-## Dev/Test Sample Data
+## Dev/Test Demo Data
 
-Local process-analysis fixtures can be loaded without IncomingEvents or Amagno:
+Local Community demo fixtures can be loaded through the generic fixture loader:
 
 ```bash
-bin/console intelligence:sample-data:load-ai-rechnungen --purge
+bin/console april:fixtures:load --reset
 ```
 
-The command writes sample documents `900001` through `900008` directly into
-`ProcessEventEntity`, `ProcessInstanceEntity`, and `ContextSnapshotEntity` for
-`processKey=ai-rechnungen`.
+The default scenario is `demo/incident-management`. It imports neutral events
+through the same APRIL event/timeline path used by the application and creates
+process events, process instances, and context snapshots for
+`processKey=incident-management`.
 
-Use this for local heatmap, graph, and projection tests. The command is intended
-for `dev`/`test`; outside those environments it requires explicit confirmation.
+Use this for local quickstart checks, fixture regression tests, and the first
+insight demo.
