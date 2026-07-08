@@ -5,11 +5,13 @@ namespace App\Tests\Command;
 use App\Command\AprilWizardShowCommand;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Domain\ProcessTemplate;
+use App\Wizard\NullWizardProgressStore;
 use App\Wizard\WizardDefinitionLoader;
 use App\Wizard\WizardDefinitionRenderer;
 use App\Wizard\WizardLinkResolver;
 use App\Wizard\WizardCompletionChecker;
 use App\Wizard\WizardPrerequisiteChecker;
+use App\Wizard\WizardProgressReader;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -27,7 +29,8 @@ final class AprilWizardShowCommandTest extends TestCase
             new WizardDefinitionRenderer(
                 new WizardLinkResolver($this->urlGenerator()),
                 new WizardPrerequisiteChecker($this->provider(), $this->urlGenerator()),
-                new WizardCompletionChecker()
+                new WizardCompletionChecker(),
+                new WizardProgressReader(new NullWizardProgressStore())
             )
         ));
 
@@ -41,6 +44,7 @@ final class AprilWizardShowCommandTest extends TestCase
         self::assertStringContainsString('status=warning', $tester->getDisplay());
         self::assertStringContainsString('type=route_visited', $tester->getDisplay());
         self::assertStringContainsString('status=unknown', $tester->getDisplay());
+        self::assertStringContainsString('Wizard progress is not persisted yet.', $tester->getDisplay());
         self::assertStringContainsString('Route visits are not tracked yet.', $tester->getDisplay());
         self::assertStringContainsString('Open Journey', $tester->getDisplay());
         self::assertStringContainsString('app_intelligence_documents_show', $tester->getDisplay());

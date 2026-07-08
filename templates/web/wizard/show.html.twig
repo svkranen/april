@@ -53,6 +53,11 @@
             <h3>Prerequisites</h3>
             {{ _self.record_table(view.prerequisites, true) }}
         {% endif %}
+
+        {% if view.progress is not empty %}
+            <h3>Progress</h3>
+            {{ _self.map_table(view.progress, true) }}
+        {% endif %}
     </div>
 
     <div class="card">
@@ -103,6 +108,11 @@
                         {{ _self.record_table(step.prerequisites, true) }}
                     {% endif %}
 
+                    {% if step.progress is not empty %}
+                        <h4>Progress</h4>
+                        {{ _self.map_table(step.progress, true) }}
+                    {% endif %}
+
                     {% if step.completion is not empty %}
                         <h4>Completion</h4>
                         {{ _self.record_table(step.completion, true) }}
@@ -131,6 +141,24 @@
                     </td>
                 </tr>
             {% endfor %}
+        </tbody>
+    </table>
+{% endmacro %}
+
+{% macro map_table(record, highlight_status) %}
+    <table>
+        <tbody>
+            <tr>
+                <td>
+                    {% for key, value in record %}
+                        {% if highlight_status and key == 'status' %}
+                            <span class="badge vs-{{ value }}">{{ value }}</span><br>
+                        {% else %}
+                            <span class="badge is-muted">{{ key }}</span> {{ value }}<br>
+                        {% endif %}
+                    {% endfor %}
+                </td>
+            </tr>
         </tbody>
     </table>
 {% endmacro %}

@@ -8,6 +8,7 @@ final readonly class WizardStepView
      * @param array<int, string> $concepts
      * @param array<int, array<string, string>> $links
      * @param array<int, array<string, string>> $prerequisites
+     * @param array<string, string> $progress
      * @param array<int, array<string, string>> $completion
      */
     public function __construct(
@@ -18,6 +19,7 @@ final readonly class WizardStepView
         public array $concepts,
         public array $links,
         public array $prerequisites,
+        public array $progress,
         public array $completion
     ) {
     }

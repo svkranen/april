@@ -38,6 +38,8 @@ final class WizardControllerTest extends AppWebTestCase
         self::assertStringContainsString('ok', $html);
         self::assertStringContainsString('Actions', $html);
         self::assertStringContainsString('Items &amp; Findings', $html);
+        self::assertStringContainsString('Progress', $html);
+        self::assertStringContainsString('Wizard progress is not persisted yet.', $html);
         self::assertStringContainsString('Completion', $html);
         self::assertStringContainsString('unknown', $html);
         self::assertStringContainsString('Route visits are not tracked yet.', $html);

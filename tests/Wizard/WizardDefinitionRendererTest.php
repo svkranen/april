@@ -4,11 +4,13 @@ namespace App\Tests\Wizard;
 
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Domain\ProcessTemplate;
+use App\Wizard\NullWizardProgressStore;
 use App\Wizard\WizardDefinitionLoader;
 use App\Wizard\WizardDefinitionRenderer;
 use App\Wizard\WizardLinkResolver;
 use App\Wizard\WizardCompletionChecker;
 use App\Wizard\WizardPrerequisiteChecker;
+use App\Wizard\WizardProgressReader;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Routing\Generator\UrlGenerator;
 use Symfony\Component\Routing\RequestContext;
@@ -77,6 +79,20 @@ final class WizardDefinitionRendererTest extends TestCase
         self::assertStringContainsString('type=step_acknowledged, status=unknown, message=No Wizard runtime or persistence exists yet.', $output);
         self::assertStringContainsString('type=route_visited, route=app_templates_documents, status=unknown, message=Route visits are not tracked yet.', $output);
         self::assertStringContainsString('type=manual, note=Confirm that the Decision Rule Violation is visible., status=unknown, message=Manual completion is not executable in the MVP.', $output);
+    }
+
+    public function testRendersProgressStatuses(): void
+    {
+        $wizard = (new WizardDefinitionLoader(dirname(__DIR__, 2).'/config/april/wizards'))->load('first-insight');
+
+        $output = (new WizardDefinitionRenderer(
+            progressReader: new WizardProgressReader(new NullWizardProgressStore())
+        ))->render($wizard);
+
+        self::assertStringContainsString('Progress:', $output);
+        self::assertStringContainsString('- status: unknown', $output);
+        self::assertStringContainsString('- message: Wizard progress is not persisted yet.', $output);
+        self::assertStringContainsString('- step: welcome', $output);
     }
 
     public function testRendersWarningForUnsupportedCompletionType(): void

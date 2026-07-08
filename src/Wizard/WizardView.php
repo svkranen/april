@@ -9,6 +9,7 @@ final readonly class WizardView
      * @param array<string, string> $scenario
      * @param array<int, string> $concepts
      * @param array<int, array<string, string>> $prerequisites
+     * @param array<string, string> $progress
      * @param array<int, WizardStepView> $steps
      * @param array<string, string> $completion
      */
@@ -21,6 +22,7 @@ final readonly class WizardView
         public array $scenario,
         public array $concepts,
         public array $prerequisites,
+        public array $progress,
         public array $steps,
         public array $completion
     ) {

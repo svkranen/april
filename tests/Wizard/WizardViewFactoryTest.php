@@ -4,12 +4,14 @@ namespace App\Tests\Wizard;
 
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Domain\ProcessTemplate;
+use App\Wizard\NullWizardProgressStore;
 use App\Wizard\WizardCompletionChecker;
 use App\Wizard\WizardDefinition;
 use App\Wizard\WizardDefinitionLoader;
 use App\Wizard\WizardLinkResolver;
 use App\Wizard\WizardPrerequisiteCheckResult;
 use App\Wizard\WizardPrerequisiteChecker;
+use App\Wizard\WizardProgressReader;
 use App\Wizard\WizardStepDefinition;
 use App\Wizard\WizardViewFactory;
 use PHPUnit\Framework\TestCase;
@@ -86,6 +88,17 @@ final class WizardViewFactoryTest extends TestCase
         self::assertSame('unknown', $view->steps[3]->completion[0]['status']);
     }
 
+    public function testProgressIsCarriedIntoWizardAndStepViews(): void
+    {
+        $view = $this->factory()->create($this->firstInsightWizard());
+
+        self::assertSame('unknown', $view->progress['status']);
+        self::assertSame('Wizard progress is not persisted yet.', $view->progress['message']);
+        self::assertSame('unknown', $view->steps[0]->progress['status']);
+        self::assertSame('Wizard progress is not persisted yet.', $view->steps[0]->progress['message']);
+        self::assertSame('welcome', $view->steps[0]->progress['step']);
+    }
+
     public function testLinksAreCarriedIntoStepViewsWithResolvedPaths(): void
     {
         $view = $this->factory()->create($this->firstInsightWizard());
@@ -127,7 +140,8 @@ final class WizardViewFactoryTest extends TestCase
         return new WizardViewFactory(
             new WizardLinkResolver($this->urlGenerator()),
             new WizardPrerequisiteChecker($this->provider(), $this->urlGenerator()),
-            new WizardCompletionChecker()
+            new WizardCompletionChecker(),
+            new WizardProgressReader(new NullWizardProgressStore())
         );
     }
 

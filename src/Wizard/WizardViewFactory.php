@@ -7,7 +7,8 @@ final readonly class WizardViewFactory
     public function __construct(
         private ?WizardLinkResolver $linkResolver = null,
         private ?WizardPrerequisiteChecker $prerequisiteChecker = null,
-        private ?WizardCompletionChecker $completionChecker = null
+        private ?WizardCompletionChecker $completionChecker = null,
+        private ?WizardProgressReader $progressReader = null
     ) {
     }
 
@@ -16,7 +17,7 @@ final readonly class WizardViewFactory
         $steps = [];
         $concepts = [];
         foreach ($wizard->steps as $step) {
-            $stepView = $this->createStep($step);
+            $stepView = $this->createStep($wizard->key, $step);
             $steps[] = $stepView;
             foreach ($stepView->concepts as $concept) {
                 $concepts[$concept] = $concept;
@@ -32,12 +33,13 @@ final readonly class WizardViewFactory
             $this->mapping($wizard->metadata['scenario'] ?? []),
             array_values($concepts),
             $this->prerequisiteRecords($wizard->metadata['prerequisites'] ?? []),
+            $this->progressRecord($wizard->key, null),
             $steps,
             $this->mapping($wizard->metadata['completion'] ?? [])
         );
     }
 
-    private function createStep(WizardStepDefinition $step): WizardStepView
+    private function createStep(string $wizardKey, WizardStepDefinition $step): WizardStepView
     {
         return new WizardStepView(
             $step->key,
@@ -47,6 +49,7 @@ final readonly class WizardViewFactory
             $this->strings($step->data['concepts'] ?? []),
             $this->linkRecords($step->data['links'] ?? []),
             $this->prerequisiteRecords($step->data['prerequisites'] ?? []),
+            $this->progressRecord($wizardKey, $step->key),
             $this->completionRecords($step)
         );
     }
@@ -198,6 +201,28 @@ final readonly class WizardViewFactory
         }
 
         return $records;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function progressRecord(string $wizardKey, ?string $stepKey): array
+    {
+        if ($this->progressReader === null || $wizardKey === '') {
+            return [];
+        }
+
+        $state = $this->progressReader->read($wizardKey, $stepKey);
+        $record = [
+            'status' => $state->status,
+            'message' => $state->message,
+        ];
+
+        if ($state->stepKey !== null) {
+            $record['step'] = $state->stepKey;
+        }
+
+        return $record;
     }
 
     private function optionalString(mixed $value): ?string

@@ -8,6 +8,7 @@ final readonly class WizardDefinitionRenderer
         private ?WizardLinkResolver $linkResolver = null,
         private ?WizardPrerequisiteChecker $prerequisiteChecker = null,
         private ?WizardCompletionChecker $completionChecker = null,
+        private ?WizardProgressReader $progressReader = null,
         private ?WizardViewFactory $viewFactory = null
     ) {
     }
@@ -39,6 +40,7 @@ final readonly class WizardDefinitionRenderer
         $this->appendList($lines, 'Audience', $wizard->audience);
         $this->appendMap($lines, 'Scenario', $wizard->scenario);
         $this->appendRecords($lines, 'Prerequisites', $wizard->prerequisites);
+        $this->appendMap($lines, 'Progress', $wizard->progress);
 
         $lines[] = 'Steps:';
         foreach ($wizard->steps as $index => $step) {
@@ -48,6 +50,7 @@ final readonly class WizardDefinitionRenderer
             $this->appendList($lines, '     Concepts', $step->concepts);
             $this->appendRecords($lines, '     Links', $step->links);
             $this->appendRecords($lines, '     Prerequisites', $step->prerequisites);
+            $this->appendMap($lines, '     Progress', $step->progress);
             $this->appendRecords($lines, '     Completion', $step->completion);
         }
 
@@ -143,7 +146,8 @@ final readonly class WizardDefinitionRenderer
         return $this->viewFactory ?? new WizardViewFactory(
             $this->linkResolver,
             $this->prerequisiteChecker,
-            $this->completionChecker
+            $this->completionChecker,
+            $this->progressReader
         );
     }
 }
