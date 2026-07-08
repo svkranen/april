@@ -46,6 +46,9 @@ final class AprilFixturesLoadCommandTest extends TestCase
         self::assertStringContainsString('events_duplicate: 0', $display);
         self::assertStringContainsString('process_instances: 4', $display);
         self::assertStringContainsString('process_instances_total: 4', $display);
+        self::assertStringContainsString('browser_hint: open APRIL after login and start with these demo views', $display);
+        self::assertStringContainsString('/app/intelligence/process-keys/incident-management/documents', $display);
+        self::assertStringContainsString('/app/templates/incident-management/documents?withFindings=1', $display);
     }
 
     public function testLoadedIncidentFixturesProvideInlineContextForTemplateChecks(): void
@@ -199,6 +202,8 @@ final class AprilFixturesLoadCommandTest extends TestCase
         self::assertStringContainsString('event_files: 1', $display);
         self::assertStringContainsString('events_imported: 2', $display);
         self::assertStringContainsString('process_instances: 1', $display);
+        self::assertStringContainsString('/app/intelligence/process-keys/custom-scenario/documents', $display);
+        self::assertStringContainsString('/app/templates/custom-scenario/documents?withFindings=1', $display);
     }
 
     public function testReportsMissingScenario(): void

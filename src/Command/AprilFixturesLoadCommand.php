@@ -79,6 +79,9 @@ final class AprilFixturesLoadCommand extends Command
         $output->writeln(sprintf('events_duplicate: %d', $result['duplicate_events']));
         $output->writeln(sprintf('process_instances: %d', $result['process_instances']));
         $output->writeln(sprintf('process_instances_total: %d', $this->processInstanceRepository->count()));
+        $output->writeln('browser_hint: open APRIL after login and start with these demo views');
+        $output->writeln(sprintf('browser_process_documents: %s', $this->browserUrl('/app/intelligence/process-keys/'.rawurlencode($scenario).'/documents')));
+        $output->writeln(sprintf('browser_template_findings: %s', $this->browserUrl('/app/templates/'.rawurlencode($scenario).'/documents?withFindings=1')));
 
         return Command::SUCCESS;
     }
@@ -214,6 +217,16 @@ final class AprilFixturesLoadCommand extends Command
         }
 
         return null;
+    }
+
+    private function browserUrl(string $path): string
+    {
+        $baseUri = trim((string) ($_SERVER['DEFAULT_URI'] ?? $_ENV['DEFAULT_URI'] ?? getenv('DEFAULT_URI') ?: ''));
+        if ($baseUri === '') {
+            $baseUri = 'http://localhost:8080';
+        }
+
+        return rtrim($baseUri, '/').$path;
     }
 
     /**
