@@ -24,6 +24,7 @@ final class WizardControllerTest extends AppWebTestCase
         self::assertStringContainsString('Completion', $html);
         self::assertStringContainsString('unknown', $html);
         self::assertStringContainsString('Route visits are not tracked yet.', $html);
+        self::assertSelectorExists('nav.app-nav a[href="/app/wizards/first-insight"]');
         self::assertSelectorExists('a[href="/app/templates/incident-management/documents?withFindings=1"]');
         self::assertSelectorExists('a[href="/app/intelligence/documents/10000000-0000-4000-8000-000000000004"]');
     }
