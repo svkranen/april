@@ -28,6 +28,19 @@ final class InMemoryEventStore implements EventStore
         return count($this->eventsByExternalKey);
     }
 
+    public function removeByProcessKeyAndDocumentUuid(string $processKey, string $documentUuid): int
+    {
+        $deleted = 0;
+        foreach ($this->eventsByExternalKey as $externalEventKey => $event) {
+            if ($event->processKey === $processKey && $event->documentUuid === $documentUuid) {
+                unset($this->eventsByExternalKey[$externalEventKey]);
+                ++$deleted;
+            }
+        }
+
+        return $deleted;
+    }
+
     public function attachProcessInstance(ProcessEventRecord $event, int $processInstanceId): ProcessEventRecord
     {
         $stored = ($this->eventsByExternalKey[$event->externalEventKey] ?? $event)->withProcessInstanceId($processInstanceId);

@@ -43,6 +43,19 @@ final class InMemoryProcessInstanceRepository implements ProcessInstanceReposito
         return count($this->instancesByIdentity);
     }
 
+    public function removeByProcessKeyAndDocumentUuid(string $processKey, string $documentUuid): int
+    {
+        $deleted = 0;
+        foreach ($this->instancesByIdentity as $identityKey => $instance) {
+            if ($instance->processKey === $processKey && $instance->documentUuid === $documentUuid) {
+                unset($this->instancesByIdentity[$identityKey]);
+                ++$deleted;
+            }
+        }
+
+        return $deleted;
+    }
+
     /**
      * @return array<int, ProcessInstance>
      */

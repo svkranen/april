@@ -7,6 +7,8 @@ use App\Intelligence\Application\ContextSnapshotService;
 use App\Intelligence\Application\EventReceiver;
 use App\Intelligence\Application\ProcessInstanceManager;
 use App\Intelligence\Application\ProcessTemplateCheckService;
+use App\Intelligence\Application\ProcessResetResult;
+use App\Intelligence\Application\ProcessResetter;
 use App\Intelligence\Application\TemplateContextProviderResolver;
 use App\Intelligence\Connector\Amagno\AmagnoContextProviderFactory;
 use App\Intelligence\Connector\Amagno\AmagnoDocumentGateway;
@@ -96,6 +98,86 @@ final class AprilFixturesLoadCommandTest extends TestCase
         );
     }
 
+    public function testSecondImportWithoutResetKeepsFixtureLoadingIdempotent(): void
+    {
+        $eventStore = new InMemoryEventStore();
+        $repository = new InMemoryProcessInstanceRepository();
+        $snapshotStore = new InMemoryContextSnapshotStore();
+        $command = $this->command(
+            $repository,
+            dirname(__DIR__, 2).'/demo',
+            $eventStore,
+            $snapshotStore,
+            $this->templateResolver(dirname(__DIR__, 2).'/config/april/process-templates')
+        );
+
+        (new CommandTester($command))->execute([]);
+        $secondRun = new CommandTester($command);
+        $exitCode = $secondRun->execute([]);
+        $display = $secondRun->getDisplay();
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(16, $eventStore->count());
+        self::assertSame(4, $repository->count());
+        self::assertSame(16, $snapshotStore->count());
+        self::assertStringContainsString('reset: no', $display);
+        self::assertStringContainsString('events_imported: 0', $display);
+        self::assertStringContainsString('events_duplicate: 16', $display);
+        self::assertStringContainsString('process_instances_total: 4', $display);
+    }
+
+    public function testResetReimportsIncidentFixturesAndProducesFreshDecisionViolation(): void
+    {
+        $eventStore = new InMemoryEventStore();
+        $repository = new InMemoryProcessInstanceRepository();
+        $snapshotStore = new InMemoryContextSnapshotStore();
+        $templateDirectory = dirname(__DIR__, 2).'/config/april/process-templates';
+        $command = $this->command(
+            $repository,
+            dirname(__DIR__, 2).'/demo',
+            $eventStore,
+            $snapshotStore,
+            $this->templateResolver($templateDirectory)
+        );
+
+        (new CommandTester($command))->execute([]);
+        $resetRun = new CommandTester($command);
+        $exitCode = $resetRun->execute(['--reset' => true]);
+        $display = $resetRun->getDisplay();
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        self::assertSame(16, $eventStore->count());
+        self::assertSame(4, $repository->count());
+        self::assertSame(16, $snapshotStore->count());
+        self::assertStringContainsString('reset: yes', $display);
+        self::assertStringContainsString('reset_targets: 4', $display);
+        self::assertStringContainsString('deleted_events: 16', $display);
+        self::assertStringContainsString('deleted_process_instances: 4', $display);
+        self::assertStringContainsString('deleted_context_snapshots: 16', $display);
+        self::assertStringContainsString('events_imported: 16', $display);
+        self::assertStringContainsString('events_duplicate: 0', $display);
+
+        $template = (new YamlProcessTemplateProvider($templateDirectory))->findByProcessKey('incident-management');
+        self::assertNotNull($template);
+
+        $check = (new ProcessTemplateCheckService(new InMemoryDocumentTimelineProvider(
+            $repository->all(),
+            $eventStore->all(),
+            $snapshotStore->all()
+        )))->checkDocument(
+            '10000000-0000-4000-8000-000000000004',
+            'incident-management',
+            $template,
+            1
+        );
+
+        self::assertSame([], $check->contextIssues);
+        self::assertStringContainsString(
+            'Decision rule violation: route_after_classification after classify_incident expected trigger_security_review but got resolve_first_level.',
+            implode("\n", $check->deviations)
+        );
+    }
+
     public function testLoadsSelectedScenario(): void
     {
         $demoDirectory = $this->temporaryDemoDirectory();
@@ -155,7 +237,8 @@ final class AprilFixturesLoadCommandTest extends TestCase
             $receiver,
             $repository,
             $this->createStub(KernelInterface::class),
-            $demoDirectory
+            $demoDirectory,
+            new ResettingInMemoryProcessResetter($eventStore, $repository, $snapshotStore)
         );
     }
 
@@ -213,5 +296,58 @@ final class AprilFixturesLoadCommandTest extends TestCase
         }
 
         self::fail(sprintf('Snapshot "%s" was not found.', $externalEventKey));
+    }
+}
+
+final readonly class ResettingInMemoryProcessResetter implements ProcessResetter
+{
+    public function __construct(
+        private InMemoryEventStore $eventStore,
+        private InMemoryProcessInstanceRepository $processInstanceRepository,
+        private InMemoryContextSnapshotStore $contextSnapshotStore
+    ) {
+    }
+
+    public function reset(string $processKey, ?string $documentUuid = null, bool $dryRun = false): ProcessResetResult
+    {
+        if ($documentUuid === null) {
+            return new ProcessResetResult(0, 0, 0, 0, 0, $dryRun);
+        }
+
+        $events = $this->countEvents($processKey, $documentUuid);
+        $instances = $this->countInstances($processKey, $documentUuid);
+        $snapshots = $this->countSnapshots($processKey, $documentUuid);
+
+        if (!$dryRun) {
+            $this->eventStore->removeByProcessKeyAndDocumentUuid($processKey, $documentUuid);
+            $this->processInstanceRepository->removeByProcessKeyAndDocumentUuid($processKey, $documentUuid);
+            $this->contextSnapshotStore->removeByProcessKeyAndDocumentUuid($processKey, $documentUuid);
+        }
+
+        return new ProcessResetResult($events, $instances, $snapshots, 0, 0, $dryRun);
+    }
+
+    private function countEvents(string $processKey, string $documentUuid): int
+    {
+        return count(array_filter(
+            $this->eventStore->all(),
+            static fn ($event): bool => $event->processKey === $processKey && $event->documentUuid === $documentUuid
+        ));
+    }
+
+    private function countInstances(string $processKey, string $documentUuid): int
+    {
+        return count(array_filter(
+            $this->processInstanceRepository->all(),
+            static fn ($instance): bool => $instance->processKey === $processKey && $instance->documentUuid === $documentUuid
+        ));
+    }
+
+    private function countSnapshots(string $processKey, string $documentUuid): int
+    {
+        return count(array_filter(
+            $this->contextSnapshotStore->all(),
+            static fn ($snapshot): bool => $snapshot->processKey === $processKey && $snapshot->document->externalUuid === $documentUuid
+        ));
     }
 }

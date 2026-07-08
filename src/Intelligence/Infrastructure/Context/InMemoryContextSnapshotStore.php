@@ -22,6 +22,24 @@ final class InMemoryContextSnapshotStore implements ContextSnapshotStore
         return count($this->snapshots);
     }
 
+    public function removeByProcessKeyAndDocumentUuid(string $processKey, string $documentUuid): int
+    {
+        $deleted = 0;
+        $this->snapshots = array_values(array_filter(
+            $this->snapshots,
+            static function (ContextSnapshot $snapshot) use ($processKey, $documentUuid, &$deleted): bool {
+                $matches = $snapshot->processKey === $processKey && $snapshot->document->externalUuid === $documentUuid;
+                if ($matches) {
+                    ++$deleted;
+                }
+
+                return !$matches;
+            }
+        ));
+
+        return $deleted;
+    }
+
     /**
      * @return array<int, ContextSnapshot>
      */
