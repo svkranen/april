@@ -23,3 +23,5 @@
 /assets/vendor/
 ###< symfony/asset-mapper ###
 .phpunit.result.cache
+AGENTS.md
+ARCHITECTURE.md
