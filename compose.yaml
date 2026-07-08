@@ -20,11 +20,12 @@ services:
 
   db:
     image: postgres:16-alpine
-    command: ["postgres", "-c", "unix_socket_directories="]
     environment:
       POSTGRES_DB: april
       POSTGRES_USER: april
       POSTGRES_PASSWORD: april
+    tmpfs:
+      - /var/run/postgresql
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
