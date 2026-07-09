@@ -1,10 +1,13 @@
 # APRIL
 
-**APRIL turns raw business events into process insight. Connector-independent. Event-driven. Open Core.**
+**APRIL** (**Adaptive Process Intelligence Layer**) is an open-source Process
+Intelligence Platform that reconstructs, analyzes and explains business
+processes from events using declarative process templates.
 
-It reconstructs what actually happened, compares reality with your expected process, and explains where and why they diverge.
-
-APRIL does not run your workflows. It helps you understand them.
+Instead of executing workflows, APRIL observes business events, reconstructs
+process instances, evaluates them against expected process templates and helps
+identify deviations, bottlenecks and operational insights across connected
+business systems.
 
 ---
 

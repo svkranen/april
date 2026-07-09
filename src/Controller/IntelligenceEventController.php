@@ -28,9 +28,7 @@ final class IntelligenceEventController
 
         $signature = $request->headers->get('X-Intelligence-Secret')
             ?? $request->headers->get('X-Intelligence-Signature')
-            ?? $request->headers->get('X-Amagno-Signature')
             ?? $request->headers->get('Signature')
-            ?? $this->secretFromRequest($request)
             ?? '';
 
         if (!$this->signatureVerifier->verify($rawPayload, $signature)) {
@@ -135,19 +133,6 @@ final class IntelligenceEventController
         }
 
         return array_replace($queryPayload, $decoded);
-    }
-
-    private function secretFromRequest(Request $request): ?string
-    {
-        foreach ([$request->request->all(), $request->query->all()] as $parameters) {
-            foreach (['xIntelligenceSecret', 'x_intelligence_secret', 'X-Intelligence-Secret', 'apiKey', 'api_key'] as $key) {
-                if (isset($parameters[$key]) && is_scalar($parameters[$key]) && trim((string) $parameters[$key]) !== '') {
-                    return (string) $parameters[$key];
-                }
-            }
-        }
-
-        return null;
     }
 
     private function safeRawBody(Request $request, string $rawPayload): string

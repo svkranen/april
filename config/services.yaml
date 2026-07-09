@@ -20,6 +20,7 @@ parameters:
     amagno.stamp_retries: 3
     intelligence.event_store_file: '%kernel.project_dir%/var/intelligence/process_events.jsonl'
     intelligence.event_secret: ''
+    intelligence.event_allow_unsigned_dev: false
     intelligence.context_profiles: []
     april.process_template_dir: '%kernel.project_dir%/config/april/process-templates'
     april.wizard_dir: '%kernel.project_dir%/config/april/wizards'
@@ -258,10 +259,6 @@ services:
         arguments:
             $processTemplateDirectory: '%april.process_template_dir%'
 
-    App\Controller\SettingsActionController:
-        arguments:
-            $matchingSaveService: '@App\Service\Settings\LegacyMatchingSaveService'
-
     App\Controller\App\DocumentJourneyController:
         arguments:
             $timelineProvider: '@App\Intelligence\Application\DocumentTimelineProvider'
@@ -280,6 +277,8 @@ services:
     App\Intelligence\Infrastructure\Security\HmacSignatureVerifier:
         arguments:
             $secret: '%env(default:intelligence.event_secret:INTELLIGENCE_EVENT_SECRET)%'
+            $environment: '%kernel.environment%'
+            $allowUnsignedWhenUnconfigured: '%env(bool:default:intelligence.event_allow_unsigned_dev:INTELLIGENCE_EVENT_ALLOW_UNSIGNED_DEV)%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

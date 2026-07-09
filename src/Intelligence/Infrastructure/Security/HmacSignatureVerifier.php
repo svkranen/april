@@ -7,14 +7,16 @@ use App\Intelligence\Port\SignatureVerifier;
 final class HmacSignatureVerifier implements SignatureVerifier
 {
     public function __construct(
-        private readonly ?string $secret = null
+        private readonly ?string $secret = null,
+        private readonly string $environment = 'prod',
+        private readonly bool $allowUnsignedWhenUnconfigured = false
     ) {
     }
 
     public function verify(string $payload, string $signature): bool
     {
         if ($this->secret === null || $this->secret === '') {
-            return true;
+            return $this->allowUnsignedWhenUnconfigured && in_array($this->environment, ['dev', 'test'], true);
         }
 
         if ($signature === '') {

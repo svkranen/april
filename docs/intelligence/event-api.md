@@ -50,26 +50,28 @@ Community-Pfad ohne Connector ausgewertet werden sollen.
 
 ## Authentifizierung / Signatur
 
-Das Secret bzw. die Signatur kann ueber einen dieser Header gesendet werden:
+Das Secret bzw. die Signatur muss ueber einen dieser Header gesendet werden:
 
 - `X-Intelligence-Secret`
 - `X-Intelligence-Signature`
 - `Signature`
-
-Alternativ kann das Secret als Parameter gesendet werden:
-
-- `xIntelligenceSecret`
-- `x_intelligence_secret`
-- `X-Intelligence-Secret`
-- `apiKey`
-- `api_key`
 
 Wenn `INTELLIGENCE_EVENT_SECRET` gesetzt ist, akzeptiert der lokale Verifier
 entweder den identischen Secret-Wert oder eine HMAC-SHA256-Signatur ueber den
 rohen Request-Body. Fuer HMAC wird der reine Hex-Digest oder das Format
 `sha256=<digest>` akzeptiert.
 
-Ist kein Secret konfiguriert, akzeptiert der lokale Verifier alle Requests.
+Ist kein Secret konfiguriert, lehnt der lokale Verifier Events ab
+(`accepted: false`, `error: invalid_signature`). Fuer lokale Entwicklung kann
+unsignierter Intake nur explizit aktiviert werden:
+
+```dotenv
+APP_ENV=dev
+INTELLIGENCE_EVENT_SECRET=
+INTELLIGENCE_EVENT_ALLOW_UNSIGNED_DEV=true
+```
+
+Dieser Opt-in wirkt nur in `dev` und `test`, nicht in `prod`.
 
 ## Empfohlenes Payload
 
@@ -114,7 +116,6 @@ documentUuid=<item-uuid>
 documentVersion=1
 occurredAt=<event-time-ISO-8601>
 externalEventKey=<source>:<item-uuid>:<documentVersion>:<stepKey>:<occurredAt>
-xIntelligenceSecret=<secret>
 ```
 
 Pragmatische Vorgabe fuer sendende Systeme:
@@ -130,9 +131,9 @@ Pragmatische Vorgabe fuer sendende Systeme:
 - `documentVersion` mitsenden, sobald das Quellsystem Versionen kennt.
 - `externalEventKey` aus stabilen Bestandteilen bauen. Nicht bei jedem Retry
   neu zufaellig erzeugen.
-- Den Secret bevorzugt per Header `X-Intelligence-Secret` senden. Wenn die
-  Stempelaktion keine Header setzen kann, `xIntelligenceSecret` oder `apiKey`
-  als Parameter nutzen.
+- Den Secret per Header `X-Intelligence-Secret` senden.
+- Query- oder Form-Parameter wie `xIntelligenceSecret` oder `apiKey` werden aus
+  Sicherheitsgruenden nicht als Authentifizierung akzeptiert.
 
 Bei Form-Requests muessen Sonderzeichen URL-encoded werden. Das betrifft vor
 allem Leerzeichen in `stepKey` und Plus-Zeichen in Zeitzonen, z. B.
@@ -156,7 +157,6 @@ allem Leerzeichen in `stepKey` und Plus-Zeichen in Zeitzonen, z. B.
 | `actorRef` | `actor_ref`, `actor`, `user` | Optional | Benutzer-, Rollen- oder Systemreferenz des Ausloesers. |
 | `occurredAt` | `occurred_at`, `occured_at`, `occuredAt`, `timestamp`, `changeDate` | Empfohlen | Ereigniszeitpunkt. ISO-8601 mit Offset ist bevorzugt. Offsetlose Zeiten werden als Berliner Lokalzeit interpretiert und intern nach UTC normalisiert. |
 | `attributes` | - | Optional | Freie fachliche Zusatzdaten als Objekt. |
-| `xIntelligenceSecret` | `x_intelligence_secret`, `X-Intelligence-Secret`, `apiKey`, `api_key` | Optional | Alternative zur Signaturuebergabe, wenn der konkrete Verifier dies akzeptiert. |
 
 ## Verschachteltes Dokumentobjekt
 
@@ -229,8 +229,9 @@ benoetigt wird, muss es in `context_profile.required` stehen und technisch ueber
 ## Minimalbeispiel als URL/Form-Parameter
 
 ```bash
-curl -X POST 'https://example.test/api/intelligence/events?xIntelligenceSecret=<secret>' \
+curl -X POST 'https://example.test/api/intelligence/events' \
   -H 'Content-Type: application/x-www-form-urlencoded' \
+  -H 'X-Intelligence-Secret: <secret>' \
   --data-urlencode 'processKey=incident-management' \
   --data-urlencode 'eventKey=incident.received' \
   --data-urlencode 'stepKey=incident_received' \

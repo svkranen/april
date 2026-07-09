@@ -356,9 +356,9 @@ class IntelligenceEventControllerTest extends TestCase
         self::assertTrue($data['accepted']);
     }
 
-    public function testSecretCanBeProvidedAsHeaderFormOrQueryParameter(): void
+    public function testSecretCanBeProvidedAsHeaderOnly(): void
     {
-        $headerVerifier = new class implements SignatureVerifier {
+        $verifier = new class implements SignatureVerifier {
             public ?string $signature = null;
 
             public function verify(string $payload, string $signature): bool
@@ -368,58 +368,48 @@ class IntelligenceEventControllerTest extends TestCase
                 return $signature !== '';
             }
         };
-        $headerStore = new InMemoryIncomingEventStore();
-        $headerController = new IntelligenceEventController($headerVerifier, $this->intake($headerStore));
-        $headerRequest = $this->request($this->payload([
+        $store = new InMemoryIncomingEventStore();
+        $controller = new IntelligenceEventController($verifier, $this->intake($store));
+        $request = $this->request($this->payload([
             'external_event_key' => 'evt-header-secret',
         ]), null);
-        $headerRequest->headers->set('X-Intelligence-Secret', 'header-secret');
+        $request->headers->set('X-Intelligence-Secret', 'header-secret');
 
-        $headerResponse = $headerController($headerRequest);
+        $response = $controller($request);
 
-        $formVerifier = new class implements SignatureVerifier {
-            public ?string $signature = null;
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('header-secret', $verifier->signature);
+        self::assertSame(1, $store->count());
+    }
 
-            public function verify(string $payload, string $signature): bool
-            {
-                $this->signature = $signature;
-
-                return $signature !== '';
-            }
-        };
+    public function testFormAndQuerySecretsAreIgnored(): void
+    {
         $formStore = new InMemoryIncomingEventStore();
-        $formController = new IntelligenceEventController($formVerifier, $this->intake($formStore));
-
+        $formController = new IntelligenceEventController(new FakeSignatureVerifier(false), $this->intake($formStore));
         $formResponse = $formController($this->formRequest($this->payload([
             'external_event_key' => 'evt-form-secret',
             'xIntelligenceSecret' => 'form-secret',
         ]), null));
+        $formData = json_decode((string) $formResponse->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        $queryVerifier = new class implements SignatureVerifier {
-            public ?string $signature = null;
-
-            public function verify(string $payload, string $signature): bool
-            {
-                $this->signature = $signature;
-
-                return $signature !== '';
-            }
-        };
         $queryStore = new InMemoryIncomingEventStore();
-        $queryController = new IntelligenceEventController($queryVerifier, $this->intake($queryStore));
+        $queryController = new IntelligenceEventController(new FakeSignatureVerifier(false), $this->intake($queryStore));
         $queryRequest = $this->request($this->payload([
             'external_event_key' => 'evt-query-secret',
         ]), null);
         $queryRequest->query->set('x_intelligence_secret', 'query-secret');
-
         $queryResponse = $queryController($queryRequest);
+        $queryData = json_decode((string) $queryResponse->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-        self::assertSame(200, $headerResponse->getStatusCode());
-        self::assertSame('header-secret', $headerVerifier->signature);
         self::assertSame(200, $formResponse->getStatusCode());
-        self::assertSame('form-secret', $formVerifier->signature);
+        self::assertFalse($formData['accepted']);
+        self::assertSame('invalid_signature', $formData['error']);
+        self::assertSame(0, $formStore->count());
+
         self::assertSame(200, $queryResponse->getStatusCode());
-        self::assertSame('query-secret', $queryVerifier->signature);
+        self::assertFalse($queryData['accepted']);
+        self::assertSame('invalid_signature', $queryData['error']);
+        self::assertSame(0, $queryStore->count());
     }
 
     public function testInvalidSignatureIsRejected(): void

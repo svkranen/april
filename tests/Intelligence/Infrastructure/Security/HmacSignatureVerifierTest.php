@@ -29,4 +29,20 @@ final class HmacSignatureVerifierTest extends TestCase
 
         self::assertFalse($verifier->verify('{"processKey":"invoice"}', 'wrong-secret'));
     }
+
+    public function testRejectsUnsignedPayloadWhenSecretIsMissingByDefault(): void
+    {
+        $verifier = new HmacSignatureVerifier('');
+
+        self::assertFalse($verifier->verify('{"processKey":"invoice"}', ''));
+    }
+
+    public function testAllowsUnsignedPayloadOnlyWithExplicitDevOptIn(): void
+    {
+        $devVerifier = new HmacSignatureVerifier('', 'dev', true);
+        $prodVerifier = new HmacSignatureVerifier('', 'prod', true);
+
+        self::assertTrue($devVerifier->verify('{"processKey":"invoice"}', ''));
+        self::assertFalse($prodVerifier->verify('{"processKey":"invoice"}', ''));
+    }
 }

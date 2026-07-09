@@ -17,6 +17,8 @@
             <label for="password">Passwort</label>
             <input type="password" id="password" name="password" autocomplete="current-password" required>
 
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
             <button type="submit">Anmelden</button>
         </form>
     </div>

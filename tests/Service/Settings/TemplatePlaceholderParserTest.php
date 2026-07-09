@@ -52,7 +52,7 @@ class TemplatePlaceholderParserTest extends TestCase
     public function testParsesOnPremTemplate(): void
     {
         $parser = new TemplatePlaceholderParser();
-        $template = (string) file_get_contents(\dirname(__DIR__, 3).'/oldProject/onprem.txt');
+        $template = '[:repeatstart:][:Kontoart:][:Kostenstelle:][::DebKredNr::][::Belegnr_Eingangsrechnung::][:repeatend:]';
         $placeholders = $parser->parse($template);
 
         self::assertNotContains('[:repeatstart:]', $placeholders);
@@ -68,11 +68,8 @@ class TemplatePlaceholderParserTest extends TestCase
 
     public function testParsesDebitorenTemplateWhenPresent(): void
     {
-        $path = \dirname(__DIR__, 3).'/oldProject/debitoren.txt';
-        self::assertFileExists($path);
-
         $parser = new TemplatePlaceholderParser();
-        $placeholders = $parser->parse((string) file_get_contents($path));
+        $placeholders = $parser->parse('[:splitstart:][:Kontoart:][::Belegnr_Aufmass::][::Belegnr_Gutschriftsanzeige::][::Belegnr_Ausgangsrechnung::][:splitend:]');
 
         self::assertNotContains('[:repeatstart:]', $placeholders);
         self::assertNotContains('[:repeatend:]', $placeholders);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}APRIL – Amagno Intelligence Tool{% endblock %}</title>
+    <title>{% block title %}APRIL{% endblock %}</title>
     <style>
         :root {
             --bg: #f4f1ea;
@@ -151,7 +151,7 @@
 <body class="view-{{ view_mode() }}">
     <header class="app-header">
         <div class="bar">
-            <a class="brand" href="{{ path('app_home') }}"><span class="logo">AI</span> APRIL · Amagno Intelligence Tool</a>
+            <a class="brand" href="{{ path('app_home') }}"><span class="logo">AI</span> APRIL</a>
             <div class="bar-right">
                 <nav class="app-nav">
                     <a href="{{ path('app_templates_index') }}" class="{{ active_nav|default('') == 'templates' ? 'is-active' : '' }}">Templates</a>
@@ -171,7 +171,7 @@
     </main>
 
     <footer class="app-footer">
-        <p>APRIL · Prozessmonitoring &amp; Audit für dokumentenbasierte Prozesse</p>
+        <p>APRIL · Adaptive Process Intelligence Layer</p>
         {% if is_expert_view() %}
             <p class="muted">Die Technische Sicht zeigt interne Keys und Provider-Details. Sie ersetzt keine Berechtigungsprüfung.</p>
         {% endif %}

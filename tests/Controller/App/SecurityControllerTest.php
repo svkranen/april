@@ -11,6 +11,7 @@ class SecurityControllerTest extends AppWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'APRIL Login');
+        self::assertSelectorExists('input[name="_csrf_token"]');
     }
 
     public function testLoginWithLastUsernameStillRendersForAnonymousUser(): void
@@ -61,6 +62,6 @@ class SecurityControllerTest extends AppWebTestCase
         ], json_encode([], JSON_THROW_ON_ERROR));
 
         self::assertResponseIsSuccessful();
-        self::assertStringContainsString('unknown_process_key', (string) $client->getResponse()->getContent());
+        self::assertStringContainsString('invalid_signature', (string) $client->getResponse()->getContent());
     }
 }

@@ -19,7 +19,7 @@ class HomeController
         $landingPage = $this->projectDir . '/docs/start.html';
         $html = is_file($landingPage)
             ? (string) file_get_contents($landingPage)
-            : '<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Amagno Intelligence Tool</title></head><body><h1>Amagno Intelligence Tool</h1></body></html>';
+            : '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>APRIL</title></head><body><h1>APRIL</h1><p>Adaptive Process Intelligence Layer</p></body></html>';
 
         return new Response($html, Response::HTTP_OK, ['Content-Type' => 'text/html; charset=utf-8']);
     }
