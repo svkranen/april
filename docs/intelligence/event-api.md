@@ -73,6 +73,13 @@ INTELLIGENCE_EVENT_ALLOW_UNSIGNED_DEV=true
 
 Dieser Opt-in wirkt nur in `dev` und `test`, nicht in `prod`.
 
+Die Fresh-Demo-Fixtures werden per CLI geladen (`april:fixtures:load`) und
+benoetigen deshalb kein HTTP-Event-Secret. Fuer lokale `curl`- oder
+HTTP-Event-Tests muss entweder `INTELLIGENCE_EVENT_SECRET` gesetzt und der Request
+korrekt signiert werden, oder unsigned Intake wird in `dev`/`test` explizit mit
+`INTELLIGENCE_EVENT_ALLOW_UNSIGNED_DEV=true` aktiviert. Production bleibt
+fail-closed.
+
 ## Empfohlenes Payload
 
 ```json

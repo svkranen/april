@@ -92,14 +92,6 @@ services:
         arguments:
             $matchingFile: '%amagno.matching_file%'
 
-    App\Service\Settings\LegacyMatchingSaveService:
-        arguments:
-            $matchingFile: '%amagno.matching_file%'
-
-    App\Service\Settings\SettingsProfileProvider:
-        arguments:
-            $matchingFile: '%amagno.matching_file%'
-
     App\Service\Checkpoint\CheckpointStore:
         arguments:
             $directory: '%amagno.checkpoint_dir%'
