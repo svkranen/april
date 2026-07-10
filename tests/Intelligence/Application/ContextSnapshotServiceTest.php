@@ -3,6 +3,7 @@
 namespace App\Tests\Intelligence\Application;
 
 use App\Intelligence\Application\TemplateContextProviderResolver;
+use App\Intelligence\Application\ConnectorContextProviderFactoryRegistry;
 use App\Intelligence\Application\ContextSnapshotService;
 use App\Intelligence\Connector\Amagno\AmagnoContextProviderFactory;
 use App\Intelligence\Connector\Amagno\AmagnoDocumentGateway;
@@ -10,10 +11,14 @@ use App\Intelligence\Connector\Amagno\AmagnoFieldMapFactory;
 use App\Intelligence\Connector\Amagno\AmagnoTagDefinitionResolver;
 use App\Intelligence\Connector\Amagno\AmagnoTagValueResolver;
 use App\Intelligence\Domain\ProcessEventRecord;
+use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Port\ConnectorContextProviderFactory;
+use App\Intelligence\Port\ContextProvider;
 use App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider;
 use App\Intelligence\Infrastructure\Context\InMemoryContextSnapshotStore;
 use App\Intelligence\Infrastructure\Context\NullContextProvider;
 use App\Intelligence\Infrastructure\Context\TemplateMappedContextProviderResolver;
+use App\Intelligence\Infrastructure\Context\UnavailableContextProvider;
 use App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider;
 use App\Service\Amagno\ConnectionConfigLoader;
 use App\Service\Amagno\ConnectionRegistry;
@@ -530,11 +535,60 @@ YAML,
                 ->method('fetchDocumentTags');
         }
 
+        $providerFactory = new AmagnoContextProviderFactory(
+            $gateway,
+            new AmagnoTagValueResolver(),
+            new AmagnoTagDefinitionResolver($gateway)
+        );
+        $factory = new class(new AmagnoFieldMapFactory(), $providerFactory, $connectionRegistry) implements ConnectorContextProviderFactory {
+            public function __construct(
+                private readonly AmagnoFieldMapFactory $fieldMapFactory,
+                private readonly AmagnoContextProviderFactory $providerFactory,
+                private readonly ?ConnectionRegistry $connections
+            ) {
+            }
+
+            public function supports(string $connectorType, ?string $connectionName = null): bool
+            {
+                return strtolower($connectorType) === 'amagno';
+            }
+
+            public function create(ProcessTemplate $template): ContextProvider
+            {
+                $fieldMap = $this->fieldMapFactory->fromTemplate($template);
+                $connectionName = $template->connector?->connection;
+                if ($connectionName !== null) {
+                    try {
+                        $connection = $this->connections?->get($connectionName);
+                    } catch (\RuntimeException) {
+                        $connection = null;
+                    }
+                    if ($connection === null) {
+                        return new UnavailableContextProvider(sprintf(
+                            'Amagno context provider is unavailable for process template "%s" and connection "%s".',
+                            $template->key,
+                            $connectionName
+                        ));
+                    }
+
+                    return $this->providerFactory->fromFieldMapForConnection($fieldMap, $connection);
+                }
+
+                try {
+                    $default = $this->connections?->get('default');
+                } catch (\RuntimeException) {
+                    $default = null;
+                }
+
+                return $default === null
+                    ? $this->providerFactory->fromFieldMap($fieldMap)
+                    : $this->providerFactory->fromFieldMapForConnection($fieldMap, $default);
+            }
+        };
+
         return new TemplateMappedContextProviderResolver(
             new YamlProcessTemplateProvider($templateDirectory),
-            new AmagnoFieldMapFactory(),
-            new AmagnoContextProviderFactory($gateway, new AmagnoTagValueResolver(), new AmagnoTagDefinitionResolver($gateway)),
-            $connectionRegistry
+            new ConnectorContextProviderFactoryRegistry([$factory])
         );
     }
 

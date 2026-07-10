@@ -161,6 +161,10 @@ services:
     App\Intelligence\Application\TemplateContextProviderResolver:
         alias: App\Intelligence\Infrastructure\Context\TemplateMappedContextProviderResolver
 
+    App\Intelligence\Application\ConnectorContextProviderFactoryRegistry:
+        arguments:
+            $factories: !tagged_iterator app.connector_context_provider_factory
+
     App\Intelligence\Application\ContextSnapshotStore:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineContextSnapshotRepository
 

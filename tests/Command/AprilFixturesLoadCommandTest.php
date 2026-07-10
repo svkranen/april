@@ -4,17 +4,13 @@ namespace App\Tests\Command;
 
 use App\Command\AprilFixturesLoadCommand;
 use App\Intelligence\Application\ContextSnapshotService;
+use App\Intelligence\Application\ConnectorContextProviderFactoryRegistry;
 use App\Intelligence\Application\EventReceiver;
 use App\Intelligence\Application\ProcessInstanceManager;
 use App\Intelligence\Application\ProcessTemplateCheckService;
 use App\Intelligence\Application\ProcessResetResult;
 use App\Intelligence\Application\ProcessResetter;
 use App\Intelligence\Application\TemplateContextProviderResolver;
-use App\Intelligence\Connector\Amagno\AmagnoContextProviderFactory;
-use App\Intelligence\Connector\Amagno\AmagnoDocumentGateway;
-use App\Intelligence\Connector\Amagno\AmagnoFieldMapFactory;
-use App\Intelligence\Connector\Amagno\AmagnoTagDefinitionResolver;
-use App\Intelligence\Connector\Amagno\AmagnoTagValueResolver;
 use App\Intelligence\Infrastructure\Context\InMemoryContextProfileProvider;
 use App\Intelligence\Infrastructure\Context\InMemoryContextSnapshotStore;
 use App\Intelligence\Infrastructure\Context\NullContextProvider;
@@ -280,15 +276,9 @@ final class AprilFixturesLoadCommandTest extends TestCase
 
     private function templateResolver(string $templateDirectory): TemplateContextProviderResolver
     {
-        $gateway = $this->createMock(AmagnoDocumentGateway::class);
-        $gateway
-            ->expects(self::never())
-            ->method('fetchDocumentTags');
-
         return new TemplateMappedContextProviderResolver(
             new YamlProcessTemplateProvider($templateDirectory),
-            new AmagnoFieldMapFactory(),
-            new AmagnoContextProviderFactory($gateway, new AmagnoTagValueResolver(), new AmagnoTagDefinitionResolver($gateway))
+            new ConnectorContextProviderFactoryRegistry()
         );
     }
 

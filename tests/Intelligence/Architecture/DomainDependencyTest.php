@@ -70,6 +70,21 @@ class DomainDependencyTest extends TestCase
         self::assertSame([], $violations, implode("\n", $violations));
     }
 
+    public function testTemplateContextResolverDoesNotImportConcreteConnectors(): void
+    {
+        $resolver = dirname(__DIR__, 3).'/src/Intelligence/Infrastructure/Context/TemplateMappedContextProviderResolver.php';
+        $violations = [];
+        foreach ($this->importsFromFile($resolver) as $line => $import) {
+            if (str_starts_with($import, 'App\\Intelligence\\Connector\\')
+                || str_starts_with($import, 'App\\Service\\Amagno\\')
+                || str_starts_with($import, 'Iileven\\AmagnoConnector\\')) {
+                $violations[] = sprintf('%s:%d imports concrete connector %s', $resolver, $line, $import);
+            }
+        }
+
+        self::assertSame([], $violations, implode("\n", $violations));
+    }
+
     /**
      * @return array<int, string>
      */
