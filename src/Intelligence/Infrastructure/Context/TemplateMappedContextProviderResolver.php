@@ -60,17 +60,22 @@ final readonly class TemplateMappedContextProviderResolver implements TemplateCo
         }
 
         if ($template->connector !== null && $template->connector->connection === null) {
-            $this->logger?->warning(sprintf(
+            $warning = sprintf(
                 'Process template "%s" uses Amagno connector without a connection key.',
                 $processKey
-            ));
+            );
+            $this->logger?->warning($warning);
 
-            return null;
+            return $this->unavailable($template, $warning);
         }
 
         $connection = $this->connectionForTemplate($processKey, $template->connector?->connection);
         if ($template->connector !== null && $connection === null) {
-            return null;
+            return $this->unavailable($template, sprintf(
+                'Amagno context provider is unavailable for process template "%s" and connection "%s".',
+                $processKey,
+                $template->connector->connection
+            ));
         }
 
         if ($connection !== null) {
@@ -83,6 +88,15 @@ final readonly class TemplateMappedContextProviderResolver implements TemplateCo
 
         return new ContextProviderSelection(
             $this->amagnoContextProviderFactory->fromFieldMap($fieldMap),
+            $template->contextProfileRequiredFields,
+            $template
+        );
+    }
+
+    private function unavailable(ProcessTemplate $template, string $warning): ContextProviderSelection
+    {
+        return new ContextProviderSelection(
+            new UnavailableContextProvider($warning),
             $template->contextProfileRequiredFields,
             $template
         );

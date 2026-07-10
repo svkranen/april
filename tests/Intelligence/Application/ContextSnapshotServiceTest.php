@@ -250,7 +250,7 @@ YAML,
         self::assertSame([], $result->warnings);
     }
 
-    public function testMissingTemplateConnectorConnectionFallsBackWithoutFatalError(): void
+    public function testMissingTemplateConnectorConnectionIsVisibleInSnapshotWarnings(): void
     {
         $templateDirectory = $this->templateDirectory([
             'invoice-process.yaml' => <<<'YAML'
@@ -285,7 +285,10 @@ YAML,
         $result = $service->captureForEvent($this->event());
 
         self::assertSame([], $result->snapshot->attributes);
-        self::assertSame(['Missing required context field "invoice_direction".'], $result->warnings);
+        self::assertSame([
+            'Amagno context provider is unavailable for process template "invoice-process" and connection "missing".',
+            'Missing required context field "invoice_direction".',
+        ], $result->warnings);
     }
 
     public function testMissingDocumentUuidProducesMissingContextWarningWithoutFetchingTags(): void
