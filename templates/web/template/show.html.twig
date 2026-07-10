@@ -22,6 +22,9 @@
             <a class="pill-link" href="{{ path('app_templates_assistant', { key: view.key }) }}">Template-Assistent</a>
             <a class="pill-link" href="{{ path('app_templates_access', { key: view.key }) }}">Access &amp; Visibility</a>
             <a class="pill-link" href="{{ path('app_templates_docs', { key: view.key }) }}">Dokumentation</a>
+            {% if is_journey ?? false %}
+                <a class="pill-link" href="{{ path('app_templates_matching', { key: view.key }) }}">Matching</a>
+            {% endif %}
         </div>
     </div>
 

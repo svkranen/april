@@ -46,4 +46,38 @@ final readonly class ProcessTemplate
         public ?ProcessTemplateMatch $match = null
     ) {
     }
+
+    /**
+     * Copy of this template with a replaced journey match; every other field
+     * is carried over unchanged. Null removes the explicit match, so the
+     * legacy fallback of the match resolver applies again.
+     */
+    public function withMatch(?ProcessTemplateMatch $match): self
+    {
+        return new self(
+            $this->key,
+            $this->version,
+            $this->name,
+            $this->initialStepKey,
+            steps: $this->steps,
+            transitions: $this->transitions,
+            parallelGroups: $this->parallelGroups,
+            contextProfileRequiredFields: $this->contextProfileRequiredFields,
+            fieldMappings: $this->fieldMappings,
+            decisionPoints: $this->decisionPoints,
+            requiredStepKeys: $this->requiredStepKeys,
+            connector: $this->connector,
+            contextPolicy: $this->contextPolicy,
+            signChecks: $this->signChecks,
+            accessProbes: $this->accessProbes,
+            visibilityProfiles: $this->visibilityProfiles,
+            visibilityProfileResolvers: $this->visibilityProfileResolvers,
+            visibilityRetryPolicies: $this->visibilityRetryPolicies,
+            manualAccessTests: $this->manualAccessTests,
+            crossProcessRoutingRules: $this->crossProcessRoutingRules,
+            scope: $this->scope,
+            sourceSystem: $this->sourceSystem,
+            match: $match
+        );
+    }
 }

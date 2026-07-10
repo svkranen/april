@@ -224,6 +224,13 @@ services:
         arguments:
             $templateDirectory: '%april.process_template_dir%'
 
+    App\Intelligence\Infrastructure\Template\YamlJourneyMatchWriter:
+        arguments:
+            $templateDirectory: '%april.process_template_dir%'
+
+    App\Intelligence\Port\JourneyMatchStore:
+        alias: App\Intelligence\Infrastructure\Template\YamlJourneyMatchWriter
+
     App\Intelligence\Application\ProcessTemplateCatalog:
         arguments:
             $templateDirectory: '%april.process_template_dir%'

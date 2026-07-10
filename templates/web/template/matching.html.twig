@@ -1,0 +1,232 @@
+{% extends 'layout/base.html.twig' %}
+
+{% block title %}{{ view.journeyKey }} · Matching · APRIL{% endblock %}
+
+{% block head %}
+    <style>
+        .gs-critical { background: #fce4ec; color: #880e4f; border: 1px solid #880e4f; }
+        .gs-deviation { background: #ffebee; color: #c62828; border: 1px solid #c62828; }
+        .gs-warning { background: #fff8e1; color: #8a6d00; border: 1px solid #f9a825; }
+        .gs-ok { background: #e8f5e9; color: #2e7d32; border: 1px solid #2e7d32; }
+        .gs-not_calculated { background: #eeeeee; color: #555; border: 1px solid #757575; }
+        .match-form fieldset { border: 1px solid var(--line); border-radius: 0.8rem; padding: 0.8rem 1rem; margin: 0.8rem 0 0; }
+        .match-form legend { font-weight: 700; padding: 0 0.4rem; }
+        .match-form label.match-option { display: block; margin: 0.3rem 0; }
+        .match-form input[type="text"] { padding: 0.35rem 0.5rem; min-width: 22rem; max-width: 100%; }
+        .match-keys { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0.4rem 0; }
+    </style>
+{% endblock %}
+
+{% block body %}
+    {% set statusClass = {
+        'SATISFIED': 'ok',
+        'DEVIATION': 'deviation',
+        'WARNING': 'warning',
+        'NOT_APPLICABLE': 'not_calculated',
+        'ERROR': 'critical'
+    } %}
+
+    <div class="card">
+        <p class="crumbs">
+            <a href="{{ path('app_templates_show', { key: view.journeyKey }) }}">← Zurück zur Template-Detailseite</a>
+            &nbsp;·&nbsp;
+            <a href="{{ path('app_templates_index') }}">Template-Liste</a>
+        </p>
+        <h1>Matching – {{ view.journeyKey }}</h1>
+        {% if view.name %}<p class="meta-line">Name: <strong>{{ view.name }}</strong></p>{% endif %}
+        <p class="meta-line">Version: <strong>{{ view.version }}</strong></p>
+        <p class="muted">Definiert über <code>match.any_process</code>, welche {{ 'glossary.items'|trans({}, 'glossary') }} als Kandidaten
+        dieser Journey gelten. Änderungen wirken zunächst nur auf die Vorschau – erst „Speichern" schreibt den Match in die
+        Template-YAML. Kandidatenprüfung wie <code>intelligence:template:check-journey-documents</code>.</p>
+    </div>
+
+    {% if not view.isJourney %}
+        <div class="card">
+            <h2>Kein Journey-Template</h2>
+            <p class="muted">Das Template <code>{{ view.journeyKey }}</code> hat nicht den Scope <code>journey</code>.
+            Matching über <code>match.any_process</code> ist nur für Journey-Templates verfügbar.</p>
+        </div>
+    {% else %}
+        {% if view.saved %}
+            <div class="card">
+                <h2>Gespeichert</h2>
+                <p>Der Match wurde in der Template-YAML aktualisiert. Die Vorschau unten zeigt den gespeicherten Stand.</p>
+            </div>
+        {% endif %}
+
+        {% if view.errorMessage %}
+            <div class="card">
+                <h2>Eingabe nicht übernommen</h2>
+                <p>{{ view.errorMessage }}</p>
+            </div>
+        {% endif %}
+
+        <div class="card">
+            <h2>Match bearbeiten</h2>
+            <p class="meta-line">Gespeicherter Match:
+                {% if view.savedMatchKeys is empty %}
+                    <span class="badge is-muted">kein expliziter Match (Legacy-Fallback)</span>
+                {% else %}
+                    {% for key in view.savedMatchKeys %}<code>{{ key }}</code>{{ not loop.last ? ', ' }}{% endfor %}
+                {% endif %}
+            </p>
+            <p class="muted">Wichtig: Eine leere explizite Auswahl bedeutet nicht automatisch „keine Kandidaten".
+            Ohne expliziten Match verwendet APRIL als Legacy-Fallback den ersten Pflicht-Prozessschritt
+            des Templates als Match-Key. Die Vorschau unten zeigt immer das tatsächlich wirksame Verhalten.</p>
+            <form class="match-form" method="get" action="{{ path('app_templates_matching', { key: view.journeyKey }) }}">
+                <input type="hidden" name="preview" value="1">
+                <fieldset>
+                    <legend>Beobachtete Process Keys</legend>
+                    {% if view.options is empty %}
+                        <p class="muted">Im System wurden bisher keine Process Keys beobachtet.</p>
+                    {% else %}
+                        {% for option in view.options %}
+                            <label class="match-option">
+                                <input type="checkbox" name="keys[]" value="{{ option.key }}" {{ option.selected ? 'checked' : '' }}>
+                                <code>{{ option.key }}</code>
+                                {% if not option.observed %}<span class="badge is-muted">nicht beobachtet</span>{% endif %}
+                            </label>
+                        {% endfor %}
+                    {% endif %}
+                </fieldset>
+                <fieldset>
+                    <legend>Weitere Process Keys (frei, durch Komma oder Leerzeichen getrennt)</legend>
+                    <label>
+                        <input type="text" name="extraKeys" value="" placeholder="z. B. incident_intake, specialist_follow_up">
+                    </label>
+                </fieldset>
+                <p><button type="submit" class="pill-link">Vorschau aktualisieren (ohne Speichern)</button></p>
+            </form>
+        </div>
+
+        {% if view.report %}
+            {% set report = view.report %}
+            <div class="card">
+                <h2>Kandidaten-Vorschau</h2>
+                <p class="meta-line">
+                    {% if view.previewOverridden %}
+                        <span class="badge">ungespeicherte Vorschau</span>
+                    {% else %}
+                        <span class="badge is-muted">gespeicherter Stand</span>
+                    {% endif %}
+                </p>
+                <p class="meta-line">Wirksame Match-Keys:
+                    {% if view.previewKeys is empty %}
+                        <span class="badge is-muted">keine – Journey ist aktuell nicht matchbar</span>
+                    {% else %}
+                        <span class="match-keys">{% for key in view.previewKeys %}<code>{{ key }}</code>{% endfor %}</span>
+                    {% endif %}
+                </p>
+
+                {% if view.legacyFallbackActive %}
+                    <p class="meta-line"><span class="status-badge gs-warning">Legacy-Fallback aktiv</span>
+                    Es {{ view.previewOverridden ? 'ist kein expliziter Match ausgewählt' : 'ist kein expliziter Match gespeichert' }} –
+                    APRIL matcht stattdessen über den ersten Pflicht-Prozessschritt des Templates:
+                    {% for key in view.previewKeys %}<code>{{ key }}</code>{{ not loop.last ? ', ' }}{% endfor %}.
+                    Die Kandidaten unten stammen aus diesem Fallback, nicht aus einer leeren Zuordnung.</p>
+                {% elseif view.previewKeys is empty %}
+                    <p class="meta-line"><span class="status-badge gs-warning">Nicht matchbar</span>
+                    Ohne expliziten Match und ohne Pflicht-Prozessschritt kann diese Journey keinem
+                    {{ 'glossary.item'|trans({}, 'glossary') }} zugeordnet werden.</p>
+                {% endif %}
+
+                {% for warning in report.warnings %}
+                    <p class="muted">Hinweis: {{ warning }}</p>
+                {% endfor %}
+
+                {% if not view.hasCandidates %}
+                    <p class="muted">Für die aktuelle Match-Auswahl würden dieser Journey derzeit keine
+                    {{ 'glossary.items'|trans({}, 'glossary') }} zugeordnet. Es wurden keine Events zu den gewählten
+                    Process Keys gefunden{% if view.previewKeys is empty %} bzw. es ist kein Match definiert{% endif %}.</p>
+                {% else %}
+                    <p class="muted">Diese {{ 'glossary.items'|trans({}, 'glossary') }} würden aktuell dieser Journey zugeordnet
+                    ({{ report.rows|length }} Kandidat(en)).
+                    Ein {{ 'glossary.item'|trans({}, 'glossary') }} ist Kandidat, sobald mindestens einer der Match-Keys in seiner Timeline vorkommt.</p>
+                    {% if view.limitReached %}
+                        <p class="meta-line"><span class="status-badge gs-warning">Anzeige begrenzt</span>
+                        Die Vorschau prüft höchstens {{ view.candidateLimit }} Kandidaten – es können weitere
+                        {{ 'glossary.items'|trans({}, 'glossary') }} existieren, die hier nicht angezeigt werden.
+                        Vollständige Prüfung: <code>intelligence:template:check-journey-documents {{ view.journeyKey }}</code>.</p>
+                    {% endif %}
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>{{ 'glossary.item'|trans({}, 'glossary') }}</th>
+                                <th>Externe ID</th>
+                                <th>Journey-Check</th>
+                                <th>Beobachtete Journey-Prozesse</th>
+                                <th>Auffälligkeiten</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in report.rows %}
+                                {% set journeyParams = { documentUuid: row.documentRef.documentUuid } %}
+                                {% if row.documentRef.documentVersion is not null %}
+                                    {% set journeyParams = journeyParams|merge({ documentVersion: row.documentRef.documentVersion }) %}
+                                {% endif %}
+                                <tr>
+                                    <td><a href="{{ path('app_intelligence_documents_show', journeyParams) }}"><code>{{ row.documentRef.documentUuid }}</code></a></td>
+                                    <td>{{ row.documentRef.documentExternalId ?? '—' }}</td>
+                                    <td><span class="status-badge gs-{{ statusClass[row.status] ?? 'not_calculated' }}">{{ row.status }}</span></td>
+                                    <td>
+                                        {% set existingSteps = row.result ? row.result.stepResults|filter(s => s.status == 'PROCESS_EXISTS') : [] %}
+                                        {% if existingSteps is empty %}
+                                            <span class="muted">—</span>
+                                        {% else %}
+                                            {% for step in existingSteps %}<code>{{ step.processKey ?? step.journeyStepKey }}</code>{{ not loop.last ? ', ' }}{% endfor %}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if row.error %}
+                                            <span class="status-badge gs-critical">Fehler</span> {{ row.error }}
+                                        {% else %}
+                                            {% set findings = [] %}
+                                            {% for unexpected in row.result.unexpectedProcesses %}
+                                                {% set findings = findings|merge([('Unerwarteter Prozess ' ~ unexpected.processKey)]) %}
+                                            {% endfor %}
+                                            {% for step in row.result.stepResults|filter(s => s.status in ['MISSING_REQUIRED_PROCESS', 'WARNING']) %}
+                                                {% set findings = findings|merge([(step.messages|join('; ') ?: (step.status ~ ': ' ~ step.journeyStepKey))]) %}
+                                            {% endfor %}
+                                            {% for transition in row.result.transitionResults|filter(t => t.status in ['PROCESS_EXISTS_WRONG_ORDER', 'WARNING']) %}
+                                                {% set findings = findings|merge([(transition.messages|join('; ') ?: ('Reihenfolge: ' ~ transition.fromStepKey ~ ' → ' ~ transition.toStepKey))]) %}
+                                            {% endfor %}
+                                            {% if findings is empty %}
+                                                <span class="muted">—</span>
+                                            {% else %}
+                                                <ul>
+                                                    {% for finding in findings %}<li>{{ finding }}</li>{% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% endif %}
+            </div>
+
+            {% if view.previewOverridden %}
+                <div class="card">
+                    <h2>Diese Match-Auswahl speichern</h2>
+                    <p class="muted">Schreibt <code>match.any_process</code> in die Template-YAML
+                    (<code>{{ view.journeyKey }}.yaml</code>). Kommentare und Handformatierung der Datei
+                    gehen beim Speichern verloren.
+                    {% if view.selectedKeys is empty %}
+                        Achtung: Die Auswahl ist leer – der explizite Match wird entfernt. Das bedeutet nicht
+                        „keine Kandidaten": Es gilt dann wieder der Legacy-Fallback über den ersten
+                        Pflicht-Prozessschritt (siehe Vorschau oben).
+                    {% endif %}</p>
+                    <form method="post" action="{{ path('app_templates_matching_save', { key: view.journeyKey }) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('journey_match') }}">
+                        {% for key in view.selectedKeys %}
+                            <input type="hidden" name="keys[]" value="{{ key }}">
+                        {% endfor %}
+                        <p><button type="submit" class="pill-link">Speichern
+                            ({{ view.selectedKeys is empty ? 'expliziten Match entfernen' : view.selectedKeys|join(', ') }})</button></p>
+                    </form>
+                </div>
+            {% endif %}
+        {% endif %}
+    {% endif %}
+{% endblock %}

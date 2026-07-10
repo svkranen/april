@@ -76,6 +76,7 @@ final class TemplateController
         return new Response($this->twig->render('template/show.html.twig', [
             'active_nav' => 'templates',
             'view' => TemplateDetailView::fromTemplate($template),
+            'is_journey' => $template->scope === 'journey',
         ]));
     }
 
