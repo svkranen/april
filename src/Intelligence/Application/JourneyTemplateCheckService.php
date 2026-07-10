@@ -87,14 +87,16 @@ final readonly class JourneyTemplateCheckService
         }
 
         $transitionResults = $this->checkTransitions($template->transitions, $stepResultsByKey);
+        $unexpectedProcesses = $this->unexpectedProcesses($template, $events, $instances, $documentVersion, $order);
 
         return new JourneyTemplateCheckResult(
-            $this->aggregateStatus($stepResults, $transitionResults),
+            $this->aggregateStatus($stepResults, $transitionResults, $unexpectedProcesses),
             $documentUuid,
             $documentVersion,
             $template->key,
             $stepResults,
-            $transitionResults
+            $transitionResults,
+            $unexpectedProcesses
         );
     }
 
@@ -329,6 +331,75 @@ final readonly class JourneyTemplateCheckService
         usort($matching, static fn (DocumentTimelineInstanceRow $left, DocumentTimelineInstanceRow $right): int => [$left->documentVersion, $left->id] <=> [$right->documentVersion, $right->id]);
 
         return $matching;
+    }
+
+    /**
+     * @param array<int, DocumentTimelineEventRow> $events
+     * @param array<int, DocumentTimelineInstanceRow> $instances
+     * @return array<int, UnexpectedProcessResult>
+     */
+    private function unexpectedProcesses(
+        ProcessTemplate $template,
+        array $events,
+        array $instances,
+        ?int $documentVersion,
+        EventTimelineOrder $order
+    ): array {
+        $allowedProcessKeys = [];
+        foreach ($template->steps as $step) {
+            if ($step->type !== 'process' || $step->processKey === null || trim($step->processKey) === '') {
+                continue;
+            }
+
+            $allowedProcessKeys[trim($step->processKey)] = true;
+        }
+
+        $events = array_values(array_filter(
+            $events,
+            static fn (DocumentTimelineEventRow $event): bool => $documentVersion === null || $event->documentVersion === $documentVersion
+        ));
+        usort($events, static fn (DocumentTimelineEventRow $left, DocumentTimelineEventRow $right): int => $order->compareTimelineRows($left, $right));
+
+        $results = [];
+        $unexpectedEventProcessVersions = [];
+        foreach ($events as $index => $event) {
+            $processKey = trim($event->processKey);
+            if ($processKey === '' || isset($allowedProcessKeys[$processKey])) {
+                continue;
+            }
+
+            $unexpectedEventProcessVersions[$processKey."\0".$event->documentVersion] = true;
+            $results[] = new UnexpectedProcessResult(
+                $processKey,
+                $index,
+                $event->occurredAt,
+                $event->documentVersion
+            );
+        }
+
+        foreach ($instances as $instance) {
+            if ($documentVersion !== null && $instance->documentVersion !== $documentVersion) {
+                continue;
+            }
+
+            $processKey = trim($instance->processKey);
+            if ($processKey === '' || isset($allowedProcessKeys[$processKey])) {
+                continue;
+            }
+
+            if (isset($unexpectedEventProcessVersions[$processKey."\0".$instance->documentVersion])) {
+                continue;
+            }
+
+            $results[] = new UnexpectedProcessResult(
+                $processKey,
+                null,
+                null,
+                $instance->documentVersion
+            );
+        }
+
+        return $results;
     }
 
     /**
@@ -575,11 +646,16 @@ final readonly class JourneyTemplateCheckService
     /**
      * @param array<int, JourneyTemplateStepCheckResult> $stepResults
      * @param array<int, JourneyTemplateTransitionCheckResult> $transitionResults
+     * @param array<int, UnexpectedProcessResult> $unexpectedProcesses
      */
-    private function aggregateStatus(array $stepResults, array $transitionResults): string
+    private function aggregateStatus(array $stepResults, array $transitionResults, array $unexpectedProcesses): string
     {
         if ($stepResults === []) {
-            return self::STATUS_NOT_APPLICABLE;
+            return $unexpectedProcesses === [] ? self::STATUS_NOT_APPLICABLE : self::STATUS_DEVIATION;
+        }
+
+        if ($unexpectedProcesses !== []) {
+            return self::STATUS_DEVIATION;
         }
 
         foreach ($stepResults as $stepResult) {

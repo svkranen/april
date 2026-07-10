@@ -12,6 +12,19 @@ final class ProcessTemplateSuggestionArraySerializer
         $template = $result->template;
         $data = [
             'key' => $template->key,
+        ];
+        if ($template->name !== null) {
+            $data['name'] = $template->name;
+        }
+        if ($template->scope !== 'process') {
+            $data['scope'] = $template->scope;
+        }
+        if ($template->match !== null && !$template->match->isEmpty()) {
+            $data['match'] = [
+                'any_process' => $template->match->anyProcessKeys,
+            ];
+        }
+        $data += [
             'version' => $template->version,
             'steps' => array_map(
                 static fn (ProcessTemplateStep $step): array => self::stepToArray($step),
@@ -22,10 +35,6 @@ final class ProcessTemplateSuggestionArraySerializer
                 'required' => $template->contextProfileRequiredFields,
             ],
         ];
-
-        if ($template->name !== null) {
-            $data = ['key' => $data['key'], 'name' => $template->name] + array_slice($data, 1, null, true);
-        }
 
         if ($template->requiredStepKeys !== []) {
             $data['required_steps'] = $template->requiredStepKeys;
@@ -119,6 +128,14 @@ final class ProcessTemplateSuggestionArraySerializer
         }
         if ($step->type !== 'normal') {
             $data['type'] = $step->type;
+        }
+        if ($step->processKey !== null) {
+            $data['process_key'] = $step->processKey;
+        }
+        if (!$step->required) {
+            $data['required'] = false;
+        } elseif ($step->type === 'process') {
+            $data['required'] = true;
         }
 
         return $data;

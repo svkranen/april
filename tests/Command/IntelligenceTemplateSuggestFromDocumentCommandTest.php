@@ -3,7 +3,9 @@
 namespace App\Tests\Command;
 
 use App\Command\IntelligenceTemplateSuggestFromDocumentCommand;
+use App\Intelligence\Application\JourneyTemplateSuggestionService;
 use App\Intelligence\Application\ProcessTemplateSuggestionService;
+use App\Intelligence\Application\TemplateSuggestionService;
 use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Process\InMemoryDocumentTimelineProvider;
 use DateTimeImmutable;
@@ -252,6 +254,41 @@ class IntelligenceTemplateSuggestFromDocumentCommandTest extends TestCase
         rmdir(dirname($path));
     }
 
+    public function testScopeOptionSuggestsJourneyYamlFromAllObservedProcesses(): void
+    {
+        $tester = new CommandTester($this->commandWithEvents([
+            $this->event(1, 'evt-import', 'start', 1, '2026-05-29T09:00:00+00:00', 'generic_document_import'),
+            $this->event(2, 'evt-pruefung', 'start', 1, '2026-05-29T10:00:00+00:00', 'aufmass_pruefung'),
+            $this->event(3, 'evt-export', 'start', 1, '2026-05-29T11:00:00+00:00', 'export_nevaris'),
+        ]));
+
+        $exitCode = $tester->execute([
+            'documentUuid' => 'uuid-1',
+            'processKey' => 'aufmass_journey',
+            '--scope' => 'journey',
+        ]);
+
+        self::assertSame(Command::SUCCESS, $exitCode);
+        $template = Yaml::parse($tester->getDisplay());
+
+        self::assertSame('aufmass_journey', $template['key']);
+        self::assertSame('journey', $template['scope']);
+        self::assertSame(
+            ['generic_document_import', 'aufmass_pruefung', 'export_nevaris'],
+            array_column($template['steps'], 'key')
+        );
+        self::assertSame('process', $template['steps'][0]['type']);
+        self::assertSame('generic_document_import', $template['steps'][0]['process_key']);
+        self::assertTrue($template['steps'][0]['required']);
+        self::assertSame(
+            [
+                ['from' => 'generic_document_import', 'to' => 'aufmass_pruefung'],
+                ['from' => 'aufmass_pruefung', 'to' => 'export_nevaris'],
+            ],
+            $template['transitions']
+        );
+    }
+
     private function command(): IntelligenceTemplateSuggestFromDocumentCommand
     {
         return $this->commandWithEvents([
@@ -270,9 +307,12 @@ class IntelligenceTemplateSuggestFromDocumentCommandTest extends TestCase
      */
     private function commandWithEvents(array $events): IntelligenceTemplateSuggestFromDocumentCommand
     {
+        $timelineProvider = new InMemoryDocumentTimelineProvider([], $events);
+
         return new IntelligenceTemplateSuggestFromDocumentCommand(
-            new ProcessTemplateSuggestionService(
-                new InMemoryDocumentTimelineProvider([], $events)
+            new TemplateSuggestionService(
+                new ProcessTemplateSuggestionService($timelineProvider),
+                new JourneyTemplateSuggestionService($timelineProvider)
             )
         );
     }

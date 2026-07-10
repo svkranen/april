@@ -1,0 +1,16 @@
+services:
+    App\Intelligence\Application\DocumentCheckResultProvider:
+        alias: App\Intelligence\Application\ProcessTemplateCheckResultProvider
+        public: true
+
+    App\Intelligence\Application\DocumentListProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineDocumentListProvider
+        public: true
+
+    App\Intelligence\Application\DocumentTimelineProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineDocumentTimelineProvider
+        public: true
+
+    App\Intelligence\Application\VisibilityCheckResultProvider:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineVisibilityCheckResultRepository
+        public: true

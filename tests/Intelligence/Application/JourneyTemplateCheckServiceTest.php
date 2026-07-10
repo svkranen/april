@@ -124,6 +124,84 @@ final class JourneyTemplateCheckServiceTest extends TestCase
         self::assertSame('Process exists only for another document version.', $result->stepResults[0]->messages[0]);
     }
 
+    public function testDefinedJourneyProcessesDoNotCreateUnexpectedProcessFinding(): void
+    {
+        $result = $this->service([
+            $this->event('intake', 'RM_TEST_dokumenten_eingang', 1, '2026-06-01T09:00:00+00:00'),
+            $this->event('aufmass', 'RM_TEST_aufmass', 1, '2026-06-01T09:05:00+00:00'),
+            $this->event('export', 'RM_TEST_NevarisExport', 1, '2026-06-01T09:10:00+00:00'),
+        ])->check('uuid-1', $this->aufmassTemplate());
+
+        self::assertSame(JourneyTemplateCheckService::STATUS_SATISFIED, $result->status);
+        self::assertSame([], $result->unexpectedProcesses);
+    }
+
+    public function testUnexpectedProcessIsExplicitDeviation(): void
+    {
+        $result = $this->service([
+            $this->event('intake', 'RM_TEST_dokumenten_eingang', 1, '2026-06-01T09:00:00+00:00'),
+            $this->event('aufmass', 'RM_TEST_aufmass', 1, '2026-06-01T09:05:00+00:00'),
+            $this->event('debitoren', 'RM_TEST_debitoren_gutschrift', 1, '2026-06-01T09:07:00+00:00'),
+            $this->event('export', 'RM_TEST_NevarisExport', 1, '2026-06-01T09:10:00+00:00'),
+        ])->check('uuid-1', $this->aufmassTemplate());
+
+        self::assertSame(JourneyTemplateCheckService::STATUS_DEVIATION, $result->status);
+        self::assertCount(1, $result->unexpectedProcesses);
+        self::assertSame('UNEXPECTED_PROCESS', $result->unexpectedProcesses[0]->code);
+        self::assertSame('DEVIATION', $result->unexpectedProcesses[0]->status);
+        self::assertSame('CRITICAL', $result->unexpectedProcesses[0]->severity);
+        self::assertSame('RM_TEST_debitoren_gutschrift', $result->unexpectedProcesses[0]->processKey);
+        self::assertSame('Kritische Abweichung: Unerwarteter Prozess außerhalb des Templates', $result->unexpectedProcesses[0]->message);
+        self::assertEquals(new DateTimeImmutable('2026-06-01T09:07:00+00:00'), $result->unexpectedProcesses[0]->occurredAt);
+        self::assertSame(2, $result->unexpectedProcesses[0]->timelineIndex);
+    }
+
+    public function testOptionalDefinedIntakeAndRepeatedDefinedProcessAreNotUnexpected(): void
+    {
+        $result = $this->service([
+            $this->event('intake', 'RM_TEST_dokumenten_eingang', 1, '2026-06-01T09:00:00+00:00'),
+            $this->event('aufmass-1', 'RM_TEST_aufmass', 1, '2026-06-01T09:05:00+00:00'),
+            $this->event('aufmass-2', 'RM_TEST_aufmass', 1, '2026-06-01T09:06:00+00:00'),
+            $this->event('export', 'RM_TEST_NevarisExport', 1, '2026-06-01T09:10:00+00:00'),
+        ])->check('uuid-1', $this->aufmassTemplate());
+
+        self::assertSame([], $result->unexpectedProcesses);
+    }
+
+    public function testMatchProcessWithoutJourneyStepIsUnexpected(): void
+    {
+        $result = $this->service([
+            $this->event('aufmass', 'RM_TEST_aufmass', 1, '2026-06-01T09:05:00+00:00'),
+            $this->event('export', 'RM_TEST_NevarisExport', 1, '2026-06-01T09:10:00+00:00'),
+        ])->check('uuid-1', new ProcessTemplate(
+            'rm_aufmass_journey',
+            scope: 'journey',
+            match: new \App\Intelligence\Domain\ProcessTemplateMatch(['RM_TEST_aufmass']),
+            steps: [
+                new ProcessTemplateStep('export', type: 'process', processKey: 'RM_TEST_NevarisExport'),
+            ]
+        ));
+
+        self::assertSame(JourneyTemplateCheckService::STATUS_DEVIATION, $result->status);
+        self::assertSame('RM_TEST_aufmass', $result->unexpectedProcesses[0]->processKey);
+    }
+
+    public function testUnexpectedProcessesBeforeAndAfterMatchAreReportedPerOccurrence(): void
+    {
+        $result = $this->service([
+            $this->event('before', 'RM_TEST_kreditoren_alt', 1, '2026-06-01T08:55:00+00:00'),
+            $this->event('aufmass', 'RM_TEST_aufmass', 1, '2026-06-01T09:05:00+00:00'),
+            $this->event('debitoren', 'RM_TEST_debitoren_gutschrift', 1, '2026-06-01T09:07:00+00:00'),
+            $this->event('export', 'RM_TEST_NevarisExport', 1, '2026-06-01T09:10:00+00:00'),
+        ])->check('uuid-1', $this->aufmassTemplate());
+
+        self::assertSame(
+            ['RM_TEST_kreditoren_alt', 'RM_TEST_debitoren_gutschrift'],
+            array_map(static fn ($unexpected): string => $unexpected->processKey, $result->unexpectedProcesses)
+        );
+        self::assertSame([0, 2], array_map(static fn ($unexpected): ?int => $unexpected->timelineIndex, $result->unexpectedProcesses));
+    }
+
     /**
      * @param array<int, ProcessEventRecord> $events
      * @param array<int, ContextSnapshot> $snapshots
@@ -166,6 +244,23 @@ final class JourneyTemplateCheckServiceTest extends TestCase
             ],
             transitions: [
                 new ProcessTemplateTransition('import', 'pruefung'),
+            ]
+        );
+    }
+
+    private function aufmassTemplate(): ProcessTemplate
+    {
+        return new ProcessTemplate(
+            'rm_aufmass_journey',
+            scope: 'journey',
+            steps: [
+                new ProcessTemplateStep('dokumenten_eingang', type: 'process', processKey: 'RM_TEST_dokumenten_eingang', required: false),
+                new ProcessTemplateStep('aufmass', type: 'process', processKey: 'RM_TEST_aufmass'),
+                new ProcessTemplateStep('nevaris_export', type: 'process', processKey: 'RM_TEST_NevarisExport'),
+            ],
+            transitions: [
+                new ProcessTemplateTransition('dokumenten_eingang', 'aufmass'),
+                new ProcessTemplateTransition('aufmass', 'nevaris_export'),
             ]
         );
     }

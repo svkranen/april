@@ -10,6 +10,7 @@ abstract class AppWebTestCase extends WebTestCase
     protected static function createAuthenticatedClient(): KernelBrowser
     {
         $client = static::createClient();
+        $client->disableReboot();
         $client->request('GET', '/login');
         $client->submitForm('Anmelden', [
             'username' => 'april-test',

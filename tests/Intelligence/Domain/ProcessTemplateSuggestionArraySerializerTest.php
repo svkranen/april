@@ -4,6 +4,7 @@ namespace App\Tests\Intelligence\Domain;
 
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateFieldMapping;
+use App\Intelligence\Domain\ProcessTemplateMatch;
 use App\Intelligence\Domain\ProcessTemplateParallelGroup;
 use App\Intelligence\Domain\ProcessTemplateStep;
 use App\Intelligence\Domain\ProcessTemplateSuggestionArraySerializer;
@@ -209,5 +210,65 @@ class ProcessTemplateSuggestionArraySerializerTest extends TestCase
         self::assertSame(2.5, $data['analysis_hints'][0]['avg_repetitions']);
         self::assertSame([['event_key' => 'A', 'count' => 2]], $data['analysis_hints'][0]['previous_events']);
         self::assertSame([['event_key' => 'C', 'count' => 2]], $data['analysis_hints'][0]['following_events']);
+    }
+
+    public function testSerializesJourneySuggestionFields(): void
+    {
+        $result = new ProcessTemplateSuggestionResult(
+            new ProcessTemplate(
+                'document_journey',
+                scope: 'journey',
+                match: new ProcessTemplateMatch(['generic_document_import']),
+                steps: [
+                    new ProcessTemplateStep(
+                        'generic_document_import',
+                        type: 'process',
+                        processKey: 'generic_document_import',
+                        required: true
+                    ),
+                    new ProcessTemplateStep(
+                        'optional_export',
+                        type: 'process',
+                        processKey: 'export_nevaris',
+                        required: false
+                    ),
+                ],
+                transitions: [
+                    new ProcessTemplateTransition('generic_document_import', 'optional_export'),
+                ]
+            )
+        );
+
+        self::assertSame(
+            [
+                'key' => 'document_journey',
+                'scope' => 'journey',
+                'match' => [
+                    'any_process' => ['generic_document_import'],
+                ],
+                'version' => 'draft',
+                'steps' => [
+                    [
+                        'key' => 'generic_document_import',
+                        'type' => 'process',
+                        'process_key' => 'generic_document_import',
+                        'required' => true,
+                    ],
+                    [
+                        'key' => 'optional_export',
+                        'type' => 'process',
+                        'process_key' => 'export_nevaris',
+                        'required' => false,
+                    ],
+                ],
+                'transitions' => [
+                    ['from' => 'generic_document_import', 'to' => 'optional_export'],
+                ],
+                'context_profile' => [
+                    'required' => [],
+                ],
+            ],
+            (new ProcessTemplateSuggestionArraySerializer())->toArray($result)
+        );
     }
 }

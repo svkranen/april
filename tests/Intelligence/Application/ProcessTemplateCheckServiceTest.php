@@ -60,6 +60,54 @@ class ProcessTemplateCheckServiceTest extends TestCase
         self::assertSame(['received', 'checked', 'approved'], $result->actualSteps);
     }
 
+    public function testProcessCheckIgnoresOtherProcessKeysInSameDocumentTimeline(): void
+    {
+        $time = new DateTimeImmutable('2026-05-29T09:03:00+00:00');
+        $service = new ProcessTemplateCheckService(
+            new InMemoryDocumentTimelineProvider(
+                [],
+                [
+                    $this->event(1, 'received', 0),
+                    new ProcessEventRecord(
+                        2,
+                        'evt-other-process',
+                        'test',
+                        'foreign_process',
+                        'foreign_step',
+                        'foreign_step',
+                        'doc-1',
+                        'uuid-1',
+                        1,
+                        'user-1',
+                        $time,
+                        $time,
+                        '{}',
+                        '{}',
+                        1
+                    ),
+                    $this->event(3, 'approved', 5),
+                ]
+            )
+        );
+
+        $result = $service->checkDocument(
+            'uuid-1',
+            'invoice',
+            new ProcessTemplate(
+                'invoice',
+                steps: [
+                    new ProcessTemplateStep('received'),
+                    new ProcessTemplateStep('approved'),
+                ]
+            ),
+            1
+        );
+
+        self::assertTrue($result->isOk());
+        self::assertSame(['received', 'approved'], $result->actualSteps);
+        self::assertSame([], $result->deviations);
+    }
+
     public function testCheckDocumentKeepsParallelGroupAnyOrderLogic(): void
     {
         $service = new ProcessTemplateCheckService(

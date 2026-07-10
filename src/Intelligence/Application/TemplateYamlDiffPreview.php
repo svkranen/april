@@ -47,6 +47,35 @@ final readonly class TemplateYamlDiffPreview
         );
     }
 
+    /**
+     * Build a read-only sketch for a Journey `match.any_process` block.
+     *
+     * @param array<int, string> $processKeys
+     */
+    public static function forJourneyMatchAnyProcess(array $processKeys): ?self
+    {
+        $processKeys = array_values(array_filter(
+            array_map(static fn (string $processKey): string => trim($processKey), $processKeys),
+            static fn (string $processKey): bool => $processKey !== ''
+        ));
+        if ($processKeys === []) {
+            return null;
+        }
+
+        $lines = [
+            ['kind' => self::KIND_CONTEXT, 'text' => 'match:'],
+            ['kind' => self::KIND_CONTEXT, 'text' => '  any_process:'],
+        ];
+        foreach (array_values(array_unique($processKeys)) as $processKey) {
+            $lines[] = ['kind' => self::KIND_ADDITION, 'text' => sprintf('    - %s', self::quote($processKey))];
+        }
+
+        return new self(
+            'Mögliche Journey-Match-Ergänzung (Vorschau – wird nicht gespeichert oder angewendet).',
+            $lines
+        );
+    }
+
     public function hasLines(): bool
     {
         return $this->lines !== [];

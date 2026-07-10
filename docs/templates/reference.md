@@ -28,6 +28,13 @@ Unterstützte Root-Felder im Template-Modell:
 
 `scope` wird aktuell geparst und vom Journey-Checker als fachliche Kennzeichnung genutzt. Bestehende Templates ohne `scope` bleiben Process-Templates.
 
+`intelligence:template:suggest-from-document` verwendet dieselbe Kennzeichnung:
+`scope: process` beziehungsweise fehlendes `scope` fuehrt zur bisherigen
+Process-Suggestion, `scope: journey` zur Journey-Suggestion ueber die
+prozessuebergreifende Dokument-Timeline. Ohne vorhandenes Zieltemplate bleibt
+`process` der kompatible Default; fuer neue Journey-Entwuerfe kann
+`--scope=journey` gesetzt werden.
+
 ## 3. Process-Templates
 
 Process-Templates beschreiben erwartete `stepKey`-Abläufe innerhalb eines `processKey`. Der aktuelle Process-Check läuft über `ProcessTemplateCheckService`.
@@ -139,6 +146,10 @@ key: incident_journey
 version: 1.0
 scope: journey
 
+match:
+  any_process:
+    - incident-management
+
 steps:
   - key: intake
     type: process
@@ -183,6 +194,63 @@ Journey-Transitions laufen zwischen Journey-Step-Keys, nicht zwischen `process_k
 
 Bei `type: process` wird der Zeitpunkt aus dem ersten Event des jeweiligen `process_key` genommen. Wenn nur eine ProcessInstance ohne Event-Zeitpunkt vorhanden ist, kann die Existenz erfüllt sein, aber die Reihenfolge nur mit `WARNING` bewertet werden.
 
+### Unerwartete Prozesse
+
+Der Journey-Check betrachtet die vollstaendige Dokument-Timeline. Alle
+`process_key`s aus Journey-Steps mit `type: process` gelten im aktuell geprueften
+Journey-Template als erlaubt, auch wenn ein Step optional ist oder mehrfach
+vorkommt. Kommt in der Timeline ein anderer Prozess vor, erzeugt APRIL ein
+maschinenlesbares Finding mit `code: UNEXPECTED_PROCESS` und der Meldung
+`Kritische Abweichung: Unerwarteter Prozess außerhalb des Templates`. Dies ist
+eine fachliche `DEVIATION` mit `severity: CRITICAL`, weil das Dokument einen
+nicht modellierten Prozess durchlaufen hat.
+
+`match.any_process` dient nur zur Kandidatenermittlung. Ein Match-Prozess ist
+nicht automatisch erlaubt, wenn er nicht zugleich als Journey-Step modelliert ist.
+Gemeinsame optionale Einstiegsschritte anderer Journeys werden nicht global
+ignoriert; erlaubt ist ein Prozess nur im Kontext des aktuell geprueften
+Journey-Templates.
+
+Process-Template-Checks sind enger geschnitten: sie filtern die Dokument-Timeline
+auf den geprueften `processKey` und koennen deshalb fremde Prozesse derselben
+Dokumenthistorie nicht als `UNEXPECTED_PROCESS` erkennen. Innerhalb eines
+Process-Templates bleiben unbekannte `stepKey`s weiterhin normale
+Process-Deviations wie `Unexpected step`.
+
+### Journey Match
+
+`match` beschreibt, welche Dokumente Kandidaten fuer eine Journey sind. Im MVP
+wird nur OR-Semantik ueber Prozess-Keys unterstuetzt:
+
+```yaml
+match:
+  any_process:
+    - RM_TEST_aufmass
+    - RM_TEST_NevarisExport
+```
+
+Ein Dokument ist Kandidat, sobald mindestens einer dieser Prozesse irgendwo in
+seiner Timeline vorkommt. Die Match-Regel dient nur zur Kandidatenermittlung.
+Nach einem Match laedt APRIL weiterhin die vollstaendige Dokument-Timeline ueber
+alle Prozesse und prueft sie gegen das Journey-Template; Eintraege vor dem
+Match-Prozess werden nicht abgeschnitten.
+
+Gemeinsame optionale Einstiegsschritte sind dadurch moeglich. Ein allgemeiner
+Prozess wie `RM_TEST_dokumenten_eingang` kann in mehreren Journey-Templates als
+optionaler Step vorkommen, ohne allein alle diese Journeys zu matchen. Nur der
+jeweilige `match`-Block entscheidet ueber die Kandidatenzuordnung. Ein Dokument
+kann Kandidat mehrerer Journeys sein, wenn es mehrere Match-Regeln erfuellt.
+
+Legacy-Fallback: Journey-Templates ohne `match` bleiben zunaechst pruefbar. APRIL
+verwendet dann den ersten erforderlichen Journey-Step mit `type: process` und
+gesetztem `process_key` als impliziten Match-Prozess. Optionale erste Steps werden
+dabei bewusst uebersprungen. Gibt es keinen erforderlichen Prozess-Step, entsteht
+ein nicht-matchbarer Zustand mit Warning statt eines unkontrollierten Fehlers.
+
+`match` ist fachlich nur fuer `scope: journey` zulaessig. `any_process` muss eine
+Liste nichtleerer Strings sein; doppelte Prozess-Keys werden beim Parsen
+deterministisch auf den ersten Eintrag reduziert.
+
 ### Nicht im Journey-MVP
 
 - keine Journey-Decision-Rules
@@ -191,6 +259,27 @@ Bei `type: process` wird der Zeitpunkt aus dem ersten Event des jeweiligen `proc
 - keine Queue
 - keine Mutationen
 - keine Subprozessmodellierung
+- keine persistierte Journey-Dokumentzuordnung
+- keine exklusiven Dokument-zu-Journey-Zuordnungen
+- keine komplexen booleschen Match-Regeln
+- kein Match ueber Context-Felder
+- keine Zeitfenster oder Segmentierung mehrerer Journey-Durchlaeufe
+
+### Journey-Suggestion aus Dokumenten
+
+Der MVP fuer `suggest-from-document` leitet Journey-Templates ohne LLM aus einer
+einzelnen Dokument-Timeline ab. Jeder beobachtete `processKey` wird als
+`type: process`-Step mit `process_key` und `required: true` vorgeschlagen; direkte
+Wiederholungen desselben Prozesses werden zu einem Step zusammengezogen. Wenn
+derselbe Prozess spaeter erneut auftaucht, werden stabile Step-Keys wie
+`process_key_2` verwendet. Zwischen aufeinanderfolgenden beobachteten
+Journey-Steps werden Transitions vorgeschlagen.
+
+Nicht automatisch abgeleitet werden `when`, optionale Prozesse,
+Decision-Points, statistische Haeufigkeiten oder Persistenz. Gegen vorhandene
+Journey-Templates wird nur eine Preview beziehungsweise ein erweiterter
+YAML-Vorschlag erzeugt; bestehende Steps und Transitions werden nicht doppelt
+vorgeschlagen.
 
 ## 5. Bedingungen und Context
 

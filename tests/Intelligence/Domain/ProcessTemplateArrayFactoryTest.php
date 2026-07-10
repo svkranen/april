@@ -91,6 +91,68 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertSame(['document_type' => 'aufmass'], $template->steps[1]->when);
     }
 
+    public function testParsesJourneyMatchAnyProcess(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'rm_aufmass_journey',
+            'scope' => 'journey',
+            'match' => [
+                'any_process' => [
+                    'RM_TEST_aufmass',
+                    'RM_TEST_aufmass',
+                    ' RM_TEST_NevarisExport ',
+                ],
+            ],
+        ]);
+
+        self::assertNotNull($template->match);
+        self::assertSame(['RM_TEST_aufmass', 'RM_TEST_NevarisExport'], $template->match->anyProcessKeys);
+    }
+
+    public function testRejectsMatchForProcessTemplates(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Template match is only supported for scope "journey".');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'invoice',
+            'scope' => 'process',
+            'match' => [
+                'any_process' => ['invoice'],
+            ],
+        ]);
+    }
+
+    public function testRejectsEmptyJourneyMatchProcessKey(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Template match.any_process[0] must be a non-empty string.');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'rm_aufmass_journey',
+            'scope' => 'journey',
+            'match' => [
+                'any_process' => [''],
+            ],
+        ]);
+    }
+
+    public function testRejectsNonListJourneyMatchAnyProcess(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Template match.any_process must be a list of process keys.');
+
+        ProcessTemplateArrayFactory::fromArray([
+            'key' => 'rm_aufmass_journey',
+            'scope' => 'journey',
+            'match' => [
+                'any_process' => [
+                    'main' => 'RM_TEST_aufmass',
+                ],
+            ],
+        ]);
+    }
+
     public function testTemplateWithoutScopeStaysProcessTemplateCompatible(): void
     {
         $template = ProcessTemplateArrayFactory::fromArray([
@@ -107,6 +169,7 @@ class ProcessTemplateArrayFactoryTest extends TestCase
         self::assertNull($template->steps[0]->processKey);
         self::assertTrue($template->steps[0]->required);
         self::assertSame([], $template->steps[0]->when);
+        self::assertNull($template->match);
     }
 
     public function testParsesTypedChecksSignCheck(): void

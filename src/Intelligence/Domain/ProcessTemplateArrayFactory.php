@@ -23,8 +23,10 @@ final class ProcessTemplateArrayFactory
     public static function fromArray(array $data): ProcessTemplate
     {
         $sourceSystem = self::sourceSystem($data, 'amagno');
+        $scope = self::stringValue($data['scope'] ?? 'process', 'process');
         $steps = self::steps($data['steps'] ?? []);
         $parallelGroups = self::parallelGroups($data['parallel_groups'] ?? []);
+        $match = self::match($data['match'] ?? null, $scope);
 
         return new ProcessTemplate(
             self::stringValue($data['key'] ?? '', ''),
@@ -47,9 +49,59 @@ final class ProcessTemplateArrayFactory
             visibilityRetryPolicies: self::visibilityRetryPolicies($data['visibility_retry_policies'] ?? []),
             manualAccessTests: self::manualAccessTests($data['manual_access_tests'] ?? []),
             crossProcessRoutingRules: self::crossProcessRoutingRules($data['cross_process_routing'] ?? []),
-            scope: self::stringValue($data['scope'] ?? 'process', 'process'),
+            match: $match,
+            scope: $scope,
             sourceSystem: $sourceSystem
         );
+    }
+
+    private static function match(mixed $match, string $scope): ?ProcessTemplateMatch
+    {
+        if ($match === null) {
+            return null;
+        }
+
+        if ($scope !== 'journey') {
+            throw new InvalidArgumentException('Template match is only supported for scope "journey".');
+        }
+
+        if (!is_array($match)) {
+            throw new InvalidArgumentException('Template match must be a YAML mapping.');
+        }
+
+        if (!array_key_exists('any_process', $match)) {
+            throw new InvalidArgumentException('Template match must define "any_process".');
+        }
+
+        if (!is_array($match['any_process']) || !array_is_list($match['any_process'])) {
+            throw new InvalidArgumentException('Template match.any_process must be a list of process keys.');
+        }
+
+        $processKeys = [];
+        $seen = [];
+        foreach ($match['any_process'] as $index => $processKey) {
+            if (!is_scalar($processKey)) {
+                throw new InvalidArgumentException(sprintf('Template match.any_process[%d] must be a non-empty string.', $index));
+            }
+
+            $processKey = trim((string) $processKey);
+            if ($processKey === '') {
+                throw new InvalidArgumentException(sprintf('Template match.any_process[%d] must be a non-empty string.', $index));
+            }
+
+            if (isset($seen[$processKey])) {
+                continue;
+            }
+
+            $seen[$processKey] = true;
+            $processKeys[] = $processKey;
+        }
+
+        if ($processKeys === []) {
+            throw new InvalidArgumentException('Template match.any_process must contain at least one process key.');
+        }
+
+        return new ProcessTemplateMatch($processKeys);
     }
 
     /**

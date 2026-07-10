@@ -81,11 +81,62 @@ parallel_groups:
 
 ## 3. Templates vorschlagen
 
-Ein Template aus einem Dokument vorschlagen:
+Ein Process-Template aus einem Dokument vorschlagen:
 
 ```bash
 bin/console intelligence:template:suggest-from-document <documentUuid> <processKey>
 ```
+
+Der Single-Document-Einstieg unterstuetzt Process- und Journey-Templates. Die
+Erkennung erfolgt zentral ueber `scope` des vorhandenen Zieltemplates:
+`scope: process` nutzt die bisherige Process-Suggestion, `scope: journey` leitet
+eine Journey ueber alle beobachteten `processKey`s der Dokument-Timeline ab.
+Bestehende Process-Templates ohne explizites `scope` bleiben kompatibel und
+gelten als `scope: process`.
+
+Wenn noch kein Journey-Template existiert, kann der Scope explizit gesetzt werden:
+
+```bash
+bin/console intelligence:template:suggest-from-document <documentUuid> <journeyTemplateKey> --scope=journey
+```
+
+Die Journey-Ableitung ist im MVP deterministisch: Sie erzeugt fuer jeden
+beobachteten Prozess einen Journey-Step mit `type: process`, `process_key` und
+`required: true`, dedupliziert nur direkt aufeinanderfolgende gleiche Prozesse
+und schlaegt Transitions zwischen aufeinanderfolgenden Journey-Steps vor. Wiederholt
+sich derselbe Prozess spaeter in der Journey, entstehen stabile Keys wie
+`process_key`, `process_key_2`, `process_key_3`. `when`, optionale Prozesse,
+Decision Points und statistische Haeufigkeiten werden nicht automatisch erfunden.
+Die Ausgabe ist eine Preview beziehungsweise ein YAML-Vorschlag; sie wird nur mit
+`--output` geschrieben und nie automatisch als Template gespeichert oder angewendet.
+
+Journey-Kandidatendokumente ueber `match.any_process` ermitteln und pruefen:
+
+```bash
+bin/console intelligence:template:check-journey-documents <journeyTemplateKey>
+```
+
+Der Command nutzt `match.any_process`, um Kandidaten ueber charakteristische
+Prozesse zu finden. Danach prueft APRIL immer die vollstaendige Dokument-Timeline
+gegen das Journey-Template. Ohne explizites `match` wird der erste erforderliche
+Journey-Step vom Typ `process` als Legacy-Fallback verwendet; optionale erste
+Einstiegsschritte werden nicht als Match-Anker genommen.
+
+Wenn die vollstaendige Timeline einen Prozess enthaelt, der im aktuell geprueften
+Journey-Template nicht als `type: process`-Step modelliert ist, gibt der
+Journey-Check `UNEXPECTED_PROCESS` aus:
+
+```text
+Unexpected processes:
+CRITICAL UNEXPECTED_PROCESS
+Kritische Abweichung: Unerwarteter Prozess außerhalb des Templates
+Process: RM_TEST_debitoren_gutschrift at 2026-06-01T09:07:00+00:00
+```
+
+Dies zaehlt als `DEVIATION` mit `severity: CRITICAL`. Der klassische Process-Template-Check arbeitet
+dagegen nur innerhalb des geprueften `processKey`; fremde Prozesse derselben
+Dokumenthistorie sind dort nicht sichtbar und werden nicht kuenstlich in den
+Process-Check hineingezogen.
 
 Ein Template aus mehreren Dokumenten vorschlagen:
 
