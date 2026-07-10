@@ -33,9 +33,10 @@ class TemplateGraphTest extends AppWebTestCase
         self::assertStringContainsString('data-template-graph-renderer="process-graph"', $html);
         self::assertStringContainsString('data-process-graph-module-url="/vendor/process-graph/index.js"', $html);
         self::assertStringContainsString('n_01_Rechnungen_pruefen', $html);
-        // Opt-in: every node is not_calculated and the activation link is offered.
+        // Opt-in: every node is not_calculated and the activation link is offered
+        // (and keeps the current renderer and layout direction).
         self::assertStringContainsString('class n_01_Rechnungen_pruefen not_calculated', $html);
-        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=process-graph"]');
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=process-graph&direction=TB"]');
     }
 
     public function testGraphPageAggregatesFindingsPerStepWithOptIn(): void
@@ -66,6 +67,79 @@ class TemplateGraphTest extends AppWebTestCase
         self::assertSelectorExists('[data-template-graph-renderer="mermaid"]');
         self::assertStringContainsString('flowchart TD', (string) $client->getResponse()->getContent());
         self::assertSelectorExists('[data-process-graph-model]');
+    }
+
+    public function testGraphPageDefaultsToVerticalDirection(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/graph');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-process-graph-direction="TB"]');
+        // The vertical pill is marked active by default.
+        self::assertSelectorTextContains('.header-actions[aria-label="Ausrichtung auswählen"] a.pill-link.is-active', 'Vertikal');
+    }
+
+    public function testGraphPageAcceptsDirectionLr(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/graph?direction=LR');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-process-graph-direction="LR"]');
+        self::assertSelectorTextContains('.header-actions[aria-label="Ausrichtung auswählen"] a.pill-link.is-active', 'Horizontal');
+    }
+
+    public function testGraphPageAcceptsDirectionTbExplicitly(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/graph?direction=TB');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-process-graph-direction="TB"]');
+    }
+
+    public function testInvalidDirectionFallsBackToVertical(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/graph?direction=diagonal');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-process-graph-direction="TB"]');
+    }
+
+    public function testDirectionToggleBuildsUrlsPreservingRendererAndFindings(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $this->fakeProviders(
+            $client,
+            [new DocumentListRow('doc-1', null, 1, 3, new DateTimeImmutable('2026-06-15T09:30:00+00:00'))],
+            [$this->record(self::STEP, 'violation')],
+            DocumentCheckResultView::fromResult(new ProcessTemplateCheckResult([], [], []))
+        );
+
+        $client->request('GET', '/app/templates/ai-rechnungen/graph?withFindings=1&renderer=mermaid&direction=LR');
+
+        self::assertResponseIsSuccessful();
+        // The direction toggle keeps renderer and findings selection …
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=mermaid&direction=TB"]');
+        self::assertSelectorExists('a.pill-link.is-active[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=mermaid&direction=LR"]');
+        // … and the renderer toggle keeps the chosen direction.
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=process-graph&direction=LR"]');
+        // Mermaid stays usable as-is with the direction parameter present.
+        self::assertStringContainsString('flowchart TD', (string) $client->getResponse()->getContent());
+    }
+
+    public function testTemplateGraphAssetPassesDirectionPresetAndHighlightToEngine(): void
+    {
+        // Smoke test on the AssetMapper entrypoint: the browser call must
+        // forward the validated direction with the balanced preset and enable
+        // the generic connected-path hover highlight.
+        $asset = (string) file_get_contents(__DIR__ . '/../../../assets/template-graph.js');
+        self::assertStringContainsString("['LR', 'TB'].includes(raw) ? raw : 'TB'", $asset);
+        self::assertStringContainsString('processTarget.dataset.processGraphDirection', $asset);
+        self::assertStringContainsString("preset: 'balanced'", $asset);
+        self::assertStringContainsString("highlightMode: 'connected'", $asset);
     }
 
     public function testJourneyGraphRendersProcessStepsAndMatchMetadata(): void

@@ -2,7 +2,7 @@ key: ai-rechnungen
 version: 1.1
 name: "AI Rechnungen Demo"
 source_system: community-demo
-initial_step: "01 Rechnungen pruefen"
+initial_step: "01 Rechnungseingang"
 
 required_steps:
   - "01 Rechnungen pruefen"

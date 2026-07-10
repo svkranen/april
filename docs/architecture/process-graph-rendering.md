@@ -11,12 +11,56 @@ Tested integration baseline:
 - npm package: `process-graph-engine@0.1.0`
 - expected artifact name: `process-graph-engine-0.1.0.tgz`
 
+The layout-direction toggle requires the `direction`/`preset` layout options
+(process-graph `>= 0.2.0`); the hover path highlighting requires the
+`interaction` API (`> 0.2.0`; update the baseline above when that release is
+cut). Older engine builds ignore unknown options gracefully, so the page still
+renders — left-to-right and without highlighting respectively.
+
 Before staging, build the artifact from that exact commit and record the resulting
 SHA-256. The package version alone is not sufficient proof of source identity.
 
 Use `?renderer=process-graph` or `?renderer=mermaid`. The findings switch preserves
 the selected renderer. A missing or invalid engine module never removes the
 server-rendered status table, neutral JSON model, or Mermaid source.
+
+## Layout direction (LR/TB)
+
+The graph page offers a visible orientation toggle ("⇢ Horizontal" /
+"⇣ Vertikal") next to the renderer toggle:
+
+- Query parameter: `?direction=LR` or `?direction=TB`.
+- **Default: `TB`** (vertical) with the engine's `balanced` spacing preset —
+  large processes grow downwards instead of forcing horizontal scrolling.
+- Invalid values fall back to `TB` server-side; the client validates again and
+  also falls back to `TB`.
+- All three toggles (renderer, direction, findings) preserve each other's
+  selection, so URLs stay shareable, e.g.
+  `?renderer=process-graph&direction=TB&withFindings=1`.
+- The direction only affects the process-graph renderer. Mermaid keeps its
+  built-in top-down orientation (`flowchart TD`) regardless of the parameter.
+
+The controller passes the validated value to Twig
+(`data-process-graph-direction`), and `assets/template-graph.js` forwards it as
+`layout: { direction, preset: 'balanced' }` to `renderProcessGraph()`. No engine
+or adapter change was required for this — it is a pure host configuration.
+
+## Path highlighting
+
+Hovering (or keyboard-focusing) a node highlights its directly connected
+neighbourhood — incoming/outgoing edges and adjacent nodes — while the rest of
+the diagram is dimmed slightly. This uses the engine's generic
+`interaction: { highlightMode: 'connected', dimUnrelated: true }` option; the
+engine only works on node/edge ids and adjacency, no APRIL semantics are
+involved. Critical/deviation colors stay recognizable (highlighting changes
+stroke weight and opacity, never colors). Escape or leaving the diagram
+restores the initial appearance.
+
+Other modes (`upstream`, `downstream`, `path`) and the programmatic handle API
+(`handle.highlightNode(...)`, `handle.clearHighlight()`) are available for a
+future inspector/tooltip iteration; hover callbacks (`onNodeEnter`,
+`onNodeFocus`, …) are the intended basis for tooltips, document lists or
+finding details — APRIL decides later what to build on top.
 
 ## Architecture and contract
 

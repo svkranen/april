@@ -219,6 +219,15 @@ final class TemplateController
         if (!in_array($renderer, ['process-graph', 'mermaid'], true)) {
             $renderer = 'process-graph';
         }
+
+        // Layout direction for the process-graph renderer. Vertical (TB) is
+        // the default; invalid values fall back to it. Mermaid keeps its own
+        // built-in top-down orientation regardless of this parameter.
+        $direction = $request->query->getString('direction', 'TB');
+        if (!in_array($direction, ['LR', 'TB'], true)) {
+            $direction = 'TB';
+        }
+
         $documentsUrl = $this->urlGenerator->generate('app_templates_documents', ['key' => $template->key]);
         $processGraphModel = $this->processGraphBuilder->build($template, $findings, $documentsUrl);
 
@@ -232,7 +241,8 @@ final class TemplateController
                 self::FINDINGS_LIMIT,
                 $processGraphModel,
                 $renderer,
-                $this->processGraphModuleUrl
+                $this->processGraphModuleUrl,
+                $direction
             ),
         ]));
     }

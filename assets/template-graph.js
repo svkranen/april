@@ -32,6 +32,10 @@ const navigationUrl = (element) => {
     return url.origin === window.location.origin ? url.href : null;
 };
 
+// Layout direction from the server-rendered toggle; only LR/TB are valid,
+// anything else falls back to the vertical default.
+const layoutDirection = (raw) => (['LR', 'TB'].includes(raw) ? raw : 'TB');
+
 const renderProcessGraph = async () => {
     if (!processTarget || !modelSource) return false;
     const moduleUrl = processTarget.dataset.processGraphModuleUrl;
@@ -43,6 +47,16 @@ const renderProcessGraph = async () => {
         throw new Error('Process Graph module does not export renderProcessGraph().');
     }
     engine.renderProcessGraph(processTarget, model, {
+        layout: {
+            direction: layoutDirection(processTarget.dataset.processGraphDirection),
+            preset: 'balanced',
+        },
+        // Hovering a node highlights its direct neighbourhood; everything
+        // else is dimmed slightly. Generic engine feature, no APRIL semantics.
+        interaction: {
+            highlightMode: 'connected',
+            dimUnrelated: true,
+        },
         render: {
             title: `APRIL: ${model.metadata?.template?.key || 'process graph'}`,
             description: 'Server-side APRIL template model rendered by process-graph.',
