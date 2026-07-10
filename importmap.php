@@ -20,6 +20,10 @@ return [
         'path' => './assets/template-graph.js',
         'entrypoint' => true,
     ],
+    'template-draft' => [
+        'path' => './assets/template-draft.js',
+        'entrypoint' => true,
+    ],
     '@mermaid-js/parser' => [
         'version' => '1.2.0',
     ],

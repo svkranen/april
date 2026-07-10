@@ -16,6 +16,15 @@
                 <a class="pill-link" href="{{ path('app_intelligence_documents_show', { documentUuid: view.documentUuid }) }}">Filter entfernen</a></p>
         {% endif %}
         <p class="muted">Read-only Event Explorer: keine Soll-/Ist-Prüfung, keine Cross-Process-Routing-Prüfung, keine Visibility-Prüfung.</p>
+        {% if view.hasTimeline %}
+            {% set draftParams = { documentUuid: view.documentUuid } %}
+            {% if view.documentVersion %}
+                {% set draftParams = draftParams|merge({ documentVersion: view.documentVersion }) %}
+            {% endif %}
+            <div class="header-actions">
+                <a class="pill-link" href="{{ path('app_intelligence_template_draft', draftParams) }}">Template-Entwurf erstellen</a>
+            </div>
+        {% endif %}
     </div>
 
     {% if not view.hasTimeline %}
@@ -49,6 +58,11 @@
                                         <span class="badge">Template bekannt</span>
                                     {% else %}
                                         <span class="badge is-muted">kein Template bekannt</span>
+                                        {% set groupDraftParams = { documentUuid: view.documentUuid, scope: 'process', templateKey: group.processKey } %}
+                                        {% if view.documentVersion %}
+                                            {% set groupDraftParams = groupDraftParams|merge({ documentVersion: view.documentVersion }) %}
+                                        {% endif %}
+                                        <a class="pill-link" href="{{ path('app_intelligence_template_draft', groupDraftParams) }}">Template-Entwurf</a>
                                     {% endif %}
                                 </td>
                                 <td>{{ group.documentVersions is empty ? '—' : group.documentVersions|join(', ') }}</td>

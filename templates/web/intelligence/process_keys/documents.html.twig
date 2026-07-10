@@ -36,7 +36,7 @@
                         <th>Events</th>
                         <th>Erstes Event</th>
                         <th>Letztes Event</th>
-                        <th>Journey</th>
+                        <th>Aktionen</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -54,6 +54,9 @@
                             <td>{{ row.lastOccurredAt ? row.lastOccurredAt|date('Y-m-d H:i') : '—' }}</td>
                             <td>
                                 <a class="pill-link" href="{{ path('app_intelligence_documents_show', journeyParams) }}">Journey</a>
+                                {% if not view.knownTemplate %}
+                                    <a class="pill-link" href="{{ path('app_intelligence_template_draft', journeyParams|merge({ scope: 'process', templateKey: view.processKey })) }}">Template-Entwurf</a>
+                                {% endif %}
                             </td>
                         </tr>
                     {% endfor %}
