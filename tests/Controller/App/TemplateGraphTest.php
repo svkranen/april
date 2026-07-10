@@ -6,6 +6,7 @@ use App\Intelligence\Application\DocumentCheckResultProvider;
 use App\Intelligence\Application\DocumentCheckResultView;
 use App\Intelligence\Application\DocumentListProvider;
 use App\Intelligence\Application\DocumentListRow;
+use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Application\ProcessTemplateCheckResult;
 use App\Intelligence\Application\VisibilityCheckResultProvider;
 use App\Intelligence\Application\VisibilityCheckResultRecord;
@@ -17,7 +18,7 @@ class TemplateGraphTest extends AppWebTestCase
 {
     private const STEP = '01 Rechnungen pruefen';
 
-    public function testGraphPageRendersMermaidSourceWithoutFindings(): void
+    public function testGraphPageRendersNeutralModelAndMermaidFallbackWithoutFindings(): void
     {
         $client = self::createAuthenticatedClient();
 
@@ -28,10 +29,13 @@ class TemplateGraphTest extends AppWebTestCase
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('flowchart TD', $html);
+        self::assertStringContainsString('"schemaVersion":"1.0"', $html);
+        self::assertStringContainsString('data-template-graph-renderer="process-graph"', $html);
+        self::assertStringContainsString('data-process-graph-module-url="/vendor/process-graph/index.js"', $html);
         self::assertStringContainsString('n_01_Rechnungen_pruefen', $html);
         // Opt-in: every node is not_calculated and the activation link is offered.
         self::assertStringContainsString('class n_01_Rechnungen_pruefen not_calculated', $html);
-        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1"]');
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=process-graph"]');
     }
 
     public function testGraphPageAggregatesFindingsPerStepWithOptIn(): void
@@ -50,6 +54,51 @@ class TemplateGraphTest extends AppWebTestCase
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('class n_01_Rechnungen_pruefen critical', $html);
         self::assertStringContainsString('Kritisch', $html);
+        self::assertStringContainsString('"state":"critical"', $html);
+    }
+
+    public function testMermaidRendererCanBeSelectedExplicitlyAndFallbackRemainsPresent(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates/incident-management/graph?renderer=mermaid');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-template-graph-renderer="mermaid"]');
+        self::assertStringContainsString('flowchart TD', (string) $client->getResponse()->getContent());
+        self::assertSelectorExists('[data-process-graph-model]');
+    }
+
+    public function testJourneyGraphRendersProcessStepsAndMatchMetadata(): void
+    {
+        $client = self::createAuthenticatedClient();
+        static::getContainer()->set(ProcessTemplateProvider::class, new class implements ProcessTemplateProvider {
+            public function findByProcessKey(string $processKey): ?ProcessTemplate
+            {
+                if ($processKey !== 'journey-demo') {
+                    return null;
+                }
+
+                return \App\Intelligence\Domain\ProcessTemplateArrayFactory::fromArray([
+                    'key' => 'journey-demo',
+                    'scope' => 'journey',
+                    'match' => ['any_process' => ['main-process']],
+                    'steps' => [
+                        ['key' => 'entry', 'type' => 'process', 'process_key' => 'entry-process', 'required' => false],
+                        ['key' => 'main', 'type' => 'process', 'process_key' => 'main-process', 'required' => true],
+                    ],
+                    'transitions' => [['from' => 'entry', 'to' => 'main']],
+                ]);
+            }
+        });
+
+        $client->request('GET', '/app/templates/journey-demo/graph');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('"graphType":"journey"', $html);
+        self::assertStringContainsString('"type":"subprocess"', $html);
+        self::assertStringContainsString('"anyProcess":["main-process"]', $html);
+        self::assertStringContainsString('"optional":true', $html);
     }
 
     public function testUnknownTemplateReturns404(): void

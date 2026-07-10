@@ -5,9 +5,9 @@ namespace App\Intelligence\Application;
 use App\Intelligence\Domain\ProcessTemplate;
 
 /**
- * Read model for the template Mermaid graph page. Bundles the rendered Mermaid
- * source with a Twig-friendly per-step table, a status legend and the opt-in
- * findings counters so the template stays free of domain/aggregation logic.
+ * Transitional graph-page read model. Mermaid remains the fallback while the
+ * neutral process-graph model is introduced; Twig receives both server-built
+ * representations and never traverses domain objects.
  */
 final readonly class TemplateMermaidGraphView
 {
@@ -30,7 +30,11 @@ final readonly class TemplateMermaidGraphView
         public int $processDeviations,
         public int $processWarnings,
         public int $processTechnical,
-        public array $transitionDecisionFindings = []
+        public array $transitionDecisionFindings = [],
+        public array $processGraphModel = [],
+        public string $processGraphJson = '{}',
+        public string $renderer = 'mermaid',
+        public string $processGraphModuleUrl = '/vendor/process-graph/index.js'
     ) {
     }
 
@@ -39,7 +43,10 @@ final readonly class TemplateMermaidGraphView
         bool $withFindings,
         ?TemplateGraphFindings $findings,
         string $mermaidCode,
-        int $findingsLimit
+        int $findingsLimit,
+        ?TemplateGraphModel $processGraphModel = null,
+        string $renderer = 'mermaid',
+        string $processGraphModuleUrl = '/vendor/process-graph/index.js'
     ): self {
         $steps = [];
         foreach ($template->steps as $step) {
@@ -74,7 +81,11 @@ final readonly class TemplateMermaidGraphView
             $findings?->processDeviations ?? 0,
             $findings?->processWarnings ?? 0,
             $findings?->processTechnical ?? 0,
-            $findings?->attributedFindings ?? []
+            $findings?->attributedFindings ?? [],
+            $processGraphModel?->jsonSerialize() ?? [],
+            $processGraphModel?->toJson() ?? '{}',
+            $renderer,
+            $processGraphModuleUrl
         );
     }
 

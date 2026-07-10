@@ -13,6 +13,7 @@ use App\Intelligence\Application\TemplateAssistantAnalyzer;
 use App\Intelligence\Application\TemplateDetailView;
 use App\Intelligence\Application\TemplateModelingSuggestionAnalyzer;
 use App\Intelligence\Application\TemplateGraphFindingsProvider;
+use App\Intelligence\Application\TemplateGraphModelBuilder;
 use App\Intelligence\Application\TemplateMermaidGraphBuilder;
 use App\Intelligence\Application\TemplateMermaidGraphView;
 use App\Intelligence\Domain\ProcessTemplate;
@@ -21,6 +22,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Twig\Environment;
 
 /**
@@ -36,11 +38,14 @@ final class TemplateController
         private readonly DocumentListProvider $documentListProvider,
         private readonly DocumentListFindingsProvider $documentListFindingsProvider,
         private readonly TemplateGraphFindingsProvider $graphFindingsProvider,
+        private readonly TemplateGraphModelBuilder $processGraphBuilder,
         private readonly TemplateMermaidGraphBuilder $graphBuilder,
         private readonly TemplateAssistantAnalyzer $assistantAnalyzer,
         private readonly TemplateModelingSuggestionAnalyzer $modelingSuggestionAnalyzer,
         private readonly Environment $twig,
-        private readonly string $processTemplateDirectory
+        private readonly UrlGeneratorInterface $urlGenerator,
+        private readonly string $processTemplateDirectory,
+        private readonly string $processGraphModuleUrl
     ) {
     }
 
@@ -210,6 +215,13 @@ final class TemplateController
             );
         }
 
+        $renderer = $request->query->getString('renderer', 'process-graph');
+        if (!in_array($renderer, ['process-graph', 'mermaid'], true)) {
+            $renderer = 'process-graph';
+        }
+        $documentsUrl = $this->urlGenerator->generate('app_templates_documents', ['key' => $template->key]);
+        $processGraphModel = $this->processGraphBuilder->build($template, $findings, $documentsUrl);
+
         return new Response($this->twig->render('template/graph.html.twig', [
             'active_nav' => 'templates',
             'view' => TemplateMermaidGraphView::build(
@@ -217,7 +229,10 @@ final class TemplateController
                 $withFindings,
                 $findings,
                 $this->graphBuilder->build($template, $findings),
-                self::FINDINGS_LIMIT
+                self::FINDINGS_LIMIT,
+                $processGraphModel,
+                $renderer,
+                $this->processGraphModuleUrl
             ),
         ]));
     }

@@ -27,6 +27,8 @@ parameters:
     april.generated_dir: '%kernel.project_dir%/var/april/generated'
     april.heatmap_output_dir: '%kernel.project_dir%/var/april/generated/heatmaps'
     april.diagram_output_dir: '%kernel.project_dir%/var/april/generated/diagrams'
+    april.process_graph_module_url: '%env(default:april.process_graph_module_default:PROCESS_GRAPH_MODULE_URL)%'
+    april.process_graph_module_default: '/vendor/process-graph/index.js'
     april.app_username: '%env(string:APRIL_APP_USERNAME)%'
     april.app_password_hash: '%env(string:APRIL_APP_PASSWORD_HASH)%'
 
@@ -257,6 +259,7 @@ services:
     App\Controller\App\TemplateController:
         arguments:
             $processTemplateDirectory: '%april.process_template_dir%'
+            $processGraphModuleUrl: '%april.process_graph_module_url%'
 
     App\Controller\App\TemplateDocumentController:
         arguments:
