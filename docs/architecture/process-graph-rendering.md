@@ -45,6 +45,40 @@ The controller passes the validated value to Twig
 `layout: { direction, preset: 'balanced' }` to `renderProcessGraph()`. No engine
 or adapter change was required for this — it is a pure host configuration.
 
+## Camera strategy
+
+The graph page offers a view toggle ("Auto / Natürlich / Komfort /
+Übersicht") next to the orientation toggle:
+
+- Query parameter: `?camera=auto|natural|comfortable|overview`.
+- **Default: `auto`** — the engine chooses from the actual diagram size and
+  structure: small journeys render at natural size (centered, never
+  enlarged), medium processes like the incident demo fill the width and stay
+  readable (the flow axis may scroll), very large processes start as a full
+  overview.
+- Invalid values fall back to `auto` (server- and client-side).
+- All toggles (renderer, direction, camera, findings) preserve each other's
+  selection; URLs stay shareable.
+
+`assets/template-graph.js` forwards the choice as part of the viewport
+configuration:
+
+```js
+viewport: {
+    cameraMode, fitPadding: 24,
+    minInitialScale: 0.35, maxInitialScale: 1,
+    minScale: 0.25, maxScale: 1.75,
+    centerSmallGraphs: true, wheelSensitivity: 0.7,
+}
+```
+
+(`initialView: 'fit'` is superseded by `cameraMode`.) The
+`.process-graph-preview` container now has a fixed camera viewport
+(`height: 70vh`, `overflow: hidden`) — the engine pans/zooms inside it
+instead of native scrollbars. Requires an engine build with the camera
+strategy (`cameraMode`); older builds ignore the option and fall back to
+their fit behavior.
+
 ## Path highlighting
 
 Hovering (or keyboard-focusing) a node highlights its directly connected

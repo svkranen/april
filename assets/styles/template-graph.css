@@ -40,14 +40,15 @@ details.mermaid-box > summary {
 
 .process-graph-preview {
     margin-top: 0.6rem;
-    padding: 1rem;
     border: 1px solid var(--line);
     border-radius: 0.8rem;
     background: #fff;
-    overflow: auto;
-    min-height: 8rem;
+    /* The engine camera pans/zooms inside a fixed viewport; no scrollbars. */
+    overflow: hidden;
+    height: 70vh;
+    min-height: 20rem;
 }
-.process-graph-preview svg { display: block; max-width: none; min-width: 100%; height: auto; }
+.process-graph-preview svg { display: block; }
 .process-graph-preview .pg-node[data-node-id],
 .process-graph-preview .pg-edge[data-edge-id] { cursor: pointer; }
 .process-graph-status:empty { display: none; }

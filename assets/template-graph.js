@@ -36,6 +36,10 @@ const navigationUrl = (element) => {
 // anything else falls back to the vertical default.
 const layoutDirection = (raw) => (['LR', 'TB'].includes(raw) ? raw : 'TB');
 
+// Camera strategy from the server-rendered toggle; the engine decides the
+// concrete framing for 'auto'. Invalid values fall back to 'auto'.
+const cameraMode = (raw) => (['auto', 'natural', 'comfortable', 'overview'].includes(raw) ? raw : 'auto');
+
 const renderProcessGraph = async () => {
     if (!processTarget || !modelSource) return false;
     const moduleUrl = processTarget.dataset.processGraphModuleUrl;
@@ -50,6 +54,18 @@ const renderProcessGraph = async () => {
         layout: {
             direction: layoutDirection(processTarget.dataset.processGraphDirection),
             preset: 'balanced',
+        },
+        // The camera strategy frames the initial view like a photographer:
+        // readability first, full overview only when structure demands it.
+        viewport: {
+            cameraMode: cameraMode(processTarget.dataset.processGraphCamera),
+            fitPadding: 24,
+            minInitialScale: 0.35,
+            maxInitialScale: 1,
+            minScale: 0.25,
+            maxScale: 1.75,
+            centerSmallGraphs: true,
+            wheelSensitivity: 0.7,
         },
         // Hovering a node highlights its direct neighbourhood; everything
         // else is dimmed slightly. Generic engine feature, no APRIL semantics.

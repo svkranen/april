@@ -228,6 +228,14 @@ final class TemplateController
             $direction = 'TB';
         }
 
+        // Camera strategy for the initial view. "auto" lets the engine pick
+        // natural/comfortable/overview from the actual diagram; invalid
+        // values fall back to it.
+        $camera = $request->query->getString('camera', 'auto');
+        if (!in_array($camera, ['auto', 'natural', 'comfortable', 'overview'], true)) {
+            $camera = 'auto';
+        }
+
         $documentsUrl = $this->urlGenerator->generate('app_templates_documents', ['key' => $template->key]);
         $processGraphModel = $this->processGraphBuilder->build($template, $findings, $documentsUrl);
 
@@ -242,7 +250,8 @@ final class TemplateController
                 $processGraphModel,
                 $renderer,
                 $this->processGraphModuleUrl,
-                $direction
+                $direction,
+                $camera
             ),
         ]));
     }

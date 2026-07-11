@@ -35,7 +35,8 @@ final readonly class TemplateMermaidGraphView
         public string $processGraphJson = '{}',
         public string $renderer = 'mermaid',
         public string $processGraphModuleUrl = '/vendor/process-graph/index.js',
-        public string $direction = 'TB'
+        public string $direction = 'TB',
+        public string $camera = 'auto'
     ) {
     }
 
@@ -48,7 +49,8 @@ final readonly class TemplateMermaidGraphView
         ?TemplateGraphModel $processGraphModel = null,
         string $renderer = 'mermaid',
         string $processGraphModuleUrl = '/vendor/process-graph/index.js',
-        string $direction = 'TB'
+        string $direction = 'TB',
+        string $camera = 'auto'
     ): self {
         $steps = [];
         foreach ($template->steps as $step) {
@@ -88,7 +90,8 @@ final readonly class TemplateMermaidGraphView
             $processGraphModel?->toJson() ?? '{}',
             $renderer,
             $processGraphModuleUrl,
-            $direction
+            $direction,
+            $camera
         );
     }
 

@@ -30,29 +30,43 @@
             <a class="pill-link" href="{{ path('app_templates_docs', { key: view.key }) }}">Dokumentation</a>
         </div>
 
+        {% set graph_params = { key: view.key, withFindings: view.withFindings ? 1 : 0, renderer: view.renderer, direction: view.direction, camera: view.camera } %}
+
         <div class="header-actions" aria-label="Renderer auswählen">
             <a class="pill-link {{ view.renderer == 'process-graph' ? 'is-active' : '' }}"
-               href="{{ path('app_templates_graph', { key: view.key, withFindings: view.withFindings ? 1 : 0, renderer: 'process-graph', direction: view.direction }) }}">Process Graph</a>
+               href="{{ path('app_templates_graph', graph_params|merge({ renderer: 'process-graph' })) }}">Process Graph</a>
             <a class="pill-link {{ view.renderer == 'mermaid' ? 'is-active' : '' }}"
-               href="{{ path('app_templates_graph', { key: view.key, withFindings: view.withFindings ? 1 : 0, renderer: 'mermaid', direction: view.direction }) }}">Mermaid</a>
+               href="{{ path('app_templates_graph', graph_params|merge({ renderer: 'mermaid' })) }}">Mermaid</a>
         </div>
 
         {# Layout-Ausrichtung des Process-Graph-Renderers (Mermaid bleibt top-down) #}
         <div class="header-actions" aria-label="Ausrichtung auswählen">
             <a class="pill-link {{ view.direction == 'LR' ? 'is-active' : '' }}"
-               href="{{ path('app_templates_graph', { key: view.key, withFindings: view.withFindings ? 1 : 0, renderer: view.renderer, direction: 'LR' }) }}">⇢ Horizontal</a>
+               href="{{ path('app_templates_graph', graph_params|merge({ direction: 'LR' })) }}">⇢ Horizontal</a>
             <a class="pill-link {{ view.direction == 'TB' ? 'is-active' : '' }}"
-               href="{{ path('app_templates_graph', { key: view.key, withFindings: view.withFindings ? 1 : 0, renderer: view.renderer, direction: 'TB' }) }}">⇣ Vertikal</a>
+               href="{{ path('app_templates_graph', graph_params|merge({ direction: 'TB' })) }}">⇣ Vertikal</a>
+        </div>
+
+        {# Kamerastrategie der Anfangsansicht (nur Process Graph) #}
+        <div class="header-actions" aria-label="Ansicht auswählen">
+            <a class="pill-link {{ view.camera == 'auto' ? 'is-active' : '' }}"
+               href="{{ path('app_templates_graph', graph_params|merge({ camera: 'auto' })) }}">Auto</a>
+            <a class="pill-link {{ view.camera == 'natural' ? 'is-active' : '' }}"
+               href="{{ path('app_templates_graph', graph_params|merge({ camera: 'natural' })) }}">Natürlich</a>
+            <a class="pill-link {{ view.camera == 'comfortable' ? 'is-active' : '' }}"
+               href="{{ path('app_templates_graph', graph_params|merge({ camera: 'comfortable' })) }}">Komfort</a>
+            <a class="pill-link {{ view.camera == 'overview' ? 'is-active' : '' }}"
+               href="{{ path('app_templates_graph', graph_params|merge({ camera: 'overview' })) }}">Übersicht</a>
         </div>
 
         {# Findings an/aus – immer beide Richtungen anbieten #}
         <div class="header-actions">
             {% if view.withFindings %}
-                <a class="pill-link is-active" href="{{ path('app_templates_graph', { key: view.key, withFindings: 1, renderer: view.renderer, direction: view.direction }) }}">Mit Findings</a>
-                <a class="pill-link" href="{{ path('app_templates_graph', { key: view.key, renderer: view.renderer, direction: view.direction }) }}">Ohne Findings</a>
+                <a class="pill-link is-active" href="{{ path('app_templates_graph', graph_params|merge({ withFindings: 1 })) }}">Mit Findings</a>
+                <a class="pill-link" href="{{ path('app_templates_graph', graph_params|merge({ withFindings: null })) }}">Ohne Findings</a>
             {% else %}
-                <a class="pill-link" href="{{ path('app_templates_graph', { key: view.key, withFindings: 1, renderer: view.renderer, direction: view.direction }) }}">Mit Findings</a>
-                <a class="pill-link is-active" href="{{ path('app_templates_graph', { key: view.key, renderer: view.renderer, direction: view.direction }) }}">Ohne Findings</a>
+                <a class="pill-link" href="{{ path('app_templates_graph', graph_params|merge({ withFindings: 1 })) }}">Mit Findings</a>
+                <a class="pill-link is-active" href="{{ path('app_templates_graph', graph_params|merge({ withFindings: null })) }}">Ohne Findings</a>
             {% endif %}
         </div>
 
@@ -86,6 +100,7 @@
              data-template-graph-target
              data-template-graph-renderer="{{ view.renderer }}"
              data-process-graph-direction="{{ view.direction }}"
+             data-process-graph-camera="{{ view.camera }}"
              data-process-graph-module-url="{{ view.processGraphModuleUrl }}">
             <noscript>Die grafische Vorschau benötigt JavaScript. Graph-Modell und Mermaid-Quelltext bleiben verfügbar.</noscript>
         </div>

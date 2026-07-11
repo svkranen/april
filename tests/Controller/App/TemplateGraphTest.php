@@ -36,7 +36,7 @@ class TemplateGraphTest extends AppWebTestCase
         // Opt-in: every node is not_calculated and the activation link is offered
         // (and keeps the current renderer and layout direction).
         self::assertStringContainsString('class n_01_Rechnungen_pruefen not_calculated', $html);
-        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=process-graph&direction=TB"]');
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=process-graph&direction=TB&camera=auto"]');
     }
 
     public function testGraphPageAggregatesFindingsPerStepWithOptIn(): void
@@ -121,11 +121,11 @@ class TemplateGraphTest extends AppWebTestCase
         $client->request('GET', '/app/templates/ai-rechnungen/graph?withFindings=1&renderer=mermaid&direction=LR');
 
         self::assertResponseIsSuccessful();
-        // The direction toggle keeps renderer and findings selection …
-        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=mermaid&direction=TB"]');
-        self::assertSelectorExists('a.pill-link.is-active[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=mermaid&direction=LR"]');
+        // The direction toggle keeps renderer, findings and camera selection …
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=mermaid&direction=TB&camera=auto"]');
+        self::assertSelectorExists('a.pill-link.is-active[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=mermaid&direction=LR&camera=auto"]');
         // … and the renderer toggle keeps the chosen direction.
-        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=process-graph&direction=LR"]');
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=1&renderer=process-graph&direction=LR&camera=auto"]');
         // Mermaid stays usable as-is with the direction parameter present.
         self::assertStringContainsString('flowchart TD', (string) $client->getResponse()->getContent());
     }
@@ -140,6 +140,59 @@ class TemplateGraphTest extends AppWebTestCase
         self::assertStringContainsString('processTarget.dataset.processGraphDirection', $asset);
         self::assertStringContainsString("preset: 'balanced'", $asset);
         self::assertStringContainsString("highlightMode: 'connected'", $asset);
+    }
+
+    public function testGraphPageDefaultsToAutoCamera(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/graph');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-process-graph-camera="auto"]');
+        self::assertSelectorTextContains('.header-actions[aria-label="Ansicht auswählen"] a.pill-link.is-active', 'Auto');
+    }
+
+    public function testGraphPageAcceptsCameraModes(): void
+    {
+        $client = self::createAuthenticatedClient();
+        foreach (['natural', 'comfortable', 'overview'] as $camera) {
+            $client->request('GET', '/app/templates/ai-rechnungen/graph?camera=' . $camera);
+            self::assertResponseIsSuccessful();
+            self::assertSelectorExists(sprintf('[data-process-graph-camera="%s"]', $camera));
+        }
+    }
+
+    public function testInvalidCameraFallsBackToAuto(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/graph?camera=cinematic');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-process-graph-camera="auto"]');
+    }
+
+    public function testCameraToggleBuildsUrlsPreservingOtherParameters(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates/ai-rechnungen/graph?renderer=process-graph&direction=LR&camera=overview');
+
+        self::assertResponseIsSuccessful();
+        // Camera pills keep direction/renderer/findings; the active pill reflects the choice.
+        self::assertSelectorExists('a.pill-link.is-active[href="/app/templates/ai-rechnungen/graph?withFindings=0&renderer=process-graph&direction=LR&camera=overview"]');
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=0&renderer=process-graph&direction=LR&camera=natural"]');
+        // Direction toggle keeps the camera choice.
+        self::assertSelectorExists('a.pill-link[href="/app/templates/ai-rechnungen/graph?withFindings=0&renderer=process-graph&direction=TB&camera=overview"]');
+    }
+
+    public function testTemplateGraphAssetPassesCameraAndViewportToEngine(): void
+    {
+        $asset = (string) file_get_contents(__DIR__ . '/../../../assets/template-graph.js');
+        self::assertStringContainsString("['auto', 'natural', 'comfortable', 'overview'].includes(raw) ? raw : 'auto'", $asset);
+        self::assertStringContainsString('processTarget.dataset.processGraphCamera', $asset);
+        self::assertStringContainsString('cameraMode:', $asset);
+        self::assertStringContainsString('minInitialScale: 0.35', $asset);
+        self::assertStringContainsString('wheelSensitivity: 0.7', $asset);
+        self::assertStringNotContainsString("initialView: 'fit'", $asset);
     }
 
     public function testJourneyGraphRendersProcessStepsAndMatchMetadata(): void
