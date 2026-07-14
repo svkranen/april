@@ -4,7 +4,7 @@ namespace App\Command;
 
 use App\Intelligence\Application\HtmlProcessTemplateDocumentationRenderer;
 use App\Intelligence\Application\MarkdownProcessTemplateDocumentationRenderer;
-use App\Intelligence\Application\ProcessTemplateDocumentationBuilder;
+use App\Intelligence\Application\ProcessTemplateDocumentationFactory;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,10 +21,9 @@ final class IntelligenceTemplateDocumentCommand extends Command
 {
     public function __construct(
         private readonly ProcessTemplateProvider $templateProvider,
-        private readonly ProcessTemplateDocumentationBuilder $builder,
+        private readonly ProcessTemplateDocumentationFactory $documentationFactory,
         private readonly MarkdownProcessTemplateDocumentationRenderer $markdownRenderer,
-        private readonly HtmlProcessTemplateDocumentationRenderer $htmlRenderer,
-        private readonly string $templateDirectory
+        private readonly HtmlProcessTemplateDocumentationRenderer $htmlRenderer
     ) {
         parent::__construct();
     }
@@ -54,8 +53,7 @@ final class IntelligenceTemplateDocumentCommand extends Command
             return Command::FAILURE;
         }
 
-        $templatePath = rtrim($this->templateDirectory, '/').'/'.$processKey.'.yaml';
-        $documentation = $this->builder->build($template, $templatePath);
+        $documentation = $this->documentationFactory->create($template);
         $rendered = $format === 'html'
             ? $this->htmlRenderer->render($documentation)
             : $this->markdownRenderer->render($documentation);

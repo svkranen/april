@@ -5,7 +5,9 @@ namespace App\Tests\Command;
 use App\Command\IntelligenceTemplateDocumentCommand;
 use App\Intelligence\Application\HtmlProcessTemplateDocumentationRenderer;
 use App\Intelligence\Application\MarkdownProcessTemplateDocumentationRenderer;
+use App\Intelligence\Application\ProcessTemplateCatalog;
 use App\Intelligence\Application\ProcessTemplateDocumentationBuilder;
+use App\Intelligence\Application\ProcessTemplateDocumentationFactory;
 use App\Intelligence\Application\ProcessTemplateProvider;
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateArrayFactory;
@@ -151,10 +153,12 @@ final class IntelligenceTemplateDocumentCommandTest extends TestCase
 
         return new CommandTester(new IntelligenceTemplateDocumentCommand(
             $this->provider($template),
-            new ProcessTemplateDocumentationBuilder(new \App\Intelligence\Application\AccessCoverageReportBuilder(), $clock),
+            new ProcessTemplateDocumentationFactory(
+                new ProcessTemplateCatalog('/project/config/april/process-templates'),
+                new ProcessTemplateDocumentationBuilder(new \App\Intelligence\Application\AccessCoverageReportBuilder(), $clock)
+            ),
             $markdown,
-            new HtmlProcessTemplateDocumentationRenderer(),
-            '/project/config/april/process-templates'
+            new HtmlProcessTemplateDocumentationRenderer()
         ));
     }
 
