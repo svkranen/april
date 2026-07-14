@@ -226,10 +226,6 @@ services:
         arguments:
             $profiles: '%intelligence.context_profiles%'
 
-    App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider:
-        arguments:
-            $templateDirectory: '%april.process_template_dir%'
-
     App\Intelligence\Infrastructure\Template\YamlJourneyMatchWriter:
         arguments:
             $templateDirectory: '%april.process_template_dir%'
@@ -262,12 +258,7 @@ services:
 
     App\Controller\App\TemplateController:
         arguments:
-            $processTemplateDirectory: '%april.process_template_dir%'
             $processGraphModuleUrl: '%april.process_graph_module_url%'
-
-    App\Controller\App\TemplateDocumentController:
-        arguments:
-            $processTemplateDirectory: '%april.process_template_dir%'
 
     App\Controller\App\DocumentJourneyController:
         arguments:

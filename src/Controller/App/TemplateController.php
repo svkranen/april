@@ -44,7 +44,6 @@ final class TemplateController
         private readonly TemplateModelingSuggestionAnalyzer $modelingSuggestionAnalyzer,
         private readonly Environment $twig,
         private readonly UrlGeneratorInterface $urlGenerator,
-        private readonly string $processTemplateDirectory,
         private readonly string $processGraphModuleUrl
     ) {
     }
@@ -73,10 +72,7 @@ final class TemplateController
     #[Route('/app/templates/{key}', name: 'app_templates_show', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
     public function show(string $key): Response
     {
-        $template = $this->templateProvider->findByProcessKey($key);
-        if ($template === null) {
-            throw new NotFoundHttpException($this->notFoundMessage($key));
-        }
+        $template = $this->requireTemplate($key);
 
         return new Response($this->twig->render('template/show.html.twig', [
             'active_nav' => 'templates',
@@ -88,14 +84,9 @@ final class TemplateController
     #[Route('/app/templates/{key}/assistant', name: 'app_templates_assistant', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
     public function assistant(string $key, Request $request): Response
     {
-        $template = $this->templateProvider->findByProcessKey($key);
-        if ($template === null) {
-            throw new NotFoundHttpException($this->notFoundMessage($key));
-        }
+        $template = $this->requireTemplate($key);
 
-        // Read-only assistance: derive the conventional YAML path for display only;
-        // no file is read or written here.
-        $filePath = rtrim($this->processTemplateDirectory, '/').'/'.$template->key.'.yaml';
+        $filePath = $this->catalog->pathForProcessKey($template->key);
 
         // Modelling suggestions need on-demand findings and are opt-in: without
         // withFindings=1 we never read any document - the page shows a hint/link.
@@ -111,7 +102,7 @@ final class TemplateController
 
         return new Response($this->twig->render('template/assistant.html.twig', [
             'active_nav' => 'templates',
-            'view' => $this->assistantAnalyzer->analyze($template, $filePath),
+            'view' => $this->assistantAnalyzer->analyze($template, $filePath ?? ''),
             'suggestions' => $this->modelingSuggestionAnalyzer->fromFindings($findings),
         ]));
     }
@@ -119,10 +110,7 @@ final class TemplateController
     #[Route('/app/templates/{key}/access', name: 'app_templates_access', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
     public function access(string $key): Response
     {
-        $template = $this->templateProvider->findByProcessKey($key);
-        if ($template === null) {
-            throw new NotFoundHttpException($this->notFoundMessage($key));
-        }
+        $template = $this->requireTemplate($key);
 
         $report = $this->coverageBuilder->build($template);
 
@@ -135,10 +123,7 @@ final class TemplateController
     #[Route('/app/templates/{key}/documents', name: 'app_templates_documents', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
     public function documents(string $key, Request $request): Response
     {
-        $template = $this->templateProvider->findByProcessKey($key);
-        if ($template === null) {
-            throw new NotFoundHttpException($this->notFoundMessage($key));
-        }
+        $template = $this->requireTemplate($key);
 
         $rows = $this->documentListProvider->documentsForProcess($template->key, 200);
 
@@ -198,10 +183,7 @@ final class TemplateController
     #[Route('/app/templates/{key}/graph', name: 'app_templates_graph', requirements: ['key' => '[A-Za-z0-9._-]+'], methods: ['GET'])]
     public function graph(string $key, Request $request): Response
     {
-        $template = $this->templateProvider->findByProcessKey($key);
-        if ($template === null) {
-            throw new NotFoundHttpException($this->notFoundMessage($key));
-        }
+        $template = $this->requireTemplate($key);
 
         // Findings are opt-in: without withFindings=1 we never read any document.
         $withFindings = $request->query->getBoolean('withFindings');
@@ -324,13 +306,14 @@ final class TemplateController
         return $stepKey;
     }
 
-    private function notFoundMessage(string $key): string
+    private function requireTemplate(string $key): ProcessTemplate
     {
-        return sprintf(
-            'Template "%s" not found in configured APRIL process template directory "%s".',
-            $key,
-            $this->processTemplateDirectory
-        );
+        $template = $this->templateProvider->findByProcessKey($key);
+        if ($template === null) {
+            throw new NotFoundHttpException(sprintf('Template "%s" not found.', $key));
+        }
+
+        return $template;
     }
 
     /**

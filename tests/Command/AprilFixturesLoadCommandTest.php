@@ -7,6 +7,7 @@ use App\Intelligence\Application\ContextSnapshotService;
 use App\Intelligence\Application\ConnectorContextProviderFactoryRegistry;
 use App\Intelligence\Application\EventReceiver;
 use App\Intelligence\Application\ProcessInstanceManager;
+use App\Intelligence\Application\ProcessTemplateCatalog;
 use App\Intelligence\Application\ProcessTemplateCheckService;
 use App\Intelligence\Application\ProcessResetResult;
 use App\Intelligence\Application\ProcessResetter;
@@ -76,7 +77,7 @@ final class AprilFixturesLoadCommandTest extends TestCase
         self::assertSame(0, $securityClassifySnapshot->freshnessSeconds);
         self::assertTrue($securityClassifySnapshot->isFreshForDecisionCheck);
 
-        $template = (new YamlProcessTemplateProvider($templateDirectory))->findByProcessKey('incident-management');
+        $template = (new YamlProcessTemplateProvider(new ProcessTemplateCatalog($templateDirectory)))->findByProcessKey('incident-management');
         self::assertNotNull($template);
 
         $check = (new ProcessTemplateCheckService(new InMemoryDocumentTimelineProvider(
@@ -156,7 +157,7 @@ final class AprilFixturesLoadCommandTest extends TestCase
         self::assertStringContainsString('events_imported: 16', $display);
         self::assertStringContainsString('events_duplicate: 0', $display);
 
-        $template = (new YamlProcessTemplateProvider($templateDirectory))->findByProcessKey('incident-management');
+        $template = (new YamlProcessTemplateProvider(new ProcessTemplateCatalog($templateDirectory)))->findByProcessKey('incident-management');
         self::assertNotNull($template);
 
         $check = (new ProcessTemplateCheckService(new InMemoryDocumentTimelineProvider(
@@ -277,7 +278,7 @@ final class AprilFixturesLoadCommandTest extends TestCase
     private function templateResolver(string $templateDirectory): TemplateContextProviderResolver
     {
         return new TemplateMappedContextProviderResolver(
-            new YamlProcessTemplateProvider($templateDirectory),
+            new YamlProcessTemplateProvider(new ProcessTemplateCatalog($templateDirectory)),
             new ConnectorContextProviderFactoryRegistry()
         );
     }

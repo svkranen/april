@@ -62,7 +62,7 @@ class ProcessTemplateLocationTest extends TestCase
 
     public function testProviderFindsIncidentManagementUnderConfigApril(): void
     {
-        $provider = new YamlProcessTemplateProvider($this->processTemplateDir());
+        $provider = new YamlProcessTemplateProvider(new ProcessTemplateCatalog($this->processTemplateDir()));
 
         $template = $provider->findByProcessKey('incident-management');
         self::assertNotNull($template);
@@ -71,7 +71,7 @@ class ProcessTemplateLocationTest extends TestCase
 
     public function testProviderDoesNotResolveTemplatesFromTwigDirectory(): void
     {
-        $provider = new YamlProcessTemplateProvider($this->twigWebDir());
+        $provider = new YamlProcessTemplateProvider(new ProcessTemplateCatalog($this->twigWebDir()));
 
         self::assertNull($provider->findByProcessKey('incident-management'));
     }

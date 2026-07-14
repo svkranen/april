@@ -15,7 +15,7 @@ use Throwable;
  * Single source of truth shared by the CLI (intelligence:template:list) and the
  * web frontend; invalid templates are reported as warnings instead of aborting.
  */
-final readonly class ProcessTemplateCatalog
+final readonly class ProcessTemplateCatalog implements ProcessTemplateProvider
 {
     public function __construct(
         private string $templateDirectory
@@ -47,6 +47,33 @@ final readonly class ProcessTemplateCatalog
         }
 
         return new ProcessTemplateCatalogResult($entries, $warnings);
+    }
+
+    public function findByProcessKey(string $processKey): ?ProcessTemplate
+    {
+        $entry = $this->findEntryByProcessKey($processKey);
+
+        return $entry === null ? null : $this->loadTemplate($entry->path);
+    }
+
+    public function pathForProcessKey(string $processKey): ?string
+    {
+        return $this->findEntryByProcessKey($processKey)?->path;
+    }
+
+    private function findEntryByProcessKey(string $processKey): ?ProcessTemplateCatalogEntry
+    {
+        if (preg_match('/^[A-Za-z0-9._-]+$/D', $processKey) !== 1) {
+            return null;
+        }
+
+        foreach ($this->list()->entries as $entry) {
+            if ($entry->key === $processKey) {
+                return $entry;
+            }
+        }
+
+        return null;
     }
 
     private function loadTemplate(string $path): ProcessTemplate

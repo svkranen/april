@@ -89,7 +89,7 @@ class TemplateControllerTest extends AppWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    public function testTemplateDetailUnknownKeyReportsProcessTemplateDirectory(): void
+    public function testTemplateDetailUnknownKeyDoesNotExposeProcessTemplateDirectory(): void
     {
         $client = self::createAuthenticatedClient();
         $client->catchExceptions(false);
@@ -99,8 +99,29 @@ class TemplateControllerTest extends AppWebTestCase
             self::fail('Expected NotFoundHttpException.');
         } catch (NotFoundHttpException $exception) {
             self::assertStringContainsString('does-not-exist-xyz', $exception->getMessage());
-            self::assertStringContainsString('config/april/process-templates', $exception->getMessage());
+            self::assertStringNotContainsString('config/april/process-templates', $exception->getMessage());
         }
+    }
+
+    public function testCatalogLinkAndDetailUseSameAiRechnungenKey(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('a[href="/app/templates/ai-rechnungen"]');
+
+        $client->clickLink('ai-rechnungen');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'AI Rechnungen Demo');
+    }
+
+    public function testTraversalKeyIsNotResolvedAsTemplateFile(): void
+    {
+        $client = self::createAuthenticatedClient();
+        $client->request('GET', '/app/templates/%2E%2E%2Fai-rechnungen');
+
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function testFrontendDoesNotRequireProcessTemplateUnderTwigTemplatesDirectory(): void

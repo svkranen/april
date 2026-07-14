@@ -25,8 +25,7 @@ final class TemplateDocumentController
         private readonly DocumentTimelineProvider $timelineProvider,
         private readonly VisibilityCheckResultProvider $visibilityResultProvider,
         private readonly DocumentCheckResultProvider $checkResultProvider,
-        private readonly Environment $twig,
-        private readonly string $processTemplateDirectory
+        private readonly Environment $twig
     ) {
     }
 
@@ -40,11 +39,7 @@ final class TemplateDocumentController
     {
         $template = $this->templateProvider->findByProcessKey($key);
         if ($template === null) {
-            throw new NotFoundHttpException(sprintf(
-                'Template "%s" not found in configured APRIL process template directory "%s".',
-                $key,
-                $this->processTemplateDirectory
-            ));
+            throw new NotFoundHttpException(sprintf('Template "%s" not found.', $key));
         }
 
         // Template exists but the document may have no stored events yet -> the

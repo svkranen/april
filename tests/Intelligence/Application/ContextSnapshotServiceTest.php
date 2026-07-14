@@ -5,6 +5,7 @@ namespace App\Tests\Intelligence\Application;
 use App\Intelligence\Application\TemplateContextProviderResolver;
 use App\Intelligence\Application\ConnectorContextProviderFactoryRegistry;
 use App\Intelligence\Application\ContextSnapshotService;
+use App\Intelligence\Application\ProcessTemplateCatalog;
 use App\Intelligence\Connector\Amagno\AmagnoContextProviderFactory;
 use App\Intelligence\Connector\Amagno\AmagnoDocumentGateway;
 use App\Intelligence\Connector\Amagno\AmagnoFieldMapFactory;
@@ -587,7 +588,7 @@ YAML,
         };
 
         return new TemplateMappedContextProviderResolver(
-            new YamlProcessTemplateProvider($templateDirectory),
+            new YamlProcessTemplateProvider(new ProcessTemplateCatalog($templateDirectory)),
             new ConnectorContextProviderFactoryRegistry([$factory])
         );
     }

@@ -3,6 +3,7 @@
 namespace App\Tests\Intelligence\Application;
 
 use App\Intelligence\Application\ProcessTemplateCatalog;
+use App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider;
 use PHPUnit\Framework\TestCase;
 
 class ProcessTemplateCatalogTest extends TestCase
@@ -68,6 +69,35 @@ class ProcessTemplateCatalogTest extends TestCase
 
         $keys = array_map(static fn ($entry): string => $entry->key, $result->entries);
         self::assertContains('incident-management', $keys);
+    }
+
+    public function testListAndLookupUseYamlKeyEvenWhenFilenameDiffers(): void
+    {
+        $directory = $this->createDirectory([
+            'descriptive-filename.yaml' => "key: invoice\nversion: '1'\nsteps: []\n",
+        ]);
+        $catalog = new ProcessTemplateCatalog($directory);
+
+        self::assertSame('invoice', $catalog->list()->entries[0]->key);
+        self::assertSame('invoice', $catalog->findByProcessKey('invoice')?->key);
+        self::assertSame('invoice', (new YamlProcessTemplateProvider($catalog))->findByProcessKey('invoice')?->key);
+        self::assertNull($catalog->findByProcessKey('descriptive-filename'));
+
+        $this->removeDirectory($directory);
+    }
+
+    public function testLookupRejectsTraversalAndAbsolutePaths(): void
+    {
+        $directory = $this->createDirectory([
+            'invoice.yaml' => "key: invoice\nversion: '1'\nsteps: []\n",
+        ]);
+        $catalog = new ProcessTemplateCatalog($directory);
+
+        self::assertNull($catalog->findByProcessKey('../invoice'));
+        self::assertNull($catalog->findByProcessKey('/invoice'));
+        self::assertNull($catalog->findByProcessKey('invoice.yaml'));
+
+        $this->removeDirectory($directory);
     }
 
     /**
