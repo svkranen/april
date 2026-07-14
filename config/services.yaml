@@ -245,6 +245,10 @@ services:
         arguments:
             $templateDirectory: '%april.process_template_dir%'
 
+    App\Command\IntelligenceTemplateDocumentCommand:
+        arguments:
+            $templateDirectory: '%april.process_template_dir%'
+
     App\Wizard\WizardDefinitionLoader:
         arguments:
             $wizardDirectory: '%april.wizard_dir%'
