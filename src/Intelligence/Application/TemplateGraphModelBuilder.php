@@ -80,6 +80,35 @@ final readonly class TemplateGraphModelBuilder
             }
         }
 
+        foreach ($findings?->observedOnlyNodes ?? [] as $observed) {
+            $nodes[] = [
+                'id' => $observed->stepKey,
+                'type' => 'activity',
+                'label' => $observed->stepKey,
+                'state' => 'deviation',
+                'description' => $observed->stepKey,
+                'data' => [
+                    'required' => false,
+                    'optional' => false,
+                    'isExpected' => false,
+                    'isObservedOnly' => true,
+                    'metrics' => [
+                        'itemCount' => $observed->itemCount,
+                        'visitCount' => $observed->visitCount,
+                        'deviationCount' => $observed->deviationCount,
+                    ],
+                ],
+            ];
+            $nodeStates[$observed->stepKey] = 'deviation';
+            $markers[] = [
+                'targetId' => $observed->stepKey,
+                'kind' => 'node',
+                'severity' => 'critical',
+                'label' => (string) $observed->itemCount,
+                'description' => 'Observed-only step',
+            ];
+        }
+
         $edges = [];
         $edgeStates = [];
         $edgeMarkers = [];
@@ -87,6 +116,7 @@ final readonly class TemplateGraphModelBuilder
         foreach ($graph->edges as $index => $edge) {
             $edgeId = $this->edgeId($edge, $index, $seenIds);
             $finding = $this->transitionFinding($findings, $edge->from, $edge->to);
+            $metric = $findings?->transitionMetricFor($edge->from, $edge->to);
             $targetStep = $steps[$edge->to] ?? null;
             $optional = $targetStep instanceof ProcessTemplateStep
                 && ($template->scope === 'journey' ? !$targetStep->required : !$graph->nodes[$edge->to]->required);
@@ -99,13 +129,19 @@ final readonly class TemplateGraphModelBuilder
                 'id' => $edgeId,
                 'from' => $edge->from,
                 'to' => $edge->to,
-                'label' => $edge->label ?? $edge->condition,
+                'label' => $this->edgeLabel($edge->label ?? $edge->condition, $metric),
                 'state' => $state,
                 'priority' => $edge->style === ProcessGraphEdge::STYLE_FLOW ? 1 : 0,
                 'data' => array_filter([
                     'style' => $edge->style,
                     'optional' => $optional,
-                    'metrics' => ['documentCount' => $finding?->documentCount ?? 0],
+                    'metrics' => array_filter([
+                        'documentCount' => $finding?->documentCount ?? 0,
+                        'itemCount' => $metric?->itemCount,
+                        'visitCount' => $metric?->visitCount,
+                        'observedCount' => $metric?->observedCount,
+                        'deviationCount' => $metric?->deviationCount,
+                    ], static fn (mixed $value): bool => $value !== null),
                     'navigation' => $navigation === null ? null : ['url' => $navigation],
                 ], static fn (mixed $value): bool => $value !== null),
             ];
@@ -121,6 +157,41 @@ final readonly class TemplateGraphModelBuilder
                     'description' => $finding->message,
                 ];
             }
+        }
+
+        foreach ($findings?->transitionMetrics ?? [] as $metric) {
+            if (!$metric->isObservedOnly) {
+                continue;
+            }
+            $edge = new ProcessGraphEdge($metric->from, $metric->to);
+            $edgeId = $this->edgeId($edge, count($edges), $seenIds);
+            $edges[] = [
+                'id' => $edgeId,
+                'from' => $metric->from,
+                'to' => $metric->to,
+                'label' => $this->edgeLabel(null, $metric),
+                'state' => 'deviation',
+                'priority' => 1,
+                'data' => [
+                    'optional' => false,
+                    'metrics' => [
+                        'itemCount' => $metric->itemCount ?? $metric->observedCount,
+                        'visitCount' => $metric->visitCount,
+                        'observedCount' => $metric->observedCount,
+                        'deviationCount' => $metric->deviationCount,
+                        'isExpected' => false,
+                        'isObservedOnly' => true,
+                    ],
+                ],
+            ];
+            $edgeStates[$edgeId] = 'deviation';
+            $edgeMarkers[] = [
+                'targetId' => $edgeId,
+                'kind' => 'edge',
+                'severity' => 'critical',
+                'label' => (string) ($metric->itemCount ?? $metric->observedCount),
+                'description' => 'Observed-only transition',
+            ];
         }
 
         $overlay = [];
@@ -265,5 +336,21 @@ final readonly class TemplateGraphModelBuilder
         }
 
         return null;
+    }
+
+    private function knownGraphNode(ProcessGraph $graph, string $id): bool
+    {
+        return isset($graph->nodes[$id]);
+    }
+
+    private function edgeLabel(?string $label, ?\App\Intelligence\Domain\ProcessGraphEdgeMetrics $metric): ?string
+    {
+        if ($metric === null || $metric->itemCount === null) {
+            return $label;
+        }
+
+        $count = (string) $metric->itemCount;
+
+        return $label === null || trim($label) === '' ? $count : $label.' · '.$count;
     }
 }

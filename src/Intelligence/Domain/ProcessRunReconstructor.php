@@ -150,6 +150,15 @@ final readonly class ProcessRunReconstructor
             $reasons[] = KpiMeasurementReason::MissingEnd;
         }
         $keys = array_map(static fn (ProcessEventRecord $e): string => $e->externalEventKey, $events);
+        $observedStepSequence = $this->observedStepSequence($events);
+        $observedTransitions = [];
+        for ($index = 0, $max = count($observedStepSequence) - 1; $index < $max; ++$index) {
+            $observedTransitions[] = new ObservedProcessTransition(
+                $observedStepSequence[$index]->stepKey,
+                $observedStepSequence[$index + 1]->stepKey,
+                $index + 1
+            );
+        }
 
         return new ProcessRunMeasurement(
             hash('sha256', $identity.'|'.$template->key.'|'.$keys[0]),
@@ -164,8 +173,37 @@ final readonly class ProcessRunReconstructor
             $eligibility,
             KpiDuration::between($start, $end, $reasons),
             $this->visitReconstructor->reconstruct($events, $sharedReasons),
-            $keys
+            $keys,
+            $eligibility->processVersion?->templateVersion,
+            $observedStepSequence,
+            $observedTransitions
         );
+    }
+
+    /** @param list<ProcessEventRecord> $events @return list<ObservedStepVisit> */
+    private function observedStepSequence(array $events): array
+    {
+        $sequence = [];
+        $previousStep = null;
+        $previousPhase = null;
+        foreach ($events as $event) {
+            $newVisit = $event->stepKey !== $previousStep
+                || ($event->stepKey === $previousStep && $event->eventPhase === 'before' && $previousPhase === 'after');
+            if (!$newVisit) {
+                $previousPhase = $event->eventPhase;
+                continue;
+            }
+            $sequence[] = new ObservedStepVisit(
+                $event->stepKey,
+                count($sequence) + 1,
+                $event->occurredAt,
+                $event->externalEventKey
+            );
+            $previousStep = $event->stepKey;
+            $previousPhase = $event->eventPhase;
+        }
+
+        return $sequence;
     }
 
     /** @param list<ProcessEventRecord> $events */

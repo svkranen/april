@@ -41,11 +41,12 @@ final class TimelineKpiEligibilityResolverTest extends TestCase
             $this->entry('01 Eingang', '2026-06-01T09:00:00+00:00'),
             $this->entry('02 Pruefung', '2026-06-01T10:00:00+00:00'),
         ], '01 Eingang', [
-            $this->version('1.0', '2026-06-01T08:00:00+00:00'),
+            new ProcessVersion(null, 'ai-rechnungen', '1.0', new DateTimeImmutable('2026-06-01T08:00:00+00:00'), templateVersion: 'template-1'),
         ]);
 
         self::assertTrue($result->isEligible);
         self::assertSame('1.0', $result->processVersion?->version);
+        self::assertSame('template-1', $result->processVersion?->templateVersion);
         self::assertNull($result->exclusionReason);
     }
 
@@ -87,6 +88,24 @@ final class TimelineKpiEligibilityResolverTest extends TestCase
 
         self::assertFalse($result->isEligible);
         self::assertSame(KpiExclusionReason::BEFORE_FIRST_BASELINE, $result->exclusionReason);
+    }
+
+    public function testRunKeepsTemplateVersionSelectedAtItsStart(): void
+    {
+        $versions = [
+            new ProcessVersion(null, 'ai-rechnungen', '1.0', new DateTimeImmutable('2026-09-01T00:00:00+00:00'), templateVersion: 'template-1'),
+            new ProcessVersion(null, 'ai-rechnungen', '2.0', new DateTimeImmutable('2026-09-15T00:00:00+00:00'), templateVersion: 'template-2'),
+        ];
+
+        $result = $this->resolver()->resolve('ai-rechnungen', [
+            $this->entry('01 Eingang', '2026-09-14T23:00:00+00:00'),
+            $this->entry('02 Pruefung', '2026-09-15T01:00:00+00:00'),
+        ], '01 Eingang', $versions);
+
+        self::assertFalse($result->isEligible);
+        self::assertSame('1.0', $result->processVersion?->version);
+        self::assertSame('template-1', $result->processVersion?->templateVersion);
+        self::assertTrue($result->crossedVersionBoundary);
     }
 
     public function testTemplateWithoutInitialStepUsesFirstTemplateStepFallback(): void

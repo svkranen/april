@@ -56,6 +56,7 @@ final class DoctrineProcessVersionRepository implements ProcessVersionRepository
 
         $entity->setProcessKey($processVersion->processKey);
         $entity->setVersion($processVersion->version);
+        $entity->setTemplateVersion($processVersion->templateVersion);
         $entity->setValidFrom($processVersion->validFrom);
         $entity->setDescription($processVersion->description);
         $entity->setCreatedAt($processVersion->createdAt ?? new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
@@ -74,7 +75,8 @@ final class DoctrineProcessVersionRepository implements ProcessVersionRepository
             $entity->getVersion(),
             $entity->getValidFrom(),
             $entity->getDescription(),
-            $entity->getCreatedAt()
+            $entity->getCreatedAt(),
+            $entity->getTemplateVersion()
         );
     }
 }

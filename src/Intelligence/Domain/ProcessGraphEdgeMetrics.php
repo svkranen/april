@@ -10,7 +10,9 @@ final readonly class ProcessGraphEdgeMetrics
         public int $observedCount = 0,
         public int $deviationCount = 0,
         public bool $isExpected = true,
-        public bool $isObservedOnly = false
+        public bool $isObservedOnly = false,
+        public ?int $itemCount = null,
+        public int $visitCount = 0
     ) {
     }
 }

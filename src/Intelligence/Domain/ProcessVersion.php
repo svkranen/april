@@ -12,7 +12,8 @@ final readonly class ProcessVersion
         public string $version,
         public DateTimeImmutable $validFrom,
         public ?string $description = null,
-        public ?DateTimeImmutable $createdAt = null
+        public ?DateTimeImmutable $createdAt = null,
+        public ?string $templateVersion = null
     ) {
     }
 }

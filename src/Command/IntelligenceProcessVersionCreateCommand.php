@@ -33,7 +33,8 @@ final class IntelligenceProcessVersionCreateCommand extends Command
             ->addArgument('processKey', InputArgument::REQUIRED, 'Process key')
             ->addArgument('version', InputArgument::REQUIRED, 'Process version')
             ->addArgument('validFrom', InputArgument::REQUIRED, 'Baseline datetime')
-            ->addOption('description', null, InputOption::VALUE_REQUIRED, 'Optional description');
+            ->addOption('description', null, InputOption::VALUE_REQUIRED, 'Optional description')
+            ->addOption('template-version', null, InputOption::VALUE_REQUIRED, 'Explicit Soll-template version mapping');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -77,7 +78,8 @@ final class IntelligenceProcessVersionCreateCommand extends Command
             $version,
             $validFrom,
             $this->description($input->getOption('description')),
-            $this->dateTimeNormalizer->nowUtc()
+            $this->dateTimeNormalizer->nowUtc(),
+            $this->templateVersion($input->getOption('template-version'))
         ));
 
         $output->writeln(sprintf(
@@ -95,5 +97,12 @@ final class IntelligenceProcessVersionCreateCommand extends Command
         $description = $value === null ? '' : trim((string) $value);
 
         return $description === '' ? null : $description;
+    }
+
+    private function templateVersion(mixed $value): ?string
+    {
+        $version = $value === null ? '' : trim((string) $value);
+
+        return $version === '' ? null : $version;
     }
 }

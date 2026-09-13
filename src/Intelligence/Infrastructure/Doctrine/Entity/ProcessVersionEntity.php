@@ -22,6 +22,9 @@ class ProcessVersionEntity
     #[ORM\Column(type: 'string', length: 128)]
     private string $version;
 
+    #[ORM\Column(name: 'template_version', type: 'string', length: 128, nullable: true)]
+    private ?string $templateVersion = null;
+
     #[ORM\Column(name: 'valid_from', type: 'datetime_immutable')]
     private DateTimeImmutable $validFrom;
 
@@ -36,6 +39,8 @@ class ProcessVersionEntity
     public function getProcessKey(): string { return $this->processKey; }
     public function setVersion(string $version): void { $this->version = $version; }
     public function getVersion(): string { return $this->version; }
+    public function setTemplateVersion(?string $templateVersion): void { $this->templateVersion = $templateVersion; }
+    public function getTemplateVersion(): ?string { return $this->templateVersion; }
     public function setValidFrom(DateTimeImmutable $validFrom): void { $this->validFrom = $validFrom; }
     public function getValidFrom(): DateTimeImmutable { return $this->validFrom; }
     public function setDescription(?string $description): void { $this->description = $description; }

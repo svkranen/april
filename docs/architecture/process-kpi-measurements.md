@@ -22,6 +22,9 @@ Each result exposes:
 - the existing `KpiEligibilityResult`, including the assigned `ProcessVersion`;
 - E2E duration and structured non-measurability reasons;
 - step visits and their durations, statuses, and source event keys.
+- the explicitly mapped historical template version, when the process baseline
+  provides one;
+- a global chronological observed step sequence and typed factual transitions.
 
 Example (the referenced steps must exist in the supplied process template):
 
@@ -44,6 +47,16 @@ to a different revision fails. Its own version records the measurement contract.
 No new YAML schema or automatic configuration inference is introduced. Callers
 must supply the historically appropriate template and measurement definition;
 automatic historical definition selection remains future work.
+
+`ProcessVersion.validFrom` is the process-baseline boundary. Its optional
+`templateVersion` is an explicit mapping to the Soll-template revision and is
+never inferred from the baseline version string. A run keeps the mapping chosen
+at its first valid start even when a later baseline becomes live. Existing
+baselines without a mapping remain explicitly unmapped until associated with a
+template revision.
+
+New baselines can record the association explicitly with
+`intelligence:process-version:create --template-version <revision>`.
 
 ## Existing concepts and the read boundary
 
@@ -91,6 +104,12 @@ run. Future aggregators must inspect measurability reasons before counting such
 segments as reconstructed runs. No concurrent runs for one item are guessed from
 incomplete data. An explicit business run correlation contract remains necessary
 for that case.
+
+During this same reconstruction pass, each run receives a global chronological
+sequence of observed step visits. Consecutive events for one step become one
+observation; a later occurrence after another step remains separate. Typed
+observed transitions are adjacent pairs in that sequence and are factual only;
+they do not perform Soll/Ist classification.
 
 ## Start, completion, and eligibility
 

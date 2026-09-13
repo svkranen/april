@@ -22,12 +22,14 @@ final class IntelligenceProcessVersionCreateCommandTest extends TestCase
             'version' => '1.0',
             'validFrom' => '2026-06-01 08:00',
             '--description' => 'Produktivstart',
+            '--template-version' => 'template-1',
         ]);
 
         $created = $repository->findOneByProcessKeyAndVersion('ai-rechnungen', '1.0');
         self::assertSame(Command::SUCCESS, $exitCode);
         self::assertNotNull($created);
         self::assertSame('Produktivstart', $created->description);
+        self::assertSame('template-1', $created->templateVersion);
         self::assertSame('2026-06-01T06:00:00+00:00', $created->validFrom->format(DATE_ATOM));
         self::assertStringContainsString('Created process version ai-rechnungen/1.0', $tester->getDisplay());
     }

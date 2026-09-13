@@ -188,6 +188,9 @@ services:
     App\Intelligence\Application\ProcessTemplateProvider:
         alias: App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider
 
+    App\Intelligence\Application\ProcessTemplateVersionProvider:
+        alias: App\Intelligence\Infrastructure\Template\YamlProcessTemplateProvider
+
     App\Intelligence\Application\TemplateContextProviderResolver:
         alias: App\Intelligence\Infrastructure\Context\TemplateMappedContextProviderResolver
 

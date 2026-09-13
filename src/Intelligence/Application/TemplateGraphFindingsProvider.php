@@ -3,6 +3,7 @@
 namespace App\Intelligence\Application;
 
 use App\Intelligence\Domain\ProcessTemplate;
+use App\Intelligence\Port\ProcessKpiDefinitionProvider;
 use Throwable;
 
 /**
@@ -24,7 +25,10 @@ final readonly class TemplateGraphFindingsProvider
     public function __construct(
         private DocumentCheckResultProvider $checkResultProvider,
         private VisibilityCheckResultProvider $visibilityResultProvider,
-        private GraphFindingAttribution $attribution = new GraphFindingAttribution()
+        private GraphFindingAttribution $attribution = new GraphFindingAttribution(),
+        private ?ProcessKpiMeasurements $measurements = null,
+        private ?ProcessKpiDefinitionProvider $definitions = null,
+        private ?ProcessGraphTransitionMetricsBuilder $transitionMetricsBuilder = null
     ) {
     }
 
@@ -107,6 +111,18 @@ final readonly class TemplateGraphFindingsProvider
         }
 
         [$gatewayStatusByNodeId, $attributedFindings] = $this->buildAttributed($attributedAcc);
+        $transitionMetrics = [];
+        $observedOnlyNodes = [];
+        $deviationChains = [];
+        if ($this->measurements !== null && $this->definitions !== null && $this->transitionMetricsBuilder !== null) {
+            $definition = $this->definitions->forTemplate($template);
+            if ($definition !== null) {
+                $measurements = $this->measurements->forTemplate($template, $definition);
+                $transitionMetrics = $this->transitionMetricsBuilder->build($template, $measurements);
+                $observedOnlyNodes = $this->transitionMetricsBuilder->buildObservedOnlyNodes($template, $measurements);
+                $deviationChains = $this->transitionMetricsBuilder->buildDeviationChains($template, $measurements);
+            }
+        }
 
         return new TemplateGraphFindings(
             $stepSummaries,
@@ -117,7 +133,10 @@ final readonly class TemplateGraphFindingsProvider
             $processWarnings,
             $processTechnical,
             $gatewayStatusByNodeId,
-            $attributedFindings
+            $attributedFindings,
+            $transitionMetrics,
+            $observedOnlyNodes,
+            $deviationChains
         );
     }
 

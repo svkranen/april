@@ -50,7 +50,7 @@ final class AprilDemoSeedInvoiceKpiCommand extends Command
         $reset = $this->resetter->reset(InvoiceKpiDemoFixture::PROCESS_KEY);
         $version = $this->versions->findOneByProcessKeyAndVersion(InvoiceKpiDemoFixture::PROCESS_KEY, InvoiceKpiDemoFixture::TEMPLATE_VERSION);
         if ($version === null) {
-            $this->versions->save(new ProcessVersion(null, InvoiceKpiDemoFixture::PROCESS_KEY, InvoiceKpiDemoFixture::TEMPLATE_VERSION, new DateTimeImmutable('2026-01-01T00:00:00Z')));
+            $this->versions->save(new ProcessVersion(null, InvoiceKpiDemoFixture::PROCESS_KEY, InvoiceKpiDemoFixture::TEMPLATE_VERSION, new DateTimeImmutable('2026-01-01T00:00:00Z'), templateVersion: InvoiceKpiDemoFixture::TEMPLATE_VERSION));
         }
         $events = 0;
         $snapshots = 0;

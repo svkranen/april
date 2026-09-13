@@ -11,6 +11,8 @@ final readonly class ProcessRunMeasurement
      * @param list<int> $processInstanceIds Technical associations, not business run identifiers.
      * @param list<StepVisitMeasurement> $stepVisits
      * @param list<string> $eventKeys
+     * @param list<ObservedStepVisit> $observedStepSequence
+     * @param list<ObservedProcessTransition> $observedTransitions
      */
     public function __construct(
         public string $key,
@@ -25,7 +27,10 @@ final readonly class ProcessRunMeasurement
         public KpiEligibilityResult $eligibility,
         public KpiDuration $e2eDuration,
         public array $stepVisits,
-        public array $eventKeys
+        public array $eventKeys,
+        public ?string $historicalTemplateVersion = null,
+        public array $observedStepSequence = [],
+        public array $observedTransitions = []
     ) {
     }
 }

@@ -12,7 +12,12 @@ final readonly class ProcessGraphNodeMetrics
         public int $deviationCount = 0,
         public ?string $nodeType = null,
         public ?int $reliableDwellCount = null,
-        public ?int $flowCount = null
+        public ?int $flowCount = null,
+        public ?int $itemCount = null,
+        public int $visitCount = 0,
+        public bool $isExpected = true,
+        public bool $isObservedOnly = false,
+        public ?string $stepKey = null
     ) {
     }
 }

@@ -41,6 +41,15 @@ historical cutoff rather than leaking future completion markers. Receipt time
 is never substituted; late arrivals can retrospectively correct earlier periods.
 This is retrospective process history, not a snapshot of what APRIL knew then.
 
+Observed transition volume is an Application concern built from the
+chronological transition evidence on `ProcessRunMeasurement`. `itemCount` counts
+distinct reconstructed run keys once per transition; `visitCount` counts every
+traversal, including repetitions within one run. Ambiguous runs do not
+contribute transitions. A run with a non-measurable E2E duration, including one
+crossing a later version boundary, may still contribute when its identity and
+observed sequence are unambiguous. These transitions are value-free observations;
+Soll/Ist classification and graph presentation remain later concerns.
+
 Aggregators accept measurements reconstructed for that cutoff. They must not be
 fed a different snapshot if historically correct coverage is required. No second
 event interpretation or reconstruction happens in aggregation.
@@ -205,3 +214,15 @@ tests/Intelligence/Application/ProcessKpiAggregatorTest.php
 translations/messages.de.yaml
 translations/messages.en.yaml
 ```
+
+## Observed-only nodes and deviation chains
+
+Observed-only nodes are taken directly from the reconstructed `ObservedStepVisit`
+sequence when their `stepKey` is absent from the selected historical template.
+Nodes are aggregated by that step key across runs; `itemCount` counts distinct runs
+and `visitCount` counts visits. Adjacent observed transitions form deviation chains:
+unexpected transitions continue a chain, the transition back to a known node remains
+part of the chain, and the following expected transition closes it. A running run
+without a return is exposed as an open deviation; a completed run is marked as
+completed outside the expected path. Graph construction never invents steps or
+parses finding text.
