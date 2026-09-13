@@ -80,6 +80,23 @@ final class InvoiceKpiDemoFixture
                 ['review_assignment', 'after', 95],
             ]);
         }
+        if ($number === 11) {
+            array_splice($steps, count($steps), 0, [
+                ['manual_clarification', 'before', 200],
+                ['manual_clarification', 'after', 210],
+            ]);
+        }
+        if ($number === 12) {
+            array_splice($steps, count($steps), 0, [
+                ['manual_clarification', 'before', 200],
+                ['manual_clarification', 'after', 210],
+                ['external_approval', 'before', 220],
+                ['external_approval', 'after', 230],
+            ]);
+        }
+        if ($number === 13) {
+            $steps = array_values(array_filter($steps, static fn (array $step): bool => $step[0] !== 'review_assignment'));
+        }
         $steps = array_merge($steps, [
             ['preposting', 'before', 340], ['preposting', 'after', 390],
             ['fibu_export', 'before', 430], ['fibu_export', 'after', 470],
@@ -87,6 +104,7 @@ final class InvoiceKpiDemoFixture
         ]);
         if ($number === 20) {
             array_pop($steps); // Keep this run open at the payment step.
+            $steps[array_key_last($steps)] = ['manual_clarification', 'before', 700];
         }
         if ($number === 19) {
             array_shift($steps); // Completed but without a complete E2E start marker.

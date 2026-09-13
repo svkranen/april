@@ -12,6 +12,12 @@ use App\Intelligence\Application\KpiPeriod;
 use App\Intelligence\Application\ProcessKpiAggregator;
 use App\Intelligence\Application\ProcessKpiMeasurements;
 use App\Intelligence\Application\ProcessKpiPageProvider;
+use App\Intelligence\Application\ProcessGraphTransitionMetricsBuilder;
+use App\Intelligence\Application\ProcessTransitionAggregator;
+use App\Intelligence\Application\ProcessTemplateProvider;
+use App\Intelligence\Application\ProcessTemplateVersionProvider;
+use App\Intelligence\Application\ProcessTemplateGraphFactory;
+use App\Intelligence\Application\ProcessGraphObservationProjector;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessVersionRepository;
 use App\Tests\Fake\InMemoryProcessEventReader;
 use App\Intelligence\Infrastructure\Template\ConfiguredProcessKpiDefinitionProvider;
@@ -26,7 +32,7 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
         $fixture = new InvoiceKpiDemoFixture();
         $events = $fixture->events();
 
-        self::assertCount(260, $events);
+        self::assertCount(264, $events);
         self::assertSame(20, count(array_unique(array_map(static fn ($event): string => $event->documentExternalId, $events))));
         self::assertCount(4, array_unique(array_map(static fn ($event): string => json_decode($event->rawPayloadJson, true, 512, JSON_THROW_ON_ERROR)['department'], $events)));
         self::assertNotEmpty(array_filter($events, static fn ($event): bool => json_decode($event->rawPayloadJson, true, 512, JSON_THROW_ON_ERROR)['amount_net'] > 10000));
@@ -48,7 +54,7 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
             $template,
             $definition,
             $events,
-            [new ProcessVersion(null, InvoiceKpiDemoFixture::PROCESS_KEY, '1', new DateTimeImmutable('2026-01-01T00:00:00+00:00'))]
+            [new ProcessVersion(null, InvoiceKpiDemoFixture::PROCESS_KEY, '1', new DateTimeImmutable('2026-01-01T00:00:00+00:00'), templateVersion: InvoiceKpiDemoFixture::TEMPLATE_VERSION)]
         );
 
         self::assertCount(20, $runs);
@@ -59,7 +65,7 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
         self::assertNotEmpty(array_filter($runs, static fn ($run): bool => count(array_filter($run->stepVisits, static fn ($visit): bool => $visit->stepKey === 'review_assignment')) > 1));
 
         $versions = new InMemoryProcessVersionRepository([
-            new ProcessVersion(null, InvoiceKpiDemoFixture::PROCESS_KEY, '1', new DateTimeImmutable('2026-01-01T00:00:00+00:00')),
+            new ProcessVersion(null, InvoiceKpiDemoFixture::PROCESS_KEY, '1', new DateTimeImmutable('2026-01-01T00:00:00+00:00'), templateVersion: InvoiceKpiDemoFixture::TEMPLATE_VERSION),
         ]);
         $page = (new ProcessKpiPageProvider(
             new YamlProcessTemplateProvider(new ProcessTemplateCatalog(dirname(__DIR__, 4).'/config/april/process-templates')),
@@ -82,5 +88,18 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
         self::assertSame(1, $page->summary->open);
         self::assertGreaterThan(0, $page->summary->e2e->count);
         self::assertGreaterThan(0, array_sum(array_map(static fn ($step): int => $step->visits, $page->summary->steps)));
+
+        $versionedProvider = new class($template) implements ProcessTemplateProvider, ProcessTemplateVersionProvider {
+            public function __construct(private $template) {}
+            public function findByProcessKey(string $processKey): ?\App\Intelligence\Domain\ProcessTemplate { return $this->template; }
+            public function findByProcessKeyAndVersion(string $processKey, string $version): ?\App\Intelligence\Domain\ProcessTemplate { return $version === $this->template->version ? $this->template : null; }
+        };
+        $graphBuilder = new ProcessGraphTransitionMetricsBuilder(new ProcessTransitionAggregator(), $versionedProvider, new ProcessTemplateGraphFactory(), new ProcessGraphObservationProjector());
+        $nodeMetrics = $graphBuilder->buildObservedOnlyNodes($template, $runs);
+        $nodeByKey = [];
+        foreach ($nodeMetrics as $metric) { $nodeByKey[$metric->stepKey] = $metric; }
+        self::assertArrayHasKey('manual_clarification', $nodeByKey);
+        self::assertSame(3, $nodeByKey['manual_clarification']->itemCount);
+        self::assertSame(3, $nodeByKey['manual_clarification']->visitCount);
     }
 }
