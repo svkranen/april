@@ -12,12 +12,6 @@ use App\Intelligence\Application\KpiPeriod;
 use App\Intelligence\Application\ProcessKpiAggregator;
 use App\Intelligence\Application\ProcessKpiMeasurements;
 use App\Intelligence\Application\ProcessKpiPageProvider;
-use App\Intelligence\Application\ProcessGraphTransitionMetricsBuilder;
-use App\Intelligence\Application\ProcessTransitionAggregator;
-use App\Intelligence\Application\ProcessTemplateProvider;
-use App\Intelligence\Application\ProcessTemplateVersionProvider;
-use App\Intelligence\Application\ProcessTemplateGraphFactory;
-use App\Intelligence\Application\ProcessGraphObservationProjector;
 use App\Intelligence\Infrastructure\Process\InMemoryProcessVersionRepository;
 use App\Tests\Fake\InMemoryProcessEventReader;
 use App\Intelligence\Infrastructure\Template\ConfiguredProcessKpiDefinitionProvider;
@@ -32,7 +26,7 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
         $fixture = new InvoiceKpiDemoFixture();
         $events = $fixture->events();
 
-        self::assertCount(264, $events);
+        self::assertCount(254, $events);
         self::assertSame(20, count(array_unique(array_map(static fn ($event): string => $event->documentExternalId, $events))));
         self::assertCount(4, array_unique(array_map(static fn ($event): string => json_decode($event->rawPayloadJson, true, 512, JSON_THROW_ON_ERROR)['department'], $events)));
         self::assertNotEmpty(array_filter($events, static fn ($event): bool => json_decode($event->rawPayloadJson, true, 512, JSON_THROW_ON_ERROR)['amount_net'] > 10000));
@@ -63,6 +57,16 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
         self::assertNotEmpty(array_filter($runs, static fn ($run): bool => count(array_filter($run->stepVisits, static fn ($visit): bool => $visit->measurementPointCoverage === ['before' => true, 'after' => false])) > 0));
         self::assertNotEmpty(array_filter($runs, static fn ($run): bool => count(array_filter($run->stepVisits, static fn ($visit): bool => $visit->measurementPointCoverage === ['before' => false, 'after' => true])) > 0));
         self::assertNotEmpty(array_filter($runs, static fn ($run): bool => count(array_filter($run->stepVisits, static fn ($visit): bool => $visit->stepKey === 'review_assignment')) > 1));
+        self::assertSame(0, count(array_filter($events, static fn ($event): bool => in_array($event->stepKey, ['manual_clarification', 'external_approval'], true))));
+        $sequences = array_map(static fn ($run): array => array_map(static fn ($visit): string => $visit->stepKey, $run->observedStepSequence), $runs);
+        self::assertSame(1, count(array_filter($sequences, static fn (array $steps): bool => $steps === ['invoice_received', 'department_approval', 'preposting', 'fibu_export', 'booking', 'payment'])));
+        self::assertSame(2, count(array_filter($sequences, static fn (array $steps): bool => in_array('review_assignment', $steps, true) && array_search('preposting', $steps, true) < array_search('department_approval', $steps, true))));
+        $highWithoutManagement = 0;
+        foreach ($runs as $run) {
+            $high = array_filter($events, static fn ($event): bool => $event->documentExternalId === ($run->documents[0]->externalId ?? '') && json_decode($event->rawPayloadJson, true, 512, JSON_THROW_ON_ERROR)['amount_net'] > 10000);
+            if ($high !== [] && !in_array('management_approval', $sequences[array_search($run, $runs, true)], true)) { ++$highWithoutManagement; }
+        }
+        self::assertSame(2, $highWithoutManagement);
 
         $versions = new InMemoryProcessVersionRepository([
             new ProcessVersion(null, InvoiceKpiDemoFixture::PROCESS_KEY, '1', new DateTimeImmutable('2026-01-01T00:00:00+00:00'), templateVersion: InvoiceKpiDemoFixture::TEMPLATE_VERSION),
@@ -89,17 +93,5 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
         self::assertGreaterThan(0, $page->summary->e2e->count);
         self::assertGreaterThan(0, array_sum(array_map(static fn ($step): int => $step->visits, $page->summary->steps)));
 
-        $versionedProvider = new class($template) implements ProcessTemplateProvider, ProcessTemplateVersionProvider {
-            public function __construct(private $template) {}
-            public function findByProcessKey(string $processKey): ?\App\Intelligence\Domain\ProcessTemplate { return $this->template; }
-            public function findByProcessKeyAndVersion(string $processKey, string $version): ?\App\Intelligence\Domain\ProcessTemplate { return $version === $this->template->version ? $this->template : null; }
-        };
-        $graphBuilder = new ProcessGraphTransitionMetricsBuilder(new ProcessTransitionAggregator(), $versionedProvider, new ProcessTemplateGraphFactory(), new ProcessGraphObservationProjector());
-        $nodeMetrics = $graphBuilder->buildObservedOnlyNodes($template, $runs);
-        $nodeByKey = [];
-        foreach ($nodeMetrics as $metric) { $nodeByKey[$metric->stepKey] = $metric; }
-        self::assertArrayHasKey('manual_clarification', $nodeByKey);
-        self::assertSame(3, $nodeByKey['manual_clarification']->itemCount);
-        self::assertSame(3, $nodeByKey['manual_clarification']->visitCount);
     }
 }

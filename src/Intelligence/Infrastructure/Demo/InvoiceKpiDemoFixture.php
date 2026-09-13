@@ -80,20 +80,6 @@ final class InvoiceKpiDemoFixture
                 ['review_assignment', 'after', 95],
             ]);
         }
-        if ($number === 11) {
-            array_splice($steps, count($steps), 0, [
-                ['manual_clarification', 'before', 200],
-                ['manual_clarification', 'after', 210],
-            ]);
-        }
-        if ($number === 12) {
-            array_splice($steps, count($steps), 0, [
-                ['manual_clarification', 'before', 200],
-                ['manual_clarification', 'after', 210],
-                ['external_approval', 'before', 220],
-                ['external_approval', 'after', 230],
-            ]);
-        }
         if ($number === 13) {
             $steps = array_values(array_filter($steps, static fn (array $step): bool => $step[0] !== 'review_assignment'));
         }
@@ -102,9 +88,17 @@ final class InvoiceKpiDemoFixture
             ['fibu_export', 'before', 430], ['fibu_export', 'after', 470],
             ['booking', 'after', 520], ['payment', 'before', 650],
         ]);
+        if (in_array($number, [5, 7], true)) {
+            $preposting = array_splice($steps, 6, 2);
+            $preposting[0][2] = 90;
+            $preposting[1][2] = 100;
+            array_splice($steps, 4, 0, $preposting);
+        }
+        if (in_array($number, [2, 4], true)) {
+            $steps = array_values(array_filter($steps, static fn (array $step): bool => $step[0] !== 'management_approval'));
+        }
         if ($number === 20) {
             array_pop($steps); // Keep this run open at the payment step.
-            $steps[array_key_last($steps)] = ['manual_clarification', 'before', 700];
         }
         if ($number === 19) {
             array_shift($steps); // Completed but without a complete E2E start marker.
