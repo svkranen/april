@@ -160,7 +160,10 @@ final readonly class TemplateGraphModelBuilder
         }
 
         foreach ($findings?->transitionMetrics ?? [] as $metric) {
-            if (!$metric->isObservedOnly) {
+            // The neutral engine currently rejects self-loop edges. Repeated
+            // visits remain available in KPI metrics; only the unsupported
+            // visual edge is omitted from this graph projection.
+            if (!$metric->isObservedOnly || $metric->from === $metric->to) {
                 continue;
             }
             $edge = new ProcessGraphEdge($metric->from, $metric->to);

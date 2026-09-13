@@ -134,10 +134,10 @@ APRIL maps its semantics to neutral engine vocabulary:
 The browser only delegates server-provided same-origin navigation. It calculates
 no findings, durations, flow counts, required state, or journey status.
 
-`UNEXPECTED_PROCESS` remains a critical journey finding. The static template graph
-does not invent a node for an observed process that is absent from the template.
-A future document-journey graph may add such an observed node server-side using
-the same `critical`/`deviation` vocabulary.
+`UNEXPECTED_PROCESS` remains a critical journey finding. For KPI findings, APRIL
+may add observed-only step nodes and edges server-side using the same
+`critical`/`deviation` vocabulary; their identities come directly from the
+reconstructed measurements. The renderer remains unaware of process semantics.
 
 ## Package installation
 

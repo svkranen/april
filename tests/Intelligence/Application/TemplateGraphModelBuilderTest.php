@@ -109,6 +109,7 @@ final class TemplateGraphModelBuilderTest extends TestCase
                 new ProcessGraphEdgeMetrics('a', 'b', observedCount: 2, itemCount: 2, visitCount: 3),
                 new ProcessGraphEdgeMetrics('a', 'x', observedCount: 1, deviationCount: 1, isExpected: false, isObservedOnly: true, itemCount: 1, visitCount: 1),
                 new ProcessGraphEdgeMetrics('x', 'b', observedCount: 1, deviationCount: 1, isExpected: false, isObservedOnly: true, itemCount: 1, visitCount: 1),
+                new ProcessGraphEdgeMetrics('x', 'x', observedCount: 1, deviationCount: 1, isExpected: false, isObservedOnly: true, itemCount: 1, visitCount: 1),
             ],
             observedOnlyNodes: [new ProcessGraphNodeMetrics(observedCount: 1, deviationCount: 1, itemCount: 1, visitCount: 1, isExpected: false, isObservedOnly: true, stepKey: 'x')]
         );
@@ -122,6 +123,7 @@ final class TemplateGraphModelBuilderTest extends TestCase
         self::assertSame('deviation', $edge['state']);
         self::assertSame('1', $edge['label']);
         self::assertSame(1, $edge['data']['metrics']['itemCount']);
+        self::assertCount(0, array_filter($data['edges'], static fn (array $edge): bool => $edge['from'] === 'x' && $edge['to'] === 'x'));
     }
 
     private function builder(): TemplateGraphModelBuilder
