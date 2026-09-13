@@ -75,8 +75,10 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
             KpiPeriod::fromDates('2026-01-01', '2026-03-01')
         );
         self::assertNotNull($page->summary);
+        self::assertSame(19, $page->summary->started);
         self::assertSame(19, $page->summary->completed);
         self::assertSame(1, $page->summary->open);
         self::assertGreaterThan(0, $page->summary->e2e->count);
+        self::assertGreaterThan(0, array_sum(array_map(static fn ($step): int => $step->visits, $page->summary->steps)));
     }
 }
