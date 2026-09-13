@@ -12,6 +12,8 @@ use App\Intelligence\Application\TemplateGraphFindings;
 use App\Intelligence\Application\TemplateGraphModelBuilder;
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\ProcessTemplateArrayFactory;
+use App\Intelligence\Domain\ProcessGraphEdgeMetrics;
+use App\Intelligence\Domain\ProcessGraphNodeMetrics;
 use PHPUnit\Framework\TestCase;
 
 final class TemplateGraphModelBuilderTest extends TestCase
@@ -93,6 +95,33 @@ final class TemplateGraphModelBuilderTest extends TestCase
         self::assertStringNotContainsString('</script>', $first);
         self::assertStringContainsString('\\u003C\\/script\\u003E', $first);
         self::assertSame('escape', json_decode($first, true, 512, JSON_THROW_ON_ERROR)['metadata']['template']['key']);
+    }
+
+    public function testIncludesObservedOnlyNodesEdgesAndCountsInNeutralPayload(): void
+    {
+        $template = ProcessTemplateArrayFactory::fromArray([
+            'key' => 'simple', 'version' => '1',
+            'steps' => [['key' => 'a'], ['key' => 'b']],
+            'transitions' => [['from' => 'a', 'to' => 'b']],
+        ]);
+        $findings = new TemplateGraphFindings([], 1, 1, false, 0, 0, 0,
+            transitionMetrics: [
+                new ProcessGraphEdgeMetrics('a', 'b', observedCount: 2, itemCount: 2, visitCount: 3),
+                new ProcessGraphEdgeMetrics('a', 'x', observedCount: 1, deviationCount: 1, isExpected: false, isObservedOnly: true, itemCount: 1, visitCount: 1),
+                new ProcessGraphEdgeMetrics('x', 'b', observedCount: 1, deviationCount: 1, isExpected: false, isObservedOnly: true, itemCount: 1, visitCount: 1),
+            ],
+            observedOnlyNodes: [new ProcessGraphNodeMetrics(observedCount: 1, deviationCount: 1, itemCount: 1, visitCount: 1, isExpected: false, isObservedOnly: true, stepKey: 'x')]
+        );
+        $data = $this->builder()->build($template, $findings, '/documents')->jsonSerialize();
+        $nodes = $this->byId($data['nodes']);
+        self::assertArrayHasKey('x', $nodes);
+        self::assertTrue($nodes['x']['data']['isObservedOnly']);
+        self::assertSame(1, $nodes['x']['data']['metrics']['itemCount']);
+        $edges = array_map(static fn (array $edge): array => $edge, $data['edges']);
+        $edge = array_values(array_filter($edges, static fn (array $edge): bool => $edge['from'] === 'a' && $edge['to'] === 'x'))[0];
+        self::assertSame('deviation', $edge['state']);
+        self::assertSame('1', $edge['label']);
+        self::assertSame(1, $edge['data']['metrics']['itemCount']);
     }
 
     private function builder(): TemplateGraphModelBuilder

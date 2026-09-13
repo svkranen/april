@@ -51,6 +51,10 @@ final class AprilDemoSeedInvoiceKpiCommand extends Command
         $version = $this->versions->findOneByProcessKeyAndVersion(InvoiceKpiDemoFixture::PROCESS_KEY, InvoiceKpiDemoFixture::TEMPLATE_VERSION);
         if ($version === null) {
             $this->versions->save(new ProcessVersion(null, InvoiceKpiDemoFixture::PROCESS_KEY, InvoiceKpiDemoFixture::TEMPLATE_VERSION, new DateTimeImmutable('2026-01-01T00:00:00Z'), templateVersion: InvoiceKpiDemoFixture::TEMPLATE_VERSION));
+        } elseif ($version->templateVersion !== InvoiceKpiDemoFixture::TEMPLATE_VERSION) {
+            // Older demo seeds predate the explicit template-version mapping.
+            // Repair only this demo baseline; historical events remain untouched.
+            $this->versions->save(new ProcessVersion($version->id, $version->processKey, $version->version, $version->validFrom, $version->description, $version->createdAt, InvoiceKpiDemoFixture::TEMPLATE_VERSION));
         }
         $events = 0;
         $snapshots = 0;
