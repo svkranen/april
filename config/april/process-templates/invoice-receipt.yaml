@@ -15,8 +15,6 @@ steps:
 transitions:
   - { from: invoice_received, to: review_assignment }
   - { from: review_assignment, to: department_approval }
-  - { from: department_approval, to: management_approval }
-  - { from: department_approval, to: preposting }
   - { from: management_approval, to: preposting }
   - { from: preposting, to: fibu_export }
   - { from: fibu_export, to: booking }
