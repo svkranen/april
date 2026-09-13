@@ -6,11 +6,12 @@ use App\Intelligence\Domain\ProcessEventRecord;
 use App\Intelligence\Infrastructure\Doctrine\Entity\ProcessEventEntity;
 use App\Intelligence\Infrastructure\Doctrine\Entity\ProcessInstanceEntity;
 use App\Intelligence\Port\EventStore;
+use App\Intelligence\Port\ProcessEventReader;
 use App\Intelligence\Port\EventStoreResult;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 
-final class DoctrineEventStore implements EventStore
+final class DoctrineEventStore implements EventStore, ProcessEventReader
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager
@@ -58,6 +59,23 @@ final class DoctrineEventStore implements EventStore
     public function count(): int
     {
         return $this->entityManager->getRepository(ProcessEventEntity::class)->count([]);
+    }
+
+    public function readForProcess(string $processKey): iterable
+    {
+        $query = $this->entityManager->createQueryBuilder()
+            ->select('event', 'pi')
+            ->from(ProcessEventEntity::class, 'event')
+            ->leftJoin('event.processInstance', 'pi')
+            ->where('event.processKey = :processKey')
+            ->setParameter('processKey', $processKey)
+            ->orderBy('event.occurredAt', 'ASC')
+            ->addOrderBy('event.externalEventKey', 'ASC')
+            ->getQuery();
+
+        foreach ($query->toIterable() as $entity) {
+            yield $this->toDomain($entity);
+        }
     }
 
     private function toEntity(ProcessEventRecord $event): ProcessEventEntity

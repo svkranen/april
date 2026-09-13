@@ -1,0 +1,9 @@
+{% extends 'layout/base.html.twig' %}
+{% block title %}{{ 'kpi.title'|trans }} · APRIL{% endblock %}
+{% block body %}
+<div class="card">
+    <h1>{{ 'kpi.title'|trans }}</h1>
+    <p role="alert">{{ 'kpi.invalid_filter'|trans }}</p>
+    <a href="{{ path('app_templates_kpi', {key: key}) }}" aria-label="{{ 'kpi.reset'|trans }}">{{ 'kpi.reset'|trans }}</a>
+</div>
+{% endblock %}

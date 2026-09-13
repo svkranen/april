@@ -16,6 +16,9 @@
         {% endif %}
 
         <div class="header-actions">
+            {% if not (is_journey ?? false) %}
+                <a class="pill-link" aria-label="{{ 'kpi.title'|trans }}" href="{{ path('app_templates_kpi', {key: view.key}) }}">{{ 'kpi.title'|trans }}</a>
+            {% endif %}
             <a class="pill-link" href="{{ path('app_templates_index') }}">Template-Liste</a>
             <a class="pill-link" href="{{ path('app_templates_documents', { key: view.key }) }}">{{ 'glossary.items'|trans({}, 'glossary') }}</a>
             <a class="pill-link" href="{{ path('app_templates_graph', { key: view.key }) }}">Prozessgrafik</a>

@@ -1,0 +1,80 @@
+{% extends 'layout/base.html.twig' %}
+{% block title %}{{ 'kpi.title'|trans }} · {{ page.template.name ?? page.template.key }} · APRIL{% endblock %}
+{% block head %}{{ importmap('template-kpi') }}{% endblock %}
+{% block body %}
+<div class="card">
+    <a href="{{ path('app_templates_show', {key: page.template.key}) }}" aria-label="{{ 'kpi.back'|trans }}">{{ 'kpi.back'|trans }}</a>
+    <h1>{{ 'kpi.title'|trans }} · {{ page.template.name ?? page.template.key }}</h1>
+    <p id="kpi-period-help" class="muted">{{ 'kpi.period_help'|trans }}</p>
+    <form method="get" class="kpi-filters" aria-label="{{ 'kpi.filters'|trans }}" aria-describedby="kpi-period-help">
+        <label>{{ 'kpi.from'|trans }}<input type="date" name="from" required value="{{ page.period.fromDate }}"></label>
+        <label>{{ 'kpi.to'|trans }}<input type="date" name="to" required value="{{ page.period.toDate }}"></label>
+        <label>{{ 'kpi.version'|trans }}<input type="text" name="version" maxlength="64" value="{{ page.selectedVersion ?? '' }}" placeholder="{{ 'kpi.all_versions'|trans }}" aria-describedby="kpi-version-help"></label>
+        <button type="submit" aria-label="{{ 'kpi.apply'|trans }}">{{ 'kpi.apply'|trans }}</button>
+    </form>
+    <p id="kpi-version-help" class="muted">{{ 'kpi.version_help'|trans }}</p>
+</div>
+{% if page.summary is null %}
+<div class="card"><p role="status">{{ 'kpi.definition_missing'|trans }}</p></div>
+{% else %}
+{% set summary = page.summary %}
+{% if summary.empty %}<div class="card"><p role="status">{{ 'kpi.empty'|trans }}</p></div>{% endif %}
+<section class="kpi-cards" aria-label="{{ 'kpi.overview'|trans }}">
+    {% for label, value in {'started': summary.started, 'completed': summary.completed, 'open': summary.open, 'measurable_e2e': summary.e2e.count} %}
+    <div class="card"><h2>{{ ('kpi.' ~ label)|trans }}</h2><p class="kpi-value" data-kpi="{{ label }}">{{ value }}</p></div>
+    {% endfor %}
+    {% for label, seconds in {'median': summary.e2e.median, 'p90': summary.e2e.p90, 'average': summary.e2e.average, 'maximum': summary.e2e.maximum} %}
+    <div class="card"><h2>{{ 'kpi.e2e_stat'|trans({'%stat%': ('kpi.' ~ label)|trans}) }}</h2><p class="kpi-value" data-kpi="{{ label }}">{{ include('template/_kpi_duration.html.twig', {seconds: seconds}, with_context: false) }}</p></div>
+    {% endfor %}
+</section>
+<div class="card">
+    <h2>{{ 'kpi.quality'|trans }}</h2>
+    <p>{{ 'kpi.e2e_basis'|trans({'%measured%': summary.e2e.count, '%total%': summary.completed, '%missing%': summary.completedWithoutDuration}) }}</p>
+    <p>{{ 'kpi.step_missing'|trans({'%count%': summary.stepVisitsWithoutDuration}) }}</p>
+    <p>{{ 'kpi.ambiguous'|trans({'%runs%': summary.ambiguousRuns, '%visits%': summary.ambiguousStepFragments}) }}</p>
+    <p class="muted">{{ 'kpi.statistics_help'|trans }}</p>
+    {% if summary.reasons is not empty %}
+    <ul>{% for reason, count in summary.reasons %}<li>{{ ('kpi.reason.' ~ reason)|trans }}: {{ count }}</li>{% endfor %}</ul>
+    {% endif %}
+</div>
+<div class="card kpi-table">
+    <h2>{{ 'kpi.trend'|trans }}</h2>
+    <table>
+        <caption>{{ ('kpi.trend_' ~ page.period.grouping)|trans }}</caption>
+        <thead><tr><th scope="col">{{ 'kpi.period'|trans }}</th><th scope="col">{{ 'kpi.completed'|trans }}</th></tr></thead>
+        <tbody>{% for bucket, count in summary.completions %}<tr><th scope="row">{{ bucket }}</th><td>{{ count }}</td></tr>{% endfor %}</tbody>
+    </table>
+</div>
+<div class="card kpi-table">
+    <h2>{{ 'kpi.steps'|trans }}</h2>
+    <p>{{ 'kpi.step_period_help'|trans }}</p>
+    <p id="coverage-help">{{ 'kpi.coverage_help'|trans }}</p>
+    <table aria-describedby="coverage-help">
+        <caption>{{ 'kpi.steps'|trans }}</caption>
+        <thead><tr>
+            {% for label in ['step', 'visits', 'completed', 'incomplete', 'measured', 'average', 'median', 'p90', 'maximum', 'coverage'] %}<th scope="col">{{ ('kpi.' ~ label)|trans }}</th>{% endfor %}
+        </tr></thead>
+        <tbody>
+        {% for step in summary.steps %}
+        <tr data-step="{{ step.stepKey }}">
+            <th scope="row">{{ step.name }}</th><td>{{ step.visits }}</td><td>{{ step.completed }}</td><td>{{ step.open }}</td><td>{{ step.duration.count }}</td>
+            {% for seconds in [step.duration.average, step.duration.median, step.duration.p90, step.duration.maximum] %}<td>{{ include('template/_kpi_duration.html.twig', {seconds: seconds}, with_context: false) }}</td>{% endfor %}
+            <td>
+                {% if step.visits == 0 %}{{ 'kpi.no_visits'|trans }}{% else %}
+                {% if step.mixedCoverage %}<strong>{{ 'kpi.mixed'|trans }}</strong>{% endif %}
+                <ul class="kpi-coverage">
+                    {% for category, symbol in {'both': '|────|', 'beforeOnly': '|────', 'afterOnly': '────|', 'neither': '────'} %}
+                    {% if step.coverage[category] > 0 %}<li><code aria-hidden="true">{{ symbol }}</code> {{ ('kpi.coverage_' ~ category)|trans }}: {{ step.coverage[category] }}</li>{% endif %}
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% if step.ambiguousFragments > 0 %}<p>{{ 'kpi.step_ambiguous'|trans({'%count%': step.ambiguousFragments}) }}</p>{% endif %}
+                {% if step.reasons is not empty %}<details><summary aria-label="{{ 'kpi.reasons'|trans }}">{{ 'kpi.reasons'|trans }}</summary><ul>{% for reason, count in step.reasons %}<li>{{ ('kpi.reason.' ~ reason)|trans }}: {{ count }}</li>{% endfor %}</ul></details>{% endif %}
+            </td>
+        </tr>
+        {% else %}<tr><td colspan="10">{{ 'kpi.no_visits'|trans }}</td></tr>{% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

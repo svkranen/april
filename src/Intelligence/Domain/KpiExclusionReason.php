@@ -9,6 +9,8 @@ final class KpiExclusionReason
     public const STARTED_MID_PROCESS = 'started_mid_process';
     public const CROSSED_VERSION_BOUNDARY = 'crossed_version_boundary';
 
+    public const PROCESS_VERSION_NOT_SELECTED = 'process_version_not_selected';
+
     private function __construct()
     {
     }

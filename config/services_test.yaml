@@ -14,3 +14,11 @@ services:
     App\Intelligence\Application\VisibilityCheckResultProvider:
         alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineVisibilityCheckResultRepository
         public: true
+
+    App\Intelligence\Port\ProcessEventReader:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineEventStore
+        public: true
+
+    App\Intelligence\Application\ProcessVersionRepository:
+        alias: App\Intelligence\Infrastructure\Doctrine\Repository\DoctrineProcessVersionRepository
+        public: true

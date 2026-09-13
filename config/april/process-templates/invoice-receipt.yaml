@@ -1,0 +1,23 @@
+key: invoice-receipt
+version: '1'
+name: "Rechnungseingang"
+source_system: april-demo
+initial_step: invoice_received
+steps:
+  - { key: invoice_received, name: "Rechnungseingang" }
+  - { key: review_assignment, name: "Rechnerisch-sachliche Prüfung und Zuweisung" }
+  - { key: department_approval, name: "Abteilungsleiter-Freigabe" }
+  - { key: management_approval, name: "GF-Freigabe" }
+  - { key: preposting, name: "Vorkontierung" }
+  - { key: fibu_export, name: "FiBu-Export" }
+  - { key: booking, name: "Buchung" }
+  - { key: payment, name: "Zahlung" }
+transitions:
+  - { from: invoice_received, to: review_assignment }
+  - { from: review_assignment, to: department_approval }
+  - { from: department_approval, to: management_approval }
+  - { from: department_approval, to: preposting }
+  - { from: management_approval, to: preposting }
+  - { from: preposting, to: fibu_export }
+  - { from: fibu_export, to: booking }
+  - { from: booking, to: payment }

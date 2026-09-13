@@ -3,6 +3,8 @@
 namespace App\Intelligence\Application;
 
 use App\Intelligence\Domain\KpiTimelineEntry;
+use App\Intelligence\Domain\KpiEligibilityResult;
+use App\Intelligence\Domain\KpiExclusionReason;
 use App\Intelligence\Domain\ProcessTemplate;
 use App\Intelligence\Domain\TimelineKpiEligibilityResolver;
 use DateTimeImmutable;
@@ -71,6 +73,8 @@ final readonly class KpiRelevantTimelineFilter
         ?string $processVersion = null
     ): KpiTimelineFilterResult {
         $versions = $this->versionsForFilter($processKey, $processVersion);
+        $selectedVersion = $processVersion === null || trim($processVersion) === '' ? null
+            : (trim($processVersion) === 'latest' ? $this->processVersionRepository->latestForProcess($processKey)?->version : trim($processVersion));
         $startStep = $this->startStep($template);
         $included = [];
         $excluded = [];
@@ -78,6 +82,10 @@ final readonly class KpiRelevantTimelineFilter
 
         foreach ($items as $item) {
             $result = $this->resolver->resolve($processKey, $timelineFactory($item), $startStep, $versions);
+            if ($selectedVersion !== null && $result->processVersion !== null && $result->processVersion->version !== $selectedVersion) {
+                $result = new KpiEligibilityResult(false, $result->processVersion, KpiExclusionReason::PROCESS_VERSION_NOT_SELECTED,
+                    $result->firstEventAt, $result->lastEventAt, $result->firstStep, $result->crossedVersionBoundary);
+            }
             if ($result->isEligible || $includeExcluded) {
                 $included[] = $item;
             }
@@ -127,7 +135,11 @@ final readonly class KpiRelevantTimelineFilter
             ? $this->processVersionRepository->latestForProcess($processKey)
             : $this->processVersionRepository->findOneByProcessKeyAndVersion($processKey, $processVersion);
 
-        return $version === null ? [] : [$version];
+        // Keep the selected baseline AND subsequent boundaries for the eligibility resolver.
+        return $version === null ? [] : array_values(array_filter(
+            $this->processVersionRepository->findByProcessKey($processKey),
+            static fn (\App\Intelligence\Domain\ProcessVersion $candidate): bool => $candidate->validFrom >= $version->validFrom
+        ));
     }
 
     private function startStep(ProcessTemplate $template): ?string

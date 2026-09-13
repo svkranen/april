@@ -11,7 +11,9 @@ final class TimelineKpiEligibilityResolver
     public function resolve(string $processKey, array $timeline, ?string $templateStartStep, array $processVersions): KpiEligibilityResult
     {
         $timeline = array_values($timeline);
-        usort($timeline, static fn (KpiTimelineEntry $left, KpiTimelineEntry $right): int => $left->occurredAt <=> $right->occurredAt);
+        usort($timeline, static fn (KpiTimelineEntry $left, KpiTimelineEntry $right): int =>
+            ($left->occurredAt <=> $right->occurredAt)
+            ?: (($left->stepKey === $templateStartStep ? 0 : 1) <=> ($right->stepKey === $templateStartStep ? 0 : 1)));
 
         $firstEvent = $timeline[0] ?? null;
         $lastEvent = $timeline === [] ? null : $timeline[count($timeline) - 1];

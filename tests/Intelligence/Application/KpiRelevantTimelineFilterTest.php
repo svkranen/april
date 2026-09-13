@@ -63,6 +63,26 @@ final class KpiRelevantTimelineFilterTest extends TestCase
         self::assertSame([KpiExclusionReason::BEFORE_FIRST_BASELINE => 1], $result->summary['exclusion_reasons']);
     }
 
+    public function testSelectingOlderVersionRetainsNextBoundaryAndExcludesLaterStarts(): void
+    {
+        $filter = new KpiRelevantTimelineFilter(new InMemoryProcessVersionRepository([
+            new ProcessVersion(null, 'ai-rechnungen', '1.0', new DateTimeImmutable('2026-05-01T00:00:00Z')),
+            new ProcessVersion(null, 'ai-rechnungen', '1.1', new DateTimeImmutable('2026-06-01T00:00:00Z')),
+        ]));
+        $crossing = $this->timeline('crossing', '01 Eingang', '2026-05-31T09:00:00Z');
+        $crossing['timeline'][] = ['step' => '03 Freigabe', 'occurred_at' => '2026-06-01T00:00:00Z'];
+        $result = $filter->filterDocumentTimelines($this->template(), 'ai-rechnungen', [
+            $crossing,
+            $this->timeline('old', '01 Eingang', '2026-05-20T09:00:00Z'),
+            $this->timeline('new', '01 Eingang', '2026-06-02T09:00:00Z'),
+        ], false, '1.0');
+
+        self::assertCount(1, $result->included);
+        self::assertSame('old', $result->included[0]['document_uuid']);
+        self::assertSame(KpiExclusionReason::CROSSED_VERSION_BOUNDARY, $result->excluded[0]['exclusion_reason']);
+        self::assertSame(KpiExclusionReason::PROCESS_VERSION_NOT_SELECTED, $result->excluded[1]['exclusion_reason']);
+    }
+
     private function template(): ProcessTemplate
     {
         return new ProcessTemplate(

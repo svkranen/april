@@ -12,6 +12,10 @@
  * The "importmap:require" command can be used to add new entries to this file.
  */
 return [
+    'template-kpi' => [
+        'path' => './assets/template-kpi.js',
+        'entrypoint' => true,
+    ],
     'app' => [
         'path' => './assets/app.js',
         'entrypoint' => true,
