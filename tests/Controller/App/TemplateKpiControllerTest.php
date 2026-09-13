@@ -85,7 +85,7 @@ final class TemplateKpiControllerTest extends AppWebTestCase
         self::assertSame(1, $reader->reads);
         self::assertSelectorTextContains('[data-kpi="started"]', '1');
         self::assertSelectorTextContains('[data-kpi="completed"]', '1');
-        self::assertSelectorTextContains('[data-kpi="median"]', '7 200 s');
+        self::assertSelectorTextContains('[data-kpi="median"]', '2 h');
         $client->request('GET', '/app/templates/incident-management/kpi?from=2026-01-31&to=2026-01-31&version=1');
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('[data-kpi="open"]', '0');

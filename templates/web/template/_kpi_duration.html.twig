@@ -1,1 +1,1 @@
-{% if seconds is null %}<span class="muted">{{ 'kpi.unavailable'|trans }}</span>{% elseif seconds > 0 and seconds < 1 %}{{ 'kpi.less_second'|trans }}{% else %}{{ 'kpi.seconds'|trans({'%value%': seconds|number_format(0, '.', ' ')}) }}{% endif %}
+{% if seconds is null %}<span class="muted">{{ seconds|kpi_duration }}</span>{% else %}{{ seconds|kpi_duration }}{% endif %}
