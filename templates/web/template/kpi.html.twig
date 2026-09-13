@@ -30,6 +30,7 @@
 <div class="card">
     <h2>{{ 'kpi.quality'|trans }}</h2>
     <p>{{ 'kpi.e2e_basis'|trans({'%measured%': summary.e2e.count, '%total%': summary.completed, '%missing%': summary.completedWithoutDuration}) }}</p>
+    <p>{{ 'kpi.conformance_basis'|trans({'%conformant%': summary.conformantCompleted, '%completed%': summary.completed, '%excluded%': summary.deviationExcluded}) }}</p>
     <p>{{ 'kpi.step_missing'|trans({'%count%': summary.stepVisitsWithoutDuration}) }}</p>
     <p>{{ 'kpi.ambiguous'|trans({'%runs%': summary.ambiguousRuns, '%visits%': summary.ambiguousStepFragments}) }}</p>
     <p class="muted">{{ 'kpi.statistics_help'|trans }}</p>

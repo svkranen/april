@@ -20,7 +20,9 @@ final readonly class ProcessKpiSummary
         public KpiStatistics $e2e,
         public array $completions,
         public array $steps,
-        public array $reasons
+        public array $reasons,
+        public int $conformantCompleted = 0,
+        public int $deviationExcluded = 0
     ) {
     }
     public function isEmpty(): bool

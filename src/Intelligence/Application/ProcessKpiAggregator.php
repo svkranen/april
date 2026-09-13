@@ -8,14 +8,14 @@ use App\Intelligence\Domain\ProcessTemplate;
 
 final readonly class ProcessKpiAggregator
 {
-    public function __construct(private StepKpiAggregator $stepAggregator = new StepKpiAggregator())
+    public function __construct(private StepKpiAggregator $stepAggregator = new StepKpiAggregator(), private ProcessRunConformanceEvaluator $conformance = new ProcessRunConformanceEvaluator())
     {
     }
 
     /** @param list<ProcessRunMeasurement> $runs Measurements reconstructed as of period.until. */
     public function aggregate(ProcessTemplate $template, array $runs, KpiPeriod $period): ProcessKpiSummary
     {
-        $started = $completed = $open = $ambiguous = 0;
+        $started = $completed = $open = $ambiguous = $conformantCompleted = $deviationExcluded = $technicalMeasured = 0;
         $seconds = $reasons = $visits = $names = [];
         $buckets = $period->emptyBuckets();
         foreach ($template->steps as $step) {
@@ -36,12 +36,24 @@ final readonly class ProcessKpiAggregator
             $open += (int) $isOpen;
             if ($inPeriod) {
                 ++$completed;
+                $conformant = $this->conformance->evaluate($run, $template)->conformant;
+                if (!$conformant) {
+                    ++$deviationExcluded;
+                } else {
+                    ++$conformantCompleted;
+                }
                 ++$buckets[$period->bucket($run->endedAt)];
                 if ($run->e2eDuration->seconds !== null) {
+                    ++$technicalMeasured;
+                }
+                if ($conformant && $run->e2eDuration->seconds !== null) {
                     $seconds[] = $run->e2eDuration->seconds;
                 } else {
                     $this->addReasons($reasons, $run);
                 }
+            }
+            if (!$this->conformance->evaluate($run, $template)->conformant) {
+                continue;
             }
             foreach ($run->stepVisits as $visit) {
                 $names[$visit->stepKey] ??= $visit->stepKey;
@@ -54,9 +66,9 @@ final readonly class ProcessKpiAggregator
         }
         ksort($reasons);
 
-        return new ProcessKpiSummary($started, $completed, $open, $completed - count($seconds), $ambiguous,
+        return new ProcessKpiSummary($started, $completed, $open, $completed - $technicalMeasured, $ambiguous,
             array_sum(array_column($steps, 'withoutDuration')), array_sum(array_column($steps, 'ambiguousFragments')),
-            KpiStatistics::fromSeconds($seconds), $buckets, $steps, $reasons);
+            KpiStatistics::fromSeconds($seconds), $buckets, $steps, $reasons, $conformantCompleted, $deviationExcluded);
     }
 
     /** @param array<string, int> $reasons */

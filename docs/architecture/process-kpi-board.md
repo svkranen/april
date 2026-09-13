@@ -226,3 +226,10 @@ part of the chain, and the following expected transition closes it. A running ru
 without a return is exposed as an open deviation; a completed run is marked as
 completed outside the expected path. Graph construction never invents steps or
 parses finding text.
+
+Official E2E and step-time statistics are calculated from the intersection of
+technical measurability and historical Soll-process conformance. Deviating runs
+remain in the reconstructed measurements and can be reported separately; they
+are excluded only from official time samples. Current decision paths without an
+available run context are evaluated against the template's context-free
+projection, so context-dependent branch compliance remains an open extension.

@@ -197,3 +197,13 @@ business state. Also establish authoritative completion markers, document-versio
 continuity, business run correlation for concurrency/restarts, and historical
 measurement definition selection. No working-time calendar or SLA semantics are
 implied by elapsed durations.
+
+## Technical measurement and process conformance
+
+Technical measurability and business process conformance are independent
+properties. Official time statistics use only runs that are both technically
+measurable and conformant with the historically selected Soll template. Raw
+E2E and step measurements of deviating runs remain available for graph and
+future diagnostic views. A step duration additionally requires an unambiguous
+before/after pair. Repeated visits are not automatically non-conformant unless
+the template explicitly rejects the observed relation.

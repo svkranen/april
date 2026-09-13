@@ -91,6 +91,9 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
         self::assertSame(19, $page->summary->completed);
         self::assertSame(1, $page->summary->open);
         self::assertGreaterThan(0, $page->summary->e2e->count);
+        self::assertSame(16, $page->summary->e2e->count);
+        self::assertSame(16, $page->summary->conformantCompleted);
+        self::assertSame(3, $page->summary->deviationExcluded);
         self::assertGreaterThan(0, array_sum(array_map(static fn ($step): int => $step->visits, $page->summary->steps)));
 
     }
