@@ -29,6 +29,8 @@ final class InvoiceKpiDemoFixtureTest extends TestCase
         self::assertCount(260, $events);
         self::assertSame(20, count(array_unique(array_map(static fn ($event): string => $event->documentExternalId, $events))));
         self::assertCount(4, array_unique(array_map(static fn ($event): string => json_decode($event->rawPayloadJson, true, 512, JSON_THROW_ON_ERROR)['department'], $events)));
+        self::assertNotEmpty(array_filter($events, static fn ($event): bool => json_decode($event->rawPayloadJson, true, 512, JSON_THROW_ON_ERROR)['amount_net'] > 10000));
+        self::assertNotEmpty(array_filter($events, static fn ($event): bool => json_decode($event->rawPayloadJson, true, 512, JSON_THROW_ON_ERROR)['amount_net'] < 10000));
         self::assertNotEmpty(array_filter($events, static fn ($event): bool => $event->stepKey === 'management_approval'));
         self::assertNotEmpty(array_filter($events, static fn ($event): bool => $event->receivedAt > $event->occurredAt));
         self::assertNotEmpty(array_filter($events, static fn ($event): bool => $event->occurredAt->format('Y-m-d') === '2026-02-01'));

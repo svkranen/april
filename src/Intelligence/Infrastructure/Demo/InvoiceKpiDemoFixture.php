@@ -3,6 +3,8 @@
 namespace App\Intelligence\Infrastructure\Demo;
 
 use App\Intelligence\Domain\ProcessEventRecord;
+use App\Intelligence\Domain\ContextSnapshot;
+use App\Intelligence\Domain\DocumentRef;
 use DateTimeImmutable;
 use DateTimeZone;
 
@@ -27,6 +29,35 @@ final class InvoiceKpiDemoFixture
         }
 
         return $events;
+    }
+
+    public function contextSnapshotFor(ProcessEventRecord $event, int $processInstanceId): ?ContextSnapshot
+    {
+        if ($event->stepKey !== 'department_approval' || $event->eventPhase !== 'after') {
+            return null;
+        }
+
+        $payload = json_decode($event->normalizedEventJson, true, 512, JSON_THROW_ON_ERROR);
+        $amount = $payload['amount_net'] ?? null;
+        if (!is_int($amount) && !is_float($amount)) {
+            return null;
+        }
+        $loadedAt = $event->occurredAt->modify('+60 seconds');
+
+        return new ContextSnapshot(
+            new DocumentRef(self::SOURCE_SYSTEM, $event->documentExternalId, $event->documentUuid, $event->documentVersion),
+            $loadedAt,
+            ['amount_net' => $amount],
+            [],
+            self::PROCESS_KEY,
+            $event->externalEventKey,
+            $processInstanceId,
+            $event->occurredAt,
+            $loadedAt,
+            $event->id,
+            60,
+            true
+        );
     }
 
     /** @return list<ProcessEventRecord> */
@@ -70,6 +101,7 @@ final class InvoiceKpiDemoFixture
                 'demo' => 'invoice-kpi',
                 'department' => $department,
                 'amount_band' => $highAmount ? '10000-plus' : 'under-10000',
+                'amount_net' => $highAmount ? 15000 : 5000,
             ];
             $events[] = new ProcessEventRecord(
                 null, $eventKey, self::SOURCE_SYSTEM, self::PROCESS_KEY, $step.'_'.$phase, $step,

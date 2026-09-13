@@ -21,3 +21,22 @@ transitions:
   - { from: preposting, to: fibu_export }
   - { from: fibu_export, to: booking }
   - { from: booking, to: payment }
+
+field_mapping:
+  amount_net:
+    source: event_context
+    value_type: number
+    stability: snapshot_required
+
+decision_points:
+  - key: approval_route_by_amount
+    after: department_approval
+    required_fields:
+      - amount_net
+    rules:
+      - when:
+          amount_net:
+            gt: 10000
+        expect_next: management_approval
+      - else:
+          expect_next: preposting
